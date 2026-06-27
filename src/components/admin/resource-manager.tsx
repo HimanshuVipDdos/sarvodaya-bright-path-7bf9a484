@@ -80,11 +80,20 @@ export function ResourceManager<T extends Record<string, unknown>>({
   const { data: rows = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      let q = supabase.from(table).select("*").order(orderBy.column, { ascending: orderBy.ascending });
-      if (presetFilter) q = q.eq(presetFilter.column, presetFilter.value as never);
+      const client = supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: { message: string } | null }> & {
+              eq: (c: string, v: unknown) => Promise<{ data: unknown; error: { message: string } | null }>;
+            };
+          };
+        };
+      };
+      let q = client.from(table).select("*").order(orderBy.column, { ascending: orderBy.ascending });
+      if (presetFilter) q = q.eq(presetFilter.column, presetFilter.value) as typeof q;
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as T[];
+      return (data ?? []) as unknown as T[];
     },
   });
 

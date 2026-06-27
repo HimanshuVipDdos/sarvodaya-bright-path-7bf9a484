@@ -25,6 +25,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
+import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
+import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
+import { Route as AuthenticatedAdminDppsRouteImport } from './routes/_authenticated/admin.dpps'
+import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
+import { Route as AuthenticatedAdminBatchesRouteImport } from './routes/_authenticated/admin.batches'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -105,6 +111,40 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminPdfsRoute = AuthenticatedAdminPdfsRouteImport.update({
+  id: '/pdfs',
+  path: '/pdfs',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminNotificationsRoute =
+  AuthenticatedAdminNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminLecturesRoute =
+  AuthenticatedAdminLecturesRouteImport.update({
+    id: '/lectures',
+    path: '/lectures',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
+  id: '/dpps',
+  path: '/dpps',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminCurrentAffairsRoute =
+  AuthenticatedAdminCurrentAffairsRouteImport.update({
+    id: '/current-affairs',
+    path: '/current-affairs',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminBatchesRoute =
+  AuthenticatedAdminBatchesRouteImport.update({
+    id: '/batches',
+    path: '/batches',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -119,9 +159,15 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
+  '/admin/batches': typeof AuthenticatedAdminBatchesRoute
+  '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
+  '/admin/dpps': typeof AuthenticatedAdminDppsRoute
+  '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -136,9 +182,15 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
+  '/admin/batches': typeof AuthenticatedAdminBatchesRoute
+  '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
+  '/admin/dpps': typeof AuthenticatedAdminDppsRoute
+  '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -155,9 +207,15 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
+  '/_authenticated/admin/batches': typeof AuthenticatedAdminBatchesRoute
+  '/_authenticated/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
+  '/_authenticated/admin/dpps': typeof AuthenticatedAdminDppsRoute
+  '/_authenticated/admin/lectures': typeof AuthenticatedAdminLecturesRoute
+  '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/_authenticated/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -177,6 +235,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/batches/$slug'
+    | '/admin/batches'
+    | '/admin/current-affairs'
+    | '/admin/dpps'
+    | '/admin/lectures'
+    | '/admin/notifications'
+    | '/admin/pdfs'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -194,6 +258,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/batches/$slug'
+    | '/admin/batches'
+    | '/admin/current-affairs'
+    | '/admin/dpps'
+    | '/admin/lectures'
+    | '/admin/notifications'
+    | '/admin/pdfs'
   id:
     | '__root__'
     | '/'
@@ -212,6 +282,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/batches/$slug'
+    | '/_authenticated/admin/batches'
+    | '/_authenticated/admin/current-affairs'
+    | '/_authenticated/admin/dpps'
+    | '/_authenticated/admin/lectures'
+    | '/_authenticated/admin/notifications'
+    | '/_authenticated/admin/pdfs'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -344,16 +420,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/pdfs': {
+      id: '/_authenticated/admin/pdfs'
+      path: '/pdfs'
+      fullPath: '/admin/pdfs'
+      preLoaderRoute: typeof AuthenticatedAdminPdfsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/notifications': {
+      id: '/_authenticated/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/lectures': {
+      id: '/_authenticated/admin/lectures'
+      path: '/lectures'
+      fullPath: '/admin/lectures'
+      preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/dpps': {
+      id: '/_authenticated/admin/dpps'
+      path: '/dpps'
+      fullPath: '/admin/dpps'
+      preLoaderRoute: typeof AuthenticatedAdminDppsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/current-affairs': {
+      id: '/_authenticated/admin/current-affairs'
+      path: '/current-affairs'
+      fullPath: '/admin/current-affairs'
+      preLoaderRoute: typeof AuthenticatedAdminCurrentAffairsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/batches': {
+      id: '/_authenticated/admin/batches'
+      path: '/batches'
+      fullPath: '/admin/batches'
+      preLoaderRoute: typeof AuthenticatedAdminBatchesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminBatchesRoute: typeof AuthenticatedAdminBatchesRoute
+  AuthenticatedAdminCurrentAffairsRoute: typeof AuthenticatedAdminCurrentAffairsRoute
+  AuthenticatedAdminDppsRoute: typeof AuthenticatedAdminDppsRoute
+  AuthenticatedAdminLecturesRoute: typeof AuthenticatedAdminLecturesRoute
+  AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
+  AuthenticatedAdminPdfsRoute: typeof AuthenticatedAdminPdfsRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminBatchesRoute: AuthenticatedAdminBatchesRoute,
+  AuthenticatedAdminCurrentAffairsRoute: AuthenticatedAdminCurrentAffairsRoute,
+  AuthenticatedAdminDppsRoute: AuthenticatedAdminDppsRoute,
+  AuthenticatedAdminLecturesRoute: AuthenticatedAdminLecturesRoute,
+  AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
+  AuthenticatedAdminPdfsRoute: AuthenticatedAdminPdfsRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
 }
 
@@ -389,13 +528,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
