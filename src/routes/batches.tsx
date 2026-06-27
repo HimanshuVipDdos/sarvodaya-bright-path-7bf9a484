@@ -44,7 +44,7 @@ function BatchesPage() {
     <Section
       eyebrow="All Batches"
       title="Find the right batch for your exam"
-      description="26+ batches across UP and central competitive exams. Live classes, recorded lectures, DPPs and mock tests included."
+      description="13+ batches across UP and central competitive exams. Live classes, recorded lectures, DPPs and mock tests included."
     >
       <div className="glass-strong mb-8 flex flex-col gap-3 rounded-3xl p-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">

@@ -229,7 +229,7 @@ function Index() {
         </div>
         <div className="mt-8 text-center">
           <Button asChild variant="ghost" className="rounded-full glass">
-            <Link to="/batches">View all 26+ batches <ArrowRight className="ml-2 h-4 w-4" /></Link>
+            <Link to="/batches">View all 13+ batches <ArrowRight className="ml-2 h-4 w-4" /></Link>
           </Button>
         </div>
       </Section>
