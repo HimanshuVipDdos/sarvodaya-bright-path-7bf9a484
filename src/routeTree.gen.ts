@@ -17,9 +17,13 @@ import { Route as CurrentAffairsRouteImport } from './routes/current-affairs'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BatchesRouteImport } from './routes/batches'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
 const ResultsRoute = ResultsRouteImport.update({
   id: '/results',
@@ -61,9 +65,18 @@ const BatchesRoute = BatchesRouteImport.update({
   path: '/batches',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -76,10 +89,21 @@ const BatchesSlugRoute = BatchesSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => BatchesRoute,
 } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/auth': typeof AuthRoute
   '/batches': typeof BatchesRouteWithChildren
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
@@ -88,11 +112,14 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof GalleryRoute
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/auth': typeof AuthRoute
   '/batches': typeof BatchesRouteWithChildren
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
@@ -101,12 +128,16 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryRoute
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/auth': typeof AuthRoute
   '/batches': typeof BatchesRouteWithChildren
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
@@ -115,6 +146,8 @@ export interface FileRoutesById {
   '/gallery': typeof GalleryRoute
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
 }
 export interface FileRouteTypes {
@@ -122,6 +155,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/auth'
     | '/batches'
     | '/contact'
     | '/courses'
@@ -130,11 +164,14 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/notifications'
     | '/results'
+    | '/admin'
+    | '/dashboard'
     | '/batches/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/auth'
     | '/batches'
     | '/contact'
     | '/courses'
@@ -143,11 +180,15 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/notifications'
     | '/results'
+    | '/admin'
+    | '/dashboard'
     | '/batches/$slug'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/about'
+    | '/auth'
     | '/batches'
     | '/contact'
     | '/courses'
@@ -156,12 +197,16 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/notifications'
     | '/results'
+    | '/_authenticated/admin'
+    | '/_authenticated/dashboard'
     | '/batches/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AuthRoute: typeof AuthRoute
   BatchesRoute: typeof BatchesRouteWithChildren
   ContactRoute: typeof ContactRoute
   CoursesRoute: typeof CoursesRoute
@@ -230,11 +275,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BatchesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -251,8 +310,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BatchesSlugRouteImport
       parentRoute: typeof BatchesRoute
     }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface BatchesRouteChildren {
   BatchesSlugRoute: typeof BatchesSlugRoute
@@ -267,7 +353,9 @@ const BatchesRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
+  AuthRoute: AuthRoute,
   BatchesRoute: BatchesRouteWithChildren,
   ContactRoute: ContactRoute,
   CoursesRoute: CoursesRoute,

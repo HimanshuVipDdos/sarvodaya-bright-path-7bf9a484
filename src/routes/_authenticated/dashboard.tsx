@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function Dashboard() {
   const { data } = useSuspenseQuery(dashboardQuery);
-  const isAdmin = data.roles.includes("admin");
+  const isAdmin = (data.roles as string[]).includes("admin");
 
   async function handleSignOut() {
     await supabase.auth.signOut();
