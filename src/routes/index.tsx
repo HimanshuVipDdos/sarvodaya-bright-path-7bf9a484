@@ -96,9 +96,9 @@ function Index() {
 
               <div className="mt-10 grid max-w-md grid-cols-3 gap-3">
                 {[
-                  { k: "5K+", v: "Aspirants" },
+                  { k: "1K+", v: "Aspirants" },
                   { k: "500+", v: "Selections" },
-                  { k: "26+", v: "Batches" },
+                  { k: "13+", v: "Batches" },
                 ].map((s) => (
                   <div key={s.v} className="glass rounded-2xl px-4 py-3 text-center">
                     <div className="text-xl font-bold text-gradient">{s.k}</div>
@@ -229,7 +229,7 @@ function Index() {
         </div>
         <div className="mt-8 text-center">
           <Button asChild variant="ghost" className="rounded-full glass">
-            <Link to="/batches">View all 26+ batches <ArrowRight className="ml-2 h-4 w-4" /></Link>
+            <Link to="/batches">View all 13+ batches <ArrowRight className="ml-2 h-4 w-4" /></Link>
           </Button>
         </div>
       </Section>
