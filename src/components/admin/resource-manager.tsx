@@ -156,12 +156,13 @@ export function ResourceManager<T extends Record<string, unknown>>({
       }
       if (presetFilter) data[presetFilter.column] = presetFilter.value;
 
+      const anyClient = supabase as unknown as { from: (t: string) => any };
       if (editing) {
         const id = (editing as Record<string, unknown>)[rowKey];
-        const { error } = await supabase.from(table).update(data).eq(rowKey, id as never);
+        const { error } = await anyClient.from(table).update(data).eq(rowKey, id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from(table).insert(data as never);
+        const { error } = await anyClient.from(table).insert(data);
         if (error) throw error;
       }
     },
@@ -175,8 +176,9 @@ export function ResourceManager<T extends Record<string, unknown>>({
 
   const deleteMutation = useMutation({
     mutationFn: async (row: T) => {
+      const anyClient = supabase as unknown as { from: (t: string) => any };
       const id = (row as Record<string, unknown>)[rowKey];
-      const { error } = await supabase.from(table).delete().eq(rowKey, id as never);
+      const { error } = await anyClient.from(table).delete().eq(rowKey, id);
       if (error) throw error;
     },
     onSuccess: () => {
