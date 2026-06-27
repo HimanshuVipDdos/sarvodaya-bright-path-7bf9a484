@@ -41,7 +41,7 @@ const adminQuery = queryOptions({
   },
 });
 
-export const Route = createFileRoute("/_authenticated/admin")({
+export const Route = createFileRoute("/_authenticated/admin/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(adminQuery),
   component: AdminPage,
 });

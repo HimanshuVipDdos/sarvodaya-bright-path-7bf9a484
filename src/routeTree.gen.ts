@@ -24,7 +24,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
 import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
@@ -106,44 +106,44 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminPdfsRoute = AuthenticatedAdminPdfsRouteImport.update({
-  id: '/pdfs',
-  path: '/pdfs',
-  getParentRoute: () => AuthenticatedAdminRoute,
+  id: '/admin/pdfs',
+  path: '/admin/pdfs',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminNotificationsRoute =
   AuthenticatedAdminNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedAdminRoute,
+    id: '/admin/notifications',
+    path: '/admin/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminLecturesRoute =
   AuthenticatedAdminLecturesRouteImport.update({
-    id: '/lectures',
-    path: '/lectures',
-    getParentRoute: () => AuthenticatedAdminRoute,
+    id: '/admin/lectures',
+    path: '/admin/lectures',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
-  id: '/dpps',
-  path: '/dpps',
-  getParentRoute: () => AuthenticatedAdminRoute,
+  id: '/admin/dpps',
+  path: '/admin/dpps',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminCurrentAffairsRoute =
   AuthenticatedAdminCurrentAffairsRouteImport.update({
-    id: '/current-affairs',
-    path: '/current-affairs',
-    getParentRoute: () => AuthenticatedAdminRoute,
+    id: '/admin/current-affairs',
+    path: '/admin/current-affairs',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminBatchesRoute =
   AuthenticatedAdminBatchesRouteImport.update({
-    id: '/batches',
-    path: '/batches',
-    getParentRoute: () => AuthenticatedAdminRoute,
+    id: '/admin/batches',
+    path: '/admin/batches',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -159,7 +159,6 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/admin/batches': typeof AuthenticatedAdminBatchesRoute
@@ -168,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -182,7 +182,6 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/admin/batches': typeof AuthenticatedAdminBatchesRoute
@@ -191,6 +190,7 @@ export interface FileRoutesByTo {
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -207,7 +207,6 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/_authenticated/admin/batches': typeof AuthenticatedAdminBatchesRoute
@@ -216,6 +215,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -232,7 +232,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/results'
     | '/sitemap.xml'
-    | '/admin'
     | '/dashboard'
     | '/batches/$slug'
     | '/admin/batches'
@@ -241,6 +240,7 @@ export interface FileRouteTypes {
     | '/admin/lectures'
     | '/admin/notifications'
     | '/admin/pdfs'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -255,7 +255,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/results'
     | '/sitemap.xml'
-    | '/admin'
     | '/dashboard'
     | '/batches/$slug'
     | '/admin/batches'
@@ -264,6 +263,7 @@ export interface FileRouteTypes {
     | '/admin/lectures'
     | '/admin/notifications'
     | '/admin/pdfs'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -279,7 +279,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/results'
     | '/sitemap.xml'
-    | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/batches/$slug'
     | '/_authenticated/admin/batches'
@@ -288,6 +287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/lectures'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/pdfs'
+    | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -413,87 +413,78 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
       path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/pdfs': {
       id: '/_authenticated/admin/pdfs'
-      path: '/pdfs'
+      path: '/admin/pdfs'
       fullPath: '/admin/pdfs'
       preLoaderRoute: typeof AuthenticatedAdminPdfsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/notifications': {
       id: '/_authenticated/admin/notifications'
-      path: '/notifications'
+      path: '/admin/notifications'
       fullPath: '/admin/notifications'
       preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/lectures': {
       id: '/_authenticated/admin/lectures'
-      path: '/lectures'
+      path: '/admin/lectures'
       fullPath: '/admin/lectures'
       preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/dpps': {
       id: '/_authenticated/admin/dpps'
-      path: '/dpps'
+      path: '/admin/dpps'
       fullPath: '/admin/dpps'
       preLoaderRoute: typeof AuthenticatedAdminDppsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/current-affairs': {
       id: '/_authenticated/admin/current-affairs'
-      path: '/current-affairs'
+      path: '/admin/current-affairs'
       fullPath: '/admin/current-affairs'
       preLoaderRoute: typeof AuthenticatedAdminCurrentAffairsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/batches': {
       id: '/_authenticated/admin/batches'
-      path: '/batches'
+      path: '/admin/batches'
       fullPath: '/admin/batches'
       preLoaderRoute: typeof AuthenticatedAdminBatchesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
-interface AuthenticatedAdminRouteChildren {
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedAdminBatchesRoute: typeof AuthenticatedAdminBatchesRoute
   AuthenticatedAdminCurrentAffairsRoute: typeof AuthenticatedAdminCurrentAffairsRoute
   AuthenticatedAdminDppsRoute: typeof AuthenticatedAdminDppsRoute
   AuthenticatedAdminLecturesRoute: typeof AuthenticatedAdminLecturesRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminPdfsRoute: typeof AuthenticatedAdminPdfsRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
-const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedAdminBatchesRoute: AuthenticatedAdminBatchesRoute,
   AuthenticatedAdminCurrentAffairsRoute: AuthenticatedAdminCurrentAffairsRoute,
   AuthenticatedAdminDppsRoute: AuthenticatedAdminDppsRoute,
   AuthenticatedAdminLecturesRoute: AuthenticatedAdminLecturesRoute,
   AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
   AuthenticatedAdminPdfsRoute: AuthenticatedAdminPdfsRoute,
-}
-
-const AuthenticatedAdminRouteWithChildren =
-  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
-
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-}
-
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
