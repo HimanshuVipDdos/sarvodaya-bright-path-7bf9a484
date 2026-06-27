@@ -77,15 +77,16 @@ function AdminPage() {
     { icon: Bell, label: "Notifications", value: c.notifications },
   ];
 
-  const sections = [
-    { icon: BookOpen, label: "Batches", desc: "Create, edit, delete batches" },
-    { icon: Video, label: "Lectures & Live Classes", desc: "Schedule live, upload recordings" },
-    { icon: FileText, label: "Study Materials", desc: "PDFs, DPPs, notes, PYQs" },
+  const sections: { icon: typeof BookOpen; label: string; desc: string; to?: string }[] = [
+    { icon: BookOpen, label: "Batches", desc: "Create, edit, delete batches", to: "/admin/batches" },
+    { icon: Video, label: "Recorded Lectures", desc: "Upload and manage lectures", to: "/admin/lectures" },
+    { icon: FileText, label: "PDFs & Notes", desc: "PDFs, notes, PYQs, answer keys", to: "/admin/pdfs" },
+    { icon: FileText, label: "Daily Practice Problems", desc: "Manage DPPs by batch & subject", to: "/admin/dpps" },
+    { icon: Newspaper, label: "Current Affairs", desc: "Daily and weekly updates", to: "/admin/current-affairs" },
+    { icon: Bell, label: "Notifications", desc: "Vacancies, admit cards, dates", to: "/admin/notifications" },
     { icon: Trophy, label: "Results", desc: "Selections and testimonials" },
     { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles" },
     { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars" },
-    { icon: Bell, label: "Notifications", desc: "Vacancies, admit cards, dates" },
-    { icon: Newspaper, label: "Current Affairs", desc: "Daily and weekly updates" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
     { icon: Users, label: "Students", desc: "Manage student accounts" },
   ];
@@ -111,32 +112,40 @@ function AdminPage() {
       </div>
 
       <h2 className="mt-12 text-lg font-semibold">Management modules</h2>
-      <p className="text-sm text-muted-foreground">Each module's UI will be wired up as the platform grows. The database is fully ready and content is already being served on the public site.</p>
+      <p className="text-sm text-muted-foreground">Live CRUD is enabled for the linked modules. Others are coming next.</p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {sections.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.35, delay: Math.min(i * 0.03, 0.2) }}
-            className="glass-strong hover-lift rounded-2xl p-5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
-                <s.icon className="h-4 w-4 text-primary-foreground" />
+        {sections.map((s, i) => {
+          const inner = (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
+                  <s.icon className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <div className="font-semibold">{s.label}</div>
+                  <div className="text-xs text-muted-foreground">{s.desc}</div>
+                </div>
               </div>
-              <div>
-                <div className="font-semibold">{s.label}</div>
-                <div className="text-xs text-muted-foreground">{s.desc}</div>
+              <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground">
+                <span>{s.to ? "Manage" : "Coming next"}</span>
+                {s.to && <ArrowRight className="h-3.5 w-3.5" />}
               </div>
-            </div>
-            <div className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">
-              Schema ready · UI coming next
-            </div>
-          </motion.div>
-        ))}
+            </>
+          );
+          return (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.35, delay: Math.min(i * 0.03, 0.2) }}
+              className="glass-strong hover-lift rounded-2xl p-5"
+            >
+              {s.to ? <Link to={s.to}>{inner}</Link> : inner}
+            </motion.div>
+          );
+        })}
       </div>
     </Section>
   );
