@@ -9,38 +9,234 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResultsRouteImport } from './routes/results'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as FreeStudyMaterialRouteImport } from './routes/free-study-material'
+import { Route as CurrentAffairsRouteImport } from './routes/current-affairs'
+import { Route as CoursesRouteImport } from './routes/courses'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BatchesRouteImport } from './routes/batches'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 
+const ResultsRoute = ResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FreeStudyMaterialRoute = FreeStudyMaterialRouteImport.update({
+  id: '/free-study-material',
+  path: '/free-study-material',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CurrentAffairsRoute = CurrentAffairsRouteImport.update({
+  id: '/current-affairs',
+  path: '/current-affairs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoursesRoute = CoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BatchesRoute = BatchesRouteImport.update({
+  id: '/batches',
+  path: '/batches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BatchesSlugRoute = BatchesSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BatchesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/batches': typeof BatchesRouteWithChildren
+  '/contact': typeof ContactRoute
+  '/courses': typeof CoursesRoute
+  '/current-affairs': typeof CurrentAffairsRoute
+  '/free-study-material': typeof FreeStudyMaterialRoute
+  '/gallery': typeof GalleryRoute
+  '/notifications': typeof NotificationsRoute
+  '/results': typeof ResultsRoute
+  '/batches/$slug': typeof BatchesSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/batches': typeof BatchesRouteWithChildren
+  '/contact': typeof ContactRoute
+  '/courses': typeof CoursesRoute
+  '/current-affairs': typeof CurrentAffairsRoute
+  '/free-study-material': typeof FreeStudyMaterialRoute
+  '/gallery': typeof GalleryRoute
+  '/notifications': typeof NotificationsRoute
+  '/results': typeof ResultsRoute
+  '/batches/$slug': typeof BatchesSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/batches': typeof BatchesRouteWithChildren
+  '/contact': typeof ContactRoute
+  '/courses': typeof CoursesRoute
+  '/current-affairs': typeof CurrentAffairsRoute
+  '/free-study-material': typeof FreeStudyMaterialRoute
+  '/gallery': typeof GalleryRoute
+  '/notifications': typeof NotificationsRoute
+  '/results': typeof ResultsRoute
+  '/batches/$slug': typeof BatchesSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/batches'
+    | '/contact'
+    | '/courses'
+    | '/current-affairs'
+    | '/free-study-material'
+    | '/gallery'
+    | '/notifications'
+    | '/results'
+    | '/batches/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/batches'
+    | '/contact'
+    | '/courses'
+    | '/current-affairs'
+    | '/free-study-material'
+    | '/gallery'
+    | '/notifications'
+    | '/results'
+    | '/batches/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/batches'
+    | '/contact'
+    | '/courses'
+    | '/current-affairs'
+    | '/free-study-material'
+    | '/gallery'
+    | '/notifications'
+    | '/results'
+    | '/batches/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  BatchesRoute: typeof BatchesRouteWithChildren
+  ContactRoute: typeof ContactRoute
+  CoursesRoute: typeof CoursesRoute
+  CurrentAffairsRoute: typeof CurrentAffairsRoute
+  FreeStudyMaterialRoute: typeof FreeStudyMaterialRoute
+  GalleryRoute: typeof GalleryRoute
+  NotificationsRoute: typeof NotificationsRoute
+  ResultsRoute: typeof ResultsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/results': {
+      id: '/results'
+      path: '/results'
+      fullPath: '/results'
+      preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/free-study-material': {
+      id: '/free-study-material'
+      path: '/free-study-material'
+      fullPath: '/free-study-material'
+      preLoaderRoute: typeof FreeStudyMaterialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/current-affairs': {
+      id: '/current-affairs'
+      path: '/current-affairs'
+      fullPath: '/current-affairs'
+      preLoaderRoute: typeof CurrentAffairsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/courses': {
+      id: '/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof CoursesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/batches': {
+      id: '/batches'
+      path: '/batches'
+      fullPath: '/batches'
+      preLoaderRoute: typeof BatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +244,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/batches/$slug': {
+      id: '/batches/$slug'
+      path: '/$slug'
+      fullPath: '/batches/$slug'
+      preLoaderRoute: typeof BatchesSlugRouteImport
+      parentRoute: typeof BatchesRoute
+    }
   }
 }
 
+interface BatchesRouteChildren {
+  BatchesSlugRoute: typeof BatchesSlugRoute
+}
+
+const BatchesRouteChildren: BatchesRouteChildren = {
+  BatchesSlugRoute: BatchesSlugRoute,
+}
+
+const BatchesRouteWithChildren =
+  BatchesRoute._addFileChildren(BatchesRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  BatchesRoute: BatchesRouteWithChildren,
+  ContactRoute: ContactRoute,
+  CoursesRoute: CoursesRoute,
+  CurrentAffairsRoute: CurrentAffairsRoute,
+  FreeStudyMaterialRoute: FreeStudyMaterialRoute,
+  GalleryRoute: GalleryRoute,
+  NotificationsRoute: NotificationsRoute,
+  ResultsRoute: ResultsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
