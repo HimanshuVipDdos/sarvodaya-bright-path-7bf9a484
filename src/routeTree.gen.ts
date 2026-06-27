@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResultsRouteImport } from './routes/results'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as GalleryRouteImport } from './routes/gallery'
@@ -25,6 +26,11 @@ import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResultsRoute = ResultsRouteImport.update({
   id: '/results',
   path: '/results',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof GalleryRoute
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryRoute
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/gallery': typeof GalleryRoute
   '/notifications': typeof NotificationsRoute
   '/results': typeof ResultsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/batches/$slug': typeof BatchesSlugRoute
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/notifications'
     | '/results'
+    | '/sitemap.xml'
     | '/admin'
     | '/dashboard'
     | '/batches/$slug'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/notifications'
     | '/results'
+    | '/sitemap.xml'
     | '/admin'
     | '/dashboard'
     | '/batches/$slug'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/notifications'
     | '/results'
+    | '/sitemap.xml'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/batches/$slug'
@@ -215,10 +227,18 @@ export interface RootRouteChildren {
   GalleryRoute: typeof GalleryRoute
   NotificationsRoute: typeof NotificationsRoute
   ResultsRoute: typeof ResultsRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/results': {
       id: '/results'
       path: '/results'
@@ -364,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   GalleryRoute: GalleryRoute,
   NotificationsRoute: NotificationsRoute,
   ResultsRoute: ResultsRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
