@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { VideoPlayer } from "@/components/video-player";
 import { SITE, whatsappHref } from "@/lib/site";
 
 const batchQuery = (slug: string) =>
