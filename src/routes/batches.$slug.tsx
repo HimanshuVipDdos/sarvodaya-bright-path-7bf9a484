@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { VideoPlayer } from "@/components/video-player";
 import { SITE, whatsappHref } from "@/lib/site";
 
 const batchQuery = (slug: string) =>
@@ -115,14 +116,8 @@ function BatchDetail() {
           {b.demo_video_url && (
             <div className="mt-8">
               <h2 className="text-lg font-semibold">Demo Lecture</h2>
-              <div className="mt-3 aspect-video overflow-hidden rounded-3xl glass-strong">
-                <iframe
-                  src={b.demo_video_url}
-                  title="Demo Lecture"
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+              <div className="mt-3">
+                <VideoPlayer src={b.demo_video_url} poster={b.thumbnail_url ?? undefined} title={`${b.title} — Demo`} />
               </div>
             </div>
           )}
