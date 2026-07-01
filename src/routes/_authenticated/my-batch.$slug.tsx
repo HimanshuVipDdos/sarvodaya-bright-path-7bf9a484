@@ -358,8 +358,8 @@ function BatchPortal() {
                   <Bell className="mt-0.5 h-4 w-4 text-primary" />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">{n.title}</div>
-                    {n.description && (
-                      <div className="mt-1 text-xs text-muted-foreground">{n.description}</div>
+                    {n.body && (
+                      <div className="mt-1 text-xs text-muted-foreground">{n.body}</div>
                     )}
                     <div className="mt-1 text-[11px] text-muted-foreground">
                       {new Date(n.created_at).toLocaleDateString("en-IN")}

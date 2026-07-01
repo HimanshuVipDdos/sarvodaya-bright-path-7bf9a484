@@ -25,6 +25,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedMyBatchSlugRouteImport } from './routes/_authenticated/my-batch.$slug'
 import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
 import { Route as AuthenticatedAdminLiveClassesRouteImport } from './routes/_authenticated/admin.live-classes'
@@ -113,6 +114,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMyBatchSlugRoute =
+  AuthenticatedMyBatchSlugRouteImport.update({
+    id: '/my-batch/$slug',
+    path: '/my-batch/$slug',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminPdfsRoute = AuthenticatedAdminPdfsRouteImport.update({
   id: '/admin/pdfs',
   path: '/admin/pdfs',
@@ -183,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
+  '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -208,6 +216,7 @@ export interface FileRoutesByTo {
   '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
+  '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -235,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
+  '/_authenticated/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/admin/live-classes'
     | '/admin/notifications'
     | '/admin/pdfs'
+    | '/my-batch/$slug'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/admin/live-classes'
     | '/admin/notifications'
     | '/admin/pdfs'
+    | '/my-batch/$slug'
     | '/admin'
   id:
     | '__root__'
@@ -313,6 +325,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/live-classes'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/pdfs'
+    | '/_authenticated/my-batch/$slug'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -446,6 +459,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/my-batch/$slug': {
+      id: '/_authenticated/my-batch/$slug'
+      path: '/my-batch/$slug'
+      fullPath: '/my-batch/$slug'
+      preLoaderRoute: typeof AuthenticatedMyBatchSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/pdfs': {
       id: '/_authenticated/admin/pdfs'
       path: '/admin/pdfs'
@@ -515,6 +535,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminLiveClassesRoute: typeof AuthenticatedAdminLiveClassesRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminPdfsRoute: typeof AuthenticatedAdminPdfsRoute
+  AuthenticatedMyBatchSlugRoute: typeof AuthenticatedMyBatchSlugRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -528,6 +549,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminLiveClassesRoute: AuthenticatedAdminLiveClassesRoute,
   AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
   AuthenticatedAdminPdfsRoute: AuthenticatedAdminPdfsRoute,
+  AuthenticatedMyBatchSlugRoute: AuthenticatedMyBatchSlugRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
