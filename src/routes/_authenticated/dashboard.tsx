@@ -105,13 +105,27 @@ function Dashboard() {
           ) : (
             <div className="mt-4 space-y-3">
               {data.enrollments.map((e: any) => (
-                <div key={e.id} className="glass flex items-center justify-between rounded-2xl p-4">
-                  <div>
-                    <div className="font-semibold">{e.batch?.title}</div>
-                    <div className="text-xs text-muted-foreground">{e.batch?.exam_category}</div>
+                <Link
+                  key={e.id}
+                  to="/my-batch/$slug"
+                  params={{ slug: e.batch?.slug ?? "" }}
+                  className="glass flex items-center justify-between rounded-2xl p-4 transition hover:bg-primary/5"
+                >
+                  <div className="flex items-center gap-3">
+                    {e.batch?.thumbnail_url ? (
+                      <img src={e.batch.thumbnail_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
+                        <BookOpen className="h-5 w-5 text-primary-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-semibold">{e.batch?.title}</div>
+                      <div className="text-xs text-muted-foreground">{e.batch?.exam_category}</div>
+                    </div>
                   </div>
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{e.status}</span>
-                </div>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Open →</span>
+                </Link>
               ))}
             </div>
           )}
