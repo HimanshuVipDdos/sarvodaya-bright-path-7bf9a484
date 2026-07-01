@@ -40,7 +40,7 @@ export type Column<T = Record<string, unknown>> = {
 };
 
 type Props<T extends Record<string, unknown>> = {
-  table: "batches" | "lectures" | "study_materials" | "current_affairs" | "notifications";
+  table: "batches" | "lectures" | "study_materials" | "current_affairs" | "notifications" | "live_classes";
   title: string;
   eyebrow?: string;
   description?: string;
