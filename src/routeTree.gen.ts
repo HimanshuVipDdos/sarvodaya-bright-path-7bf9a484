@@ -29,6 +29,7 @@ import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
 import { Route as AuthenticatedAdminLiveClassesRouteImport } from './routes/_authenticated/admin.live-classes'
 import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
+import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin.enrollments'
 import { Route as AuthenticatedAdminDppsRouteImport } from './routes/_authenticated/admin.dpps'
 import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
 import { Route as AuthenticatedAdminBatchesRouteImport } from './routes/_authenticated/admin.batches'
@@ -135,6 +136,12 @@ const AuthenticatedAdminLecturesRoute =
     path: '/admin/lectures',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminEnrollmentsRoute =
+  AuthenticatedAdminEnrollmentsRouteImport.update({
+    id: '/admin/enrollments',
+    path: '/admin/enrollments',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
   id: '/admin/dpps',
   path: '/admin/dpps',
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/admin/batches': typeof AuthenticatedAdminBatchesRoute
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
   '/admin/dpps': typeof AuthenticatedAdminDppsRoute
+  '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
@@ -195,6 +203,7 @@ export interface FileRoutesByTo {
   '/admin/batches': typeof AuthenticatedAdminBatchesRoute
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
   '/admin/dpps': typeof AuthenticatedAdminDppsRoute
+  '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
@@ -221,6 +230,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/batches': typeof AuthenticatedAdminBatchesRoute
   '/_authenticated/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
   '/_authenticated/admin/dpps': typeof AuthenticatedAdminDppsRoute
+  '/_authenticated/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/_authenticated/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/_authenticated/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/admin/batches'
     | '/admin/current-affairs'
     | '/admin/dpps'
+    | '/admin/enrollments'
     | '/admin/lectures'
     | '/admin/live-classes'
     | '/admin/notifications'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/admin/batches'
     | '/admin/current-affairs'
     | '/admin/dpps'
+    | '/admin/enrollments'
     | '/admin/lectures'
     | '/admin/live-classes'
     | '/admin/notifications'
@@ -296,6 +308,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/batches'
     | '/_authenticated/admin/current-affairs'
     | '/_authenticated/admin/dpps'
+    | '/_authenticated/admin/enrollments'
     | '/_authenticated/admin/lectures'
     | '/_authenticated/admin/live-classes'
     | '/_authenticated/admin/notifications'
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/enrollments': {
+      id: '/_authenticated/admin/enrollments'
+      path: '/admin/enrollments'
+      fullPath: '/admin/enrollments'
+      preLoaderRoute: typeof AuthenticatedAdminEnrollmentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/dpps': {
       id: '/_authenticated/admin/dpps'
       path: '/admin/dpps'
@@ -490,6 +510,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminBatchesRoute: typeof AuthenticatedAdminBatchesRoute
   AuthenticatedAdminCurrentAffairsRoute: typeof AuthenticatedAdminCurrentAffairsRoute
   AuthenticatedAdminDppsRoute: typeof AuthenticatedAdminDppsRoute
+  AuthenticatedAdminEnrollmentsRoute: typeof AuthenticatedAdminEnrollmentsRoute
   AuthenticatedAdminLecturesRoute: typeof AuthenticatedAdminLecturesRoute
   AuthenticatedAdminLiveClassesRoute: typeof AuthenticatedAdminLiveClassesRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
@@ -502,6 +523,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminBatchesRoute: AuthenticatedAdminBatchesRoute,
   AuthenticatedAdminCurrentAffairsRoute: AuthenticatedAdminCurrentAffairsRoute,
   AuthenticatedAdminDppsRoute: AuthenticatedAdminDppsRoute,
+  AuthenticatedAdminEnrollmentsRoute: AuthenticatedAdminEnrollmentsRoute,
   AuthenticatedAdminLecturesRoute: AuthenticatedAdminLecturesRoute,
   AuthenticatedAdminLiveClassesRoute: AuthenticatedAdminLiveClassesRoute,
   AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
