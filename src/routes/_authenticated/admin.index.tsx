@@ -78,8 +78,10 @@ function AdminPage() {
   ];
 
   const sections: { icon: typeof BookOpen; label: string; desc: string; to?: string }[] = [
-    { icon: BookOpen, label: "Batches", desc: "Create, edit, delete batches", to: "/admin/batches" },
+    { icon: BookOpen, label: "Batches", desc: "Create, edit, delete batches (with cover photos)", to: "/admin/batches" },
     { icon: Video, label: "Recorded Lectures", desc: "Upload and manage lectures", to: "/admin/lectures" },
+    { icon: Video, label: "Live Classes", desc: "Schedule live classes for each batch", to: "/admin/live-classes" },
+    { icon: Users, label: "Grant Batch Access", desc: "Enroll students free / discount / paid", to: "/admin/enrollments" },
     { icon: FileText, label: "PDFs & Notes", desc: "PDFs, notes, PYQs, answer keys", to: "/admin/pdfs" },
     { icon: FileText, label: "Daily Practice Problems", desc: "Manage DPPs by batch & subject", to: "/admin/dpps" },
     { icon: Newspaper, label: "Current Affairs", desc: "Daily and weekly updates", to: "/admin/current-affairs" },
@@ -88,7 +90,6 @@ function AdminPage() {
     { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles" },
     { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
-    { icon: Users, label: "Students", desc: "Manage student accounts" },
   ];
 
   return (
