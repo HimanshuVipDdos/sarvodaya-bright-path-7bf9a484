@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/admin/enrollments")({
 
 function EnrollmentsAdmin() {
   const qc = useQueryClient();
-  const grant = useServerFnRoute(grantBatchAccess);
+  const grant = useServerFn(grantBatchAccess);
 
   const [email, setEmail] = useState("");
   const [batchId, setBatchId] = useState("");
