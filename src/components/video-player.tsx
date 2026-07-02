@@ -10,6 +10,42 @@ function isDirectVideo(url: string) {
   return /\.(mp4|webm|m4v|mov|ogv)(\?|#|$)/i.test(url);
 }
 
+function toEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    // youtu.be/<id>
+    if (host === "youtu.be") {
+      const id = u.pathname.replace(/^\//, "");
+      return id ? `https://www.youtube.com/embed/${id}` : url;
+    }
+    // youtube.com/watch?v=<id>
+    if (host.endsWith("youtube.com")) {
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v");
+        return id ? `https://www.youtube.com/embed/${id}` : url;
+      }
+      // youtube.com/shorts/<id> or /live/<id>
+      const m = u.pathname.match(/^\/(?:shorts|live)\/([^/]+)/);
+      if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    }
+    // vimeo.com/<id>
+    if (host === "vimeo.com") {
+      const id = u.pathname.replace(/^\//, "");
+      return /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : url;
+    }
+    // Google Drive share link → preview
+    if (host === "drive.google.com") {
+      const m = u.pathname.match(/\/file\/d\/([^/]+)/);
+      if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+
 function fmt(t: number) {
   if (!isFinite(t)) return "0:00";
   const m = Math.floor(t / 60);
