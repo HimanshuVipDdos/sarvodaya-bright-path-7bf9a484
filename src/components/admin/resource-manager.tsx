@@ -128,6 +128,7 @@ export function ResourceManager<T extends Record<string, unknown>>({
           f.type === "number" ? 0 : "";
       }
     }
+
     setForm(initial);
     setOpen(true);
   }
