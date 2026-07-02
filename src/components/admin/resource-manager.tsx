@@ -390,16 +390,14 @@ function FieldsForm({
                 </SelectContent>
               </Select>
             )}
-            {f.type === "batch" && (
-              <Select value={(v as string) ?? ""} onValueChange={(val) => set(f.name, val)}>
-                <SelectTrigger><SelectValue placeholder="Link to a batch (optional)" /></SelectTrigger>
-                <SelectContent>
-                  {batchOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {f.type === "image" && (
+              <ImageUploadField
+                value={(v as string) ?? ""}
+                bucket={f.bucket ?? "batch-covers"}
+                onChange={(url) => set(f.name, url)}
+              />
             )}
+
             {f.helper && <p className="mt-1 text-[11px] text-muted-foreground">{f.helper}</p>}
           </div>
         );
