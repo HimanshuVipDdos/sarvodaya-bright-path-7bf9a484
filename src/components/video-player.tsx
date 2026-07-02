@@ -33,9 +33,16 @@ export function VideoPlayer({ src, poster, title, className }: Props) {
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
+  const direct = isDirectVideo(src);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.playbackRate = speed;
+  }, [speed]);
 
   // Fallback for non-direct (YouTube etc.) — iframe without native speed controls
-  if (!isDirectVideo(src)) {
+  if (!direct) {
     return (
       <div className={cn("aspect-video overflow-hidden rounded-3xl glass-strong", className)}>
         <iframe
@@ -49,11 +56,6 @@ export function VideoPlayer({ src, poster, title, className }: Props) {
     );
   }
 
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    v.playbackRate = speed;
-  }, [speed]);
 
   function toggle() {
     const v = ref.current;
