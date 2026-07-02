@@ -25,12 +25,14 @@ import {
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch";
+  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image";
   options?: { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
   helper?: string;
+  bucket?: string;
 };
+
 
 export type Column<T = Record<string, unknown>> = {
   key: string;
@@ -126,6 +128,7 @@ export function ResourceManager<T extends Record<string, unknown>>({
           f.type === "number" ? 0 : "";
       }
     }
+
     setForm(initial);
     setOpen(true);
   }
@@ -397,6 +400,15 @@ function FieldsForm({
                 </SelectContent>
               </Select>
             )}
+            {f.type === "image" && (
+              <ImageUploadField
+                value={(v as string) ?? ""}
+                bucket={f.bucket ?? "batch-covers"}
+                onChange={(url: string) => set(f.name, url)}
+              />
+            )}
+
+
             {f.helper && <p className="mt-1 text-[11px] text-muted-foreground">{f.helper}</p>}
           </div>
         );
@@ -404,3 +416,86 @@ function FieldsForm({
     </div>
   );
 }
+
+function ImageUploadField({
+  value, bucket, onChange,
+}: {
+  value: string;
+  bucket: string;
+  onChange: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image must be under 8 MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from(bucket).upload(path, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      onChange(data.publicUrl);
+      toast.success("Cover uploaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {value ? (
+        <div className="relative overflow-hidden rounded-2xl border border-border/60">
+          {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+          <img src={value} alt="Cover preview" className="h-40 w-full object-cover" />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onChange("")}
+            className="absolute right-2 top-2 h-7 rounded-full bg-black/60 text-white hover:bg-black/70"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm hover:bg-muted">
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {uploading ? "Uploading…" : value ? "Replace image" : "Upload cover"}
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <Input
+          value={value}
+          placeholder="…or paste an image URL"
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1"
+        />
+      </div>
+    </div>
+  );
+}
+
