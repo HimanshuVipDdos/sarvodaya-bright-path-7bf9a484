@@ -82,7 +82,7 @@ export function VideoPlayer({ src, poster, title, className }: Props) {
     return (
       <div className={cn("aspect-video overflow-hidden rounded-3xl glass-strong", className)}>
         <iframe
-          src={src}
+          src={toEmbedUrl(src)}
           title={title ?? "Video"}
           className="h-full w-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
