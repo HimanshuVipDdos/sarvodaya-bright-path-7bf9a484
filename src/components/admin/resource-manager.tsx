@@ -25,12 +25,14 @@ import {
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch";
+  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image";
   options?: { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
   helper?: string;
+  bucket?: string;
 };
+
 
 export type Column<T = Record<string, unknown>> = {
   key: string;
