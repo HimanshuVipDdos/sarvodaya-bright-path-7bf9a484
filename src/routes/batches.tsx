@@ -112,6 +112,7 @@ function BatchesPage() {
                     Details <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
+                </div>
               </div>
             </Link>
           </motion.div>
