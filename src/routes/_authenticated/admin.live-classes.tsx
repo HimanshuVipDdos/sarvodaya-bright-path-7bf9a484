@@ -15,13 +15,15 @@ const fields: Field[] = [
   { name: "title", label: "Title", type: "text", required: true },
   { name: "batch_id", label: "Batch", type: "batch" },
   { name: "scheduled_at", label: "Scheduled At (ISO)", type: "text", placeholder: "2026-07-05T18:30:00+05:30", required: true, helper: "Full ISO datetime with timezone" },
-  { name: "duration_minutes", label: "Duration (min)", type: "number" },
+  { name: "duration_minutes", label: "Duration (min)", type: "number", helper: "Used with auto-timer to end the class and save it as a recorded lecture" },
+  { name: "auto_start", label: "Auto-start at scheduled time", type: "boolean", helper: "Automatically mark as LIVE when the timer hits" },
+  { name: "auto_end", label: "Auto-end & save recording", type: "boolean", helper: "After duration, auto-unmark LIVE and copy to recorded lectures with the same title" },
   { name: "thumbnail_url", label: "Thumbnail URL", type: "url" },
   { name: "youtube_url", label: "YouTube Live URL / Embed", type: "url" },
   { name: "zoom_url", label: "Zoom URL", type: "url" },
   { name: "meet_url", label: "Google Meet URL", type: "url" },
   { name: "description", label: "Description", type: "textarea" },
-  { name: "is_live", label: "Mark as LIVE now", type: "boolean" },
+  { name: "is_live", label: "Mark as LIVE now (manual override)", type: "boolean" },
 ];
 
 export const Route = createFileRoute("/_authenticated/admin/live-classes")({
@@ -33,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/admin/live-classes")({
       description="Schedule and manage live classes for each batch."
       columns={columns}
       fields={fields}
-      defaults={{ is_live: false }}
+      defaults={{ is_live: false, auto_start: true, auto_end: true, duration_minutes: 60 }}
       searchKeys={["title"]}
       orderBy={{ column: "scheduled_at", ascending: false }}
     />
