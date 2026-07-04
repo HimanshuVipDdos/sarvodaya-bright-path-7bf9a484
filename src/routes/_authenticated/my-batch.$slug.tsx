@@ -170,33 +170,44 @@ function BatchPortal() {
             LIVE / UPCOMING TODAY
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {todayLive.slice(0, 4).map((lc) => (
-              <div key={lc.id} className="rounded-2xl bg-background/60 p-3">
-                <div className="text-sm font-semibold">{lc.title}</div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(lc.scheduled_at).toLocaleString("en-IN")}
+            {todayLive.slice(0, 2).map((lc) => {
+              const streamUrl = lc.youtube_url || lc.zoom_url || lc.meet_url;
+              return (
+                <div key={lc.id} className="rounded-2xl bg-background/60 p-3">
+                  <div className="text-sm font-semibold">{lc.title}</div>
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {new Date(lc.scheduled_at).toLocaleString("en-IN")}
+                  </div>
+                  {lc.is_live && lc.youtube_url && (
+                    <div className="mt-2">
+                      <VideoPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} />
+                    </div>
+                  )}
+                  {!lc.is_live && streamUrl && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {lc.youtube_url && (
+                        <Button size="sm" variant="secondary" asChild>
+                          <a href={lc.youtube_url} target="_blank" rel="noreferrer">YouTube</a>
+                        </Button>
+                      )}
+                      {lc.zoom_url && (
+                        <Button size="sm" variant="secondary" asChild>
+                          <a href={lc.zoom_url} target="_blank" rel="noreferrer">Zoom</a>
+                        </Button>
+                      )}
+                      {lc.meet_url && (
+                        <Button size="sm" variant="secondary" asChild>
+                          <a href={lc.meet_url} target="_blank" rel="noreferrer">Meet</a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {lc.youtube_url && (
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={lc.youtube_url} target="_blank" rel="noreferrer">YouTube</a>
-                    </Button>
-                  )}
-                  {lc.zoom_url && (
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={lc.zoom_url} target="_blank" rel="noreferrer">Zoom</a>
-                    </Button>
-                  )}
-                  {lc.meet_url && (
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={lc.meet_url} target="_blank" rel="noreferrer">Meet</a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
         </motion.div>
       )}
 
@@ -304,16 +315,12 @@ function BatchPortal() {
                 {lc.description && (
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{lc.description}</p>
                 )}
-                {lc.youtube_url && (lc.youtube_url.includes("embed") || lc.youtube_url.includes("youtube.com/live")) && (
-                  <div className="mt-3 aspect-video overflow-hidden rounded-xl">
-                    <iframe
-                      src={lc.youtube_url}
-                      className="h-full w-full"
-                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                {lc.youtube_url && (
+                  <div className="mt-3">
+                    <VideoPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} />
                   </div>
                 )}
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   {lc.youtube_url && (
                     <Button size="sm" variant="secondary" asChild>
