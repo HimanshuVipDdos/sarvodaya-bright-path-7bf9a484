@@ -118,10 +118,16 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
-          // Do NOT set mute=1 — user wants sound
+          origin: typeof window !== "undefined" ? window.location.origin : undefined,
         },
         events: {
-          onReady: () => setReady(true),
+          onReady: (e: any) => {
+            try {
+              e.target.unMute?.();
+              e.target.setVolume?.(100);
+            } catch {}
+            setReady(true);
+          },
         },
       });
     });
@@ -131,6 +137,7 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
       playerRef.current = null;
     };
   }, [id]);
+
 
   useEffect(() => {
     if (ready && playerRef.current?.setPlaybackRate) {
