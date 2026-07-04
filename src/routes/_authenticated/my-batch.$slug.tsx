@@ -315,16 +315,12 @@ function BatchPortal() {
                 {lc.description && (
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{lc.description}</p>
                 )}
-                {lc.youtube_url && (lc.youtube_url.includes("embed") || lc.youtube_url.includes("youtube.com/live")) && (
-                  <div className="mt-3 aspect-video overflow-hidden rounded-xl">
-                    <iframe
-                      src={lc.youtube_url}
-                      className="h-full w-full"
-                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                {lc.youtube_url && (
+                  <div className="mt-3">
+                    <VideoPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} />
                   </div>
                 )}
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   {lc.youtube_url && (
                     <Button size="sm" variant="secondary" asChild>
