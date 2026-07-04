@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/admin/live-classes")({
       description="Schedule and manage live classes for each batch."
       columns={columns}
       fields={fields}
-      defaults={{ is_live: false }}
+      defaults={{ is_live: false, auto_start: true, auto_end: true, duration_minutes: 60 }}
       searchKeys={["title"]}
       orderBy={{ column: "scheduled_at", ascending: false }}
     />
