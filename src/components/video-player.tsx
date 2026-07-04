@@ -15,7 +15,7 @@ function parseYouTubeId(url: string): string | null {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, "");
     if (host === "youtu.be") return u.pathname.replace(/^\//, "") || null;
-    if (host.endsWith("youtube.com")) {
+    if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
       if (u.pathname === "/watch") return u.searchParams.get("v");
       const m = u.pathname.match(/^\/(?:shorts|live|embed)\/([^/]+)/);
       if (m) return m[1];
@@ -26,16 +26,21 @@ function parseYouTubeId(url: string): string | null {
   }
 }
 
-function toEmbedUrl(url: string): string {
-  const id = parseYouTubeId(url);
-  if (id) return `https://www.youtube.com/embed/${id}`;
+function parseVimeoId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.replace(/^www\./, "") === "vimeo.com") {
+      const vid = u.pathname.replace(/^\//, "");
+      if (/^\d+$/.test(vid)) return vid;
+    }
+    return null;
+  } catch { return null; }
+}
+
+function toGenericEmbed(url: string): string {
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, "");
-    if (host === "vimeo.com") {
-      const vid = u.pathname.replace(/^\//, "");
-      if (/^\d+$/.test(vid)) return `https://player.vimeo.com/video/${vid}`;
-    }
     if (host === "drive.google.com") {
       const m = u.pathname.match(/\/file\/d\/([^/]+)/);
       if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
@@ -83,13 +88,15 @@ type Props = {
 
 export function VideoPlayer({ src, poster, title, className }: Props) {
   const ytId = parseYouTubeId(src);
-  if (ytId) return <YouTubePlayer id={ytId} title={title} className={className} />;
+  if (ytId) return <YouTubePlayer id={ytId} title={title} poster={poster} className={className} />;
   if (isDirectVideo(src)) return <NativePlayer src={src} poster={poster} title={title} className={className} />;
-  // Other embeds (Vimeo, Drive): plain iframe
+  const vimeoId = parseVimeoId(src);
+  if (vimeoId) return <VimeoPlayer id={vimeoId} title={title} className={className} />;
+  // Other embeds (Drive etc): plain iframe wrapped in matching frame
   return (
-    <div className={cn("aspect-video overflow-hidden rounded-3xl glass-strong bg-black", className)}>
+    <div className={cn("aspect-video overflow-hidden rounded-3xl bg-black shadow-elegant", className)}>
       <iframe
-        src={toEmbedUrl(src)}
+        src={toGenericEmbed(src)}
         title={title ?? "Video"}
         className="h-full w-full"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -99,14 +106,102 @@ export function VideoPlayer({ src, poster, title, className }: Props) {
   );
 }
 
-/* ---------------- YouTube Player with speed control ---------------- */
-function YouTubePlayer({ id, title, className }: { id: string; title?: string; className?: string }) {
+/* ---------------- Shared control bar UI ---------------- */
+function ControlBar({
+  playing, muted, time, duration, speed, showSpeed,
+  onPlayToggle, onSeek, onScrub, onMuteToggle, onSpeedToggle, onSpeedPick, onFullscreen,
+  showScrubber = true, showMute = true, showSeekButtons = true,
+}: {
+  playing: boolean; muted: boolean; time: number; duration: number; speed: number; showSpeed: boolean;
+  onPlayToggle: () => void; onSeek: (d: number) => void;
+  onScrub: (t: number) => void; onMuteToggle: () => void;
+  onSpeedToggle: () => void; onSpeedPick: (s: number) => void; onFullscreen: () => void;
+  showScrubber?: boolean; showMute?: boolean; showSeekButtons?: boolean;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-3 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+      <div className="pointer-events-auto flex flex-col gap-2">
+        {showScrubber && (
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={time}
+            onChange={(e) => onScrub(Number(e.target.value))}
+            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            aria-label="Seek"
+          />
+        )}
+        <div className="flex items-center gap-2 text-white">
+          <button onClick={onPlayToggle} aria-label={playing ? "Pause" : "Play"} className="rounded-full p-1.5 hover:bg-white/15">
+            {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </button>
+          {showSeekButtons && (
+            <>
+              <button onClick={() => onSeek(-10)} aria-label="Back 10s" className="rounded-full p-1.5 hover:bg-white/15">
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button onClick={() => onSeek(10)} aria-label="Forward 10s" className="rounded-full p-1.5 hover:bg-white/15">
+                <RotateCw className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {showMute && (
+            <button onClick={onMuteToggle} aria-label={muted ? "Unmute" : "Mute"} className="rounded-full p-1.5 hover:bg-white/15">
+              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+          )}
+          <div className="text-xs tabular-nums text-white/80">{fmt(time)} / {fmt(duration)}</div>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={onSpeedToggle}
+                aria-label="Playback speed"
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold hover:bg-white/15"
+              >
+                <Gauge className="h-3.5 w-3.5" /> {speed}x
+              </button>
+              {showSpeed && (
+                <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
+                  {SPEEDS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => onSpeedPick(s)}
+                      className={cn(
+                        "rounded-lg px-3 py-1 text-left text-xs hover:bg-white/15",
+                        s === speed && "bg-white/20 font-semibold",
+                      )}
+                    >
+                      {s}x
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={onFullscreen} aria-label="Fullscreen" className="rounded-full p-1.5 hover:bg-white/15">
+              <Maximize className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- YouTube Player with fully custom UI (branding hidden) ---------------- */
+function YouTubePlayer({ id, title, poster, className }: { id: string; title?: string; poster?: string; className?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,10 +209,15 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
       if (cancelled || !hostRef.current) return;
       playerRef.current = new YT.Player(hostRef.current, {
         videoId: id,
+        host: "https://www.youtube-nocookie.com",
         playerVars: {
+          controls: 0,
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
+          iv_load_policy: 3,
+          fs: 0,
+          disablekb: 1,
           origin: typeof window !== "undefined" ? window.location.origin : undefined,
         },
         events: {
@@ -125,8 +225,15 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
             try {
               e.target.unMute?.();
               e.target.setVolume?.(100);
+              setDuration(e.target.getDuration?.() ?? 0);
             } catch {}
             setReady(true);
+          },
+          onStateChange: (e: any) => {
+            // 1=playing, 2=paused, 0=ended
+            if (e.data === 1) { setPlaying(true); setStarted(true); }
+            else if (e.data === 2 || e.data === 0) setPlaying(false);
+            try { setDuration(e.target.getDuration?.() ?? 0); } catch {}
           },
         },
       });
@@ -138,6 +245,18 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
     };
   }, [id]);
 
+  // Poll time while playing
+  useEffect(() => {
+    if (!playing) return;
+    const t = setInterval(() => {
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        setTime(p.getCurrentTime?.() ?? 0);
+      } catch {}
+    }, 500);
+    return () => clearInterval(t);
+  }, [playing]);
 
   useEffect(() => {
     if (ready && playerRef.current?.setPlaybackRate) {
@@ -145,9 +264,34 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
     }
   }, [speed, ready]);
 
+  function toggle() {
+    const p = playerRef.current; if (!p) return;
+    try {
+      if (playing) p.pauseVideo?.();
+      else p.playVideo?.();
+    } catch {}
+  }
+  function seek(delta: number) {
+    const p = playerRef.current; if (!p) return;
+    try {
+      const cur = p.getCurrentTime?.() ?? 0;
+      const dur = p.getDuration?.() ?? 0;
+      p.seekTo?.(Math.min(Math.max(0, cur + delta), dur), true);
+    } catch {}
+  }
+  function scrubTo(t: number) {
+    const p = playerRef.current; if (!p) return;
+    try { p.seekTo?.(t, true); setTime(t); } catch {}
+  }
+  function toggleMute() {
+    const p = playerRef.current; if (!p) return;
+    try {
+      if (p.isMuted?.()) { p.unMute?.(); setMuted(false); }
+      else { p.mute?.(); setMuted(true); }
+    } catch {}
+  }
   function fullscreen() {
-    const el = wrapRef.current;
-    if (!el) return;
+    const el = wrapRef.current; if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen();
     else el.requestFullscreen?.();
   }
@@ -160,42 +304,56 @@ function YouTubePlayer({ id, title, className }: { id: string; title?: string; c
         className,
       )}
     >
-      <div ref={hostRef} title={title} className="h-full w-full" />
-      {/* Speed + fullscreen overlay (YouTube provides native play/volume) */}
-      <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
-        <div className="pointer-events-auto relative">
-          <button
-            onClick={() => setShowSpeed((s) => !s)}
-            aria-label="Playback speed"
-            className="flex items-center gap-1 rounded-full bg-black/70 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-black/85"
-          >
-            <Gauge className="h-3.5 w-3.5" /> {speed}x
-          </button>
-          {showSpeed && (
-            <div className="absolute right-0 top-full mt-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
-              {SPEEDS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => { setSpeed(s); setShowSpeed(false); }}
-                  className={cn(
-                    "rounded-lg px-4 py-1 text-left text-xs text-white hover:bg-white/15",
-                    s === speed && "bg-white/20 font-semibold",
-                  )}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
+      <div ref={hostRef} title={title} className="pointer-events-none absolute inset-0 h-full w-full" />
+      {/* Transparent overlay eats all clicks (blocks YT logo clickthrough & context menu) */}
+      <div
+        className="absolute inset-0"
+        onClick={toggle}
+        onContextMenu={(e) => e.preventDefault()}
+      />
+      {/* Cover the YouTube watermark bottom-right area with our brand strip when idle */}
+      {!started && (
+        <>
+          {poster && (
+            <img src={poster} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           )}
-        </div>
-        <button
-          onClick={fullscreen}
-          aria-label="Fullscreen"
-          className="pointer-events-auto rounded-full bg-black/70 p-2 text-white backdrop-blur hover:bg-black/85"
-        >
-          <Maximize className="h-4 w-4" />
-        </button>
-      </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); toggle(); }}
+            aria-label="Play"
+            className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-white/90 text-primary shadow-elegant backdrop-blur transition hover:scale-105"
+          >
+            <Play className="h-7 w-7 translate-x-0.5" />
+          </button>
+        </>
+      )}
+
+      <ControlBar
+        playing={playing} muted={muted} time={time} duration={duration}
+        speed={speed} showSpeed={showSpeed}
+        onPlayToggle={toggle}
+        onSeek={seek}
+        onScrub={scrubTo}
+        onMuteToggle={toggleMute}
+        onSpeedToggle={() => setShowSpeed((s) => !s)}
+        onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
+        onFullscreen={fullscreen}
+      />
+    </div>
+  );
+}
+
+/* ---------------- Vimeo player (custom controls via postMessage) ---------------- */
+function VimeoPlayer({ id, title, className }: { id: string; title?: string; className?: string }) {
+  const src = `https://player.vimeo.com/video/${id}?title=0&byline=0&portrait=0&badge=0`;
+  return (
+    <div className={cn("aspect-video overflow-hidden rounded-3xl bg-black shadow-elegant", className)}>
+      <iframe
+        src={src}
+        title={title ?? "Video"}
+        className="h-full w-full"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+      />
     </div>
   );
 }
@@ -228,11 +386,11 @@ function NativePlayer({ src, poster, title, className }: Props) {
     if (!v) return;
     v.currentTime = Math.min(Math.max(0, v.currentTime + delta), v.duration || 0);
   }
-  function onScrub(e: React.ChangeEvent<HTMLInputElement>) {
+  function scrubTo(t: number) {
     const v = ref.current;
     if (!v) return;
-    v.currentTime = Number(e.target.value);
-    setTime(v.currentTime);
+    v.currentTime = t;
+    setTime(t);
   }
   function toggleMute() {
     const v = ref.current;
@@ -277,65 +435,17 @@ function NativePlayer({ src, poster, title, className }: Props) {
           <Play className="h-7 w-7 translate-x-0.5" />
         </button>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
-        <div className="pointer-events-auto flex flex-col gap-2">
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={time}
-            onChange={onScrub}
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-            aria-label="Seek"
-          />
-          <div className="flex items-center gap-2 text-white">
-            <button onClick={toggle} aria-label={playing ? "Pause" : "Play"} className="rounded-full p-1.5 hover:bg-white/15">
-              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            </button>
-            <button onClick={() => seek(-10)} aria-label="Back 10s" className="rounded-full p-1.5 hover:bg-white/15">
-              <RotateCcw className="h-4 w-4" />
-            </button>
-            <button onClick={() => seek(10)} aria-label="Forward 10s" className="rounded-full p-1.5 hover:bg-white/15">
-              <RotateCw className="h-4 w-4" />
-            </button>
-            <button onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"} className="rounded-full p-1.5 hover:bg-white/15">
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-            <div className="text-xs tabular-nums text-white/80">{fmt(time)} / {fmt(duration)}</div>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="relative">
-                <button
-                  onClick={() => setShowSpeed((s) => !s)}
-                  aria-label="Playback speed"
-                  className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold hover:bg-white/15"
-                >
-                  <Gauge className="h-3.5 w-3.5" /> {speed}x
-                </button>
-                {showSpeed && (
-                  <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
-                    {SPEEDS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => { setSpeed(s); setShowSpeed(false); }}
-                        className={cn(
-                          "rounded-lg px-3 py-1 text-left text-xs hover:bg-white/15",
-                          s === speed && "bg-white/20 font-semibold",
-                        )}
-                      >
-                        {s}x
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button onClick={fullscreen} aria-label="Fullscreen" className="rounded-full p-1.5 hover:bg-white/15">
-                <Maximize className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ControlBar
+        playing={playing} muted={muted} time={time} duration={duration}
+        speed={speed} showSpeed={showSpeed}
+        onPlayToggle={toggle}
+        onSeek={seek}
+        onScrub={scrubTo}
+        onMuteToggle={toggleMute}
+        onSpeedToggle={() => setShowSpeed((s) => !s)}
+        onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
+        onFullscreen={fullscreen}
+      />
     </div>
   );
 }
