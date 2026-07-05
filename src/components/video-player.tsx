@@ -115,13 +115,16 @@ function ControlBar({
   playing, muted, time, duration, speed, showSpeed,
   onPlayToggle, onSeek, onScrub, onMuteToggle, onSpeedToggle, onSpeedPick, onFullscreen,
   showScrubber = true, showMute = true, showSeekButtons = true,
+  qualities, currentQuality, onQualityPick,
 }: {
   playing: boolean; muted: boolean; time: number; duration: number; speed: number; showSpeed: boolean;
   onPlayToggle: () => void; onSeek: (d: number) => void;
   onScrub: (t: number) => void; onMuteToggle: () => void;
   onSpeedToggle: () => void; onSpeedPick: (s: number) => void; onFullscreen: () => void;
   showScrubber?: boolean; showMute?: boolean; showSeekButtons?: boolean;
+  qualities?: string[]; currentQuality?: string; onQualityPick?: (q: string) => void;
 }) {
+  const [showQuality, setShowQuality] = useState(false);
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-3 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
       <div className="pointer-events-auto flex flex-col gap-2">
@@ -158,6 +161,33 @@ function ControlBar({
           )}
           <div className="text-xs tabular-nums text-white/80">{fmt(time)} / {fmt(duration)}</div>
           <div className="ml-auto flex items-center gap-2">
+            {qualities && qualities.length > 0 && onQualityPick && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowQuality((s) => !s)}
+                  aria-label="Quality"
+                  className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold hover:bg-white/15"
+                >
+                  <Settings className="h-3.5 w-3.5" /> {YT_QUALITY_LABEL[currentQuality ?? "auto"] ?? currentQuality ?? "Auto"}
+                </button>
+                {showQuality && (
+                  <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
+                    {qualities.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => { onQualityPick(q); setShowQuality(false); }}
+                        className={cn(
+                          "rounded-lg px-3 py-1 text-left text-xs hover:bg-white/15",
+                          q === currentQuality && "bg-white/20 font-semibold",
+                        )}
+                      >
+                        {YT_QUALITY_LABEL[q] ?? q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="relative">
               <button
                 onClick={onSpeedToggle}
