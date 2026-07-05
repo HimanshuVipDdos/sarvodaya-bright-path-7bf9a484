@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Play, Pause, Volume2, VolumeX, Maximize, Gauge, RotateCcw, RotateCw,
+  Play, Pause, Volume2, VolumeX, Maximize, Gauge, RotateCcw, RotateCw, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+const YT_QUALITY_LABEL: Record<string, string> = {
+  auto: "Auto", tiny: "144p", small: "240p", medium: "360p", large: "480p",
+  hd720: "720p", hd1080: "1080p", hd1440: "1440p", hd2160: "2160p", highres: "Max",
+};
 
 function isDirectVideo(url: string) {
   return /\.(mp4|webm|m4v|mov|ogv)(\?|#|$)/i.test(url);
