@@ -13,7 +13,9 @@ const batchesQuery = queryOptions({
   queryKey: ["batches", "all"],
   queryFn: async () => {
     const { data } = await supabase.from("batches").select("*").eq("is_active", true).order("is_featured", { ascending: false }).order("title");
-    return data ?? [];
+    const { data: live } = await supabase.from("live_classes").select("batch_id").eq("is_live", true);
+    const liveSet = new Set((live ?? []).map((l) => l.batch_id));
+    return (data ?? []).map((b) => ({ ...b, _isLive: liveSet.has(b.id) }));
   },
 });
 
