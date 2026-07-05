@@ -362,8 +362,6 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
       />
       {/* Cover YouTube watermark (bottom-right logo) permanently */}
       <div className="pointer-events-none absolute bottom-2 right-2 z-10 h-8 w-24 rounded bg-black" aria-hidden />
-      {/* Cover top-right "Watch on YouTube" chip on pause */}
-      <div className="pointer-events-none absolute top-0 right-0 z-10 h-14 w-40 bg-black opacity-0 transition group-hover:opacity-0 [.paused_&]:opacity-100" aria-hidden />
       {!started && (
         <>
           {poster && (
