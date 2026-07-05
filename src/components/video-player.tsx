@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Play, Pause, Volume2, VolumeX, Maximize, Gauge, RotateCcw, RotateCw,
+  Play, Pause, Volume2, VolumeX, Maximize, Gauge, RotateCcw, RotateCw, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+const YT_QUALITY_LABEL: Record<string, string> = {
+  auto: "Auto", tiny: "144p", small: "240p", medium: "360p", large: "480p",
+  hd720: "720p", hd1080: "1080p", hd1440: "1440p", hd2160: "2160p", highres: "Max",
+};
 
 function isDirectVideo(url: string) {
   return /\.(mp4|webm|m4v|mov|ogv)(\?|#|$)/i.test(url);
@@ -111,13 +115,16 @@ function ControlBar({
   playing, muted, time, duration, speed, showSpeed,
   onPlayToggle, onSeek, onScrub, onMuteToggle, onSpeedToggle, onSpeedPick, onFullscreen,
   showScrubber = true, showMute = true, showSeekButtons = true,
+  qualities, currentQuality, onQualityPick,
 }: {
   playing: boolean; muted: boolean; time: number; duration: number; speed: number; showSpeed: boolean;
   onPlayToggle: () => void; onSeek: (d: number) => void;
   onScrub: (t: number) => void; onMuteToggle: () => void;
   onSpeedToggle: () => void; onSpeedPick: (s: number) => void; onFullscreen: () => void;
   showScrubber?: boolean; showMute?: boolean; showSeekButtons?: boolean;
+  qualities?: string[]; currentQuality?: string; onQualityPick?: (q: string) => void;
 }) {
+  const [showQuality, setShowQuality] = useState(false);
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-3 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
       <div className="pointer-events-auto flex flex-col gap-2">
@@ -154,6 +161,33 @@ function ControlBar({
           )}
           <div className="text-xs tabular-nums text-white/80">{fmt(time)} / {fmt(duration)}</div>
           <div className="ml-auto flex items-center gap-2">
+            {qualities && qualities.length > 0 && onQualityPick && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowQuality((s) => !s)}
+                  aria-label="Quality"
+                  className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold hover:bg-white/15"
+                >
+                  <Settings className="h-3.5 w-3.5" /> {YT_QUALITY_LABEL[currentQuality ?? "auto"] ?? currentQuality ?? "Auto"}
+                </button>
+                {showQuality && (
+                  <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
+                    {qualities.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => { onQualityPick(q); setShowQuality(false); }}
+                        className={cn(
+                          "rounded-lg px-3 py-1 text-left text-xs hover:bg-white/15",
+                          q === currentQuality && "bg-white/20 font-semibold",
+                        )}
+                      >
+                        {YT_QUALITY_LABEL[q] ?? q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="relative">
               <button
                 onClick={onSpeedToggle}
@@ -202,6 +236,8 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
   const [started, setStarted] = useState(false);
+  const [qualities, setQualities] = useState<string[]>([]);
+  const [quality, setQuality] = useState<string>("auto");
 
   useEffect(() => {
     let cancelled = false;
@@ -230,10 +266,17 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
             setReady(true);
           },
           onStateChange: (e: any) => {
-            // 1=playing, 2=paused, 0=ended
             if (e.data === 1) { setPlaying(true); setStarted(true); }
             else if (e.data === 2 || e.data === 0) setPlaying(false);
-            try { setDuration(e.target.getDuration?.() ?? 0); } catch {}
+            try {
+              setDuration(e.target.getDuration?.() ?? 0);
+              const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
+              if (lv.length) setQualities(["auto", ...lv]);
+              setQuality(e.target.getPlaybackQuality?.() ?? "auto");
+            } catch {}
+          },
+          onPlaybackQualityChange: (e: any) => {
+            try { setQuality(e.target.getPlaybackQuality?.() ?? "auto"); } catch {}
           },
         },
       });
@@ -245,7 +288,6 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
     };
   }, [id]);
 
-  // Poll time while playing
   useEffect(() => {
     if (!playing) return;
     const t = setInterval(() => {
@@ -295,6 +337,14 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
     if (document.fullscreenElement) document.exitFullscreen();
     else el.requestFullscreen?.();
   }
+  function pickQuality(q: string) {
+    const p = playerRef.current; if (!p) return;
+    try {
+      if (q === "auto") p.setPlaybackQuality?.("default");
+      else p.setPlaybackQuality?.(q);
+      setQuality(q);
+    } catch {}
+  }
 
   return (
     <div
@@ -305,13 +355,13 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
       )}
     >
       <div ref={hostRef} title={title} className="pointer-events-none absolute inset-0 h-full w-full" />
-      {/* Transparent overlay eats all clicks (blocks YT logo clickthrough & context menu) */}
       <div
         className="absolute inset-0"
         onClick={toggle}
         onContextMenu={(e) => e.preventDefault()}
       />
-      {/* Cover the YouTube watermark bottom-right area with our brand strip when idle */}
+      {/* Cover YouTube watermark (bottom-right logo) permanently */}
+      <div className="pointer-events-none absolute bottom-2 right-2 z-10 h-8 w-24 rounded bg-black" aria-hidden />
       {!started && (
         <>
           {poster && (
@@ -337,6 +387,9 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
         onSpeedToggle={() => setShowSpeed((s) => !s)}
         onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
         onFullscreen={fullscreen}
+        qualities={qualities}
+        currentQuality={quality}
+        onQualityPick={pickQuality}
       />
     </div>
   );

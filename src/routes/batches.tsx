@@ -13,7 +13,9 @@ const batchesQuery = queryOptions({
   queryKey: ["batches", "all"],
   queryFn: async () => {
     const { data } = await supabase.from("batches").select("*").eq("is_active", true).order("is_featured", { ascending: false }).order("title");
-    return data ?? [];
+    const { data: live } = await supabase.from("live_classes").select("batch_id").eq("is_live", true);
+    const liveSet = new Set((live ?? []).map((l) => l.batch_id));
+    return (data ?? []).map((b) => ({ ...b, _isLive: liveSet.has(b.id) }));
   },
 });
 
@@ -83,10 +85,22 @@ function BatchesPage() {
                     <img src={b.thumbnail_url} alt={b.title} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
                     {b.is_featured && <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-primary shadow">Featured</span>}
+                    {b._isLive && (
+                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow">
+                        <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span>
+                        Live
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div className="relative aspect-[16/9] w-full bg-gradient-to-br from-primary/15 via-primary/5 to-primary-glow/20">
                     {b.is_featured && <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-primary shadow">Featured</span>}
+                    {b._isLive && (
+                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow">
+                        <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span>
+                        Live
+                      </span>
+                    )}
                   </div>
                 )}
                 <div className="flex flex-1 flex-col p-6">
