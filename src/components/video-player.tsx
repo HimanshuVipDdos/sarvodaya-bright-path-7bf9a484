@@ -236,6 +236,8 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
   const [started, setStarted] = useState(false);
+  const [qualities, setQualities] = useState<string[]>([]);
+  const [quality, setQuality] = useState<string>("auto");
 
   useEffect(() => {
     let cancelled = false;
@@ -264,10 +266,17 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
             setReady(true);
           },
           onStateChange: (e: any) => {
-            // 1=playing, 2=paused, 0=ended
             if (e.data === 1) { setPlaying(true); setStarted(true); }
             else if (e.data === 2 || e.data === 0) setPlaying(false);
-            try { setDuration(e.target.getDuration?.() ?? 0); } catch {}
+            try {
+              setDuration(e.target.getDuration?.() ?? 0);
+              const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
+              if (lv.length) setQualities(["auto", ...lv]);
+              setQuality(e.target.getPlaybackQuality?.() ?? "auto");
+            } catch {}
+          },
+          onPlaybackQualityChange: (e: any) => {
+            try { setQuality(e.target.getPlaybackQuality?.() ?? "auto"); } catch {}
           },
         },
       });
@@ -279,7 +288,6 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
     };
   }, [id]);
 
-  // Poll time while playing
   useEffect(() => {
     if (!playing) return;
     const t = setInterval(() => {
@@ -329,6 +337,14 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
     if (document.fullscreenElement) document.exitFullscreen();
     else el.requestFullscreen?.();
   }
+  function pickQuality(q: string) {
+    const p = playerRef.current; if (!p) return;
+    try {
+      if (q === "auto") p.setPlaybackQuality?.("default");
+      else p.setPlaybackQuality?.(q);
+      setQuality(q);
+    } catch {}
+  }
 
   return (
     <div
@@ -339,13 +355,15 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
       )}
     >
       <div ref={hostRef} title={title} className="pointer-events-none absolute inset-0 h-full w-full" />
-      {/* Transparent overlay eats all clicks (blocks YT logo clickthrough & context menu) */}
       <div
         className="absolute inset-0"
         onClick={toggle}
         onContextMenu={(e) => e.preventDefault()}
       />
-      {/* Cover the YouTube watermark bottom-right area with our brand strip when idle */}
+      {/* Cover YouTube watermark (bottom-right logo) permanently */}
+      <div className="pointer-events-none absolute bottom-2 right-2 z-10 h-8 w-24 rounded bg-black" aria-hidden />
+      {/* Cover top-right "Watch on YouTube" chip on pause */}
+      <div className="pointer-events-none absolute top-0 right-0 z-10 h-14 w-40 bg-black opacity-0 transition group-hover:opacity-0 [.paused_&]:opacity-100" aria-hidden />
       {!started && (
         <>
           {poster && (
@@ -371,6 +389,9 @@ function YouTubePlayer({ id, title, poster, className }: { id: string; title?: s
         onSpeedToggle={() => setShowSpeed((s) => !s)}
         onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
         onFullscreen={fullscreen}
+        qualities={qualities}
+        currentQuality={quality}
+        onQualityPick={pickQuality}
       />
     </div>
   );
