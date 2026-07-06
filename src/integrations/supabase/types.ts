@@ -314,6 +314,8 @@ export type Database = {
           auto_end: boolean
           auto_start: boolean
           batch_id: string | null
+          chapter: string | null
+          chapter_order: number | null
           created_at: string
           description: string | null
           duration_minutes: number | null
@@ -323,6 +325,7 @@ export type Database = {
           meet_url: string | null
           recorded_lecture_id: string | null
           scheduled_at: string
+          subject: string | null
           thumbnail_url: string | null
           title: string
           youtube_url: string | null
@@ -332,6 +335,8 @@ export type Database = {
           auto_end?: boolean
           auto_start?: boolean
           batch_id?: string | null
+          chapter?: string | null
+          chapter_order?: number | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -341,6 +346,7 @@ export type Database = {
           meet_url?: string | null
           recorded_lecture_id?: string | null
           scheduled_at: string
+          subject?: string | null
           thumbnail_url?: string | null
           title: string
           youtube_url?: string | null
@@ -350,6 +356,8 @@ export type Database = {
           auto_end?: boolean
           auto_start?: boolean
           batch_id?: string | null
+          chapter?: string | null
+          chapter_order?: number | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -359,6 +367,7 @@ export type Database = {
           meet_url?: string | null
           recorded_lecture_id?: string | null
           scheduled_at?: string
+          subject?: string | null
           thumbnail_url?: string | null
           title?: string
           youtube_url?: string | null
