@@ -14,6 +14,9 @@ const columns: Column<LiveClass>[] = [
 const fields: Field[] = [
   { name: "title", label: "Title", type: "text", required: true },
   { name: "batch_id", label: "Batch", type: "batch" },
+  { name: "subject", label: "Subject", type: "text", placeholder: "Reasoning" },
+  { name: "chapter", label: "Chapter", type: "text", placeholder: "Blood Relations", helper: "Group live classes chapter-wise on the student dashboard" },
+  { name: "chapter_order", label: "Chapter order", type: "number", helper: "Lower number appears first" },
   { name: "scheduled_at", label: "Scheduled At (ISO)", type: "text", placeholder: "2026-07-05T18:30:00+05:30", required: true, helper: "Full ISO datetime with timezone" },
   { name: "duration_minutes", label: "Duration (min)", type: "number", helper: "Used with auto-timer to end the class and save it as a recorded lecture" },
   { name: "auto_start", label: "Auto-start at scheduled time", type: "boolean", helper: "Automatically mark as LIVE when the timer hits" },
