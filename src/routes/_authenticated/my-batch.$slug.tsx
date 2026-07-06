@@ -292,62 +292,7 @@ function BatchPortal() {
           </div>
         )}
 
-        {tab === "live" && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {data.liveClasses.length === 0 && (
-              <div className="glass-strong col-span-full rounded-3xl p-8 text-center text-sm text-muted-foreground">
-                No live classes scheduled yet.
-              </div>
-            )}
-            {data.liveClasses.map((lc) => (
-              <div key={lc.id} className="glass-strong rounded-3xl p-5">
-                <div className="flex items-center gap-2">
-                  {lc.is_live && (
-                    <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-600">
-                      🔴 Live
-                    </span>
-                  )}
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(lc.scheduled_at).toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <h3 className="mt-2 font-semibold">{lc.title}</h3>
-                {lc.description && (
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{lc.description}</p>
-                )}
-                {lc.youtube_url && (
-                  <div className="mt-3">
-                    <VideoPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} />
-                  </div>
-                )}
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {lc.youtube_url && (
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={lc.youtube_url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="mr-1 h-3 w-3" /> YouTube
-                      </a>
-                    </Button>
-                  )}
-                  {lc.zoom_url && (
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={lc.zoom_url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="mr-1 h-3 w-3" /> Zoom
-                      </a>
-                    </Button>
-                  )}
-                  {lc.meet_url && (
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={lc.meet_url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="mr-1 h-3 w-3" /> Meet
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {tab === "live" && <LiveChapterDashboard classes={data.liveClasses} />}
 
         {tab === "notes" && <MaterialsList items={notes} empty="No notes uploaded yet." />}
         {tab === "dpp" && <MaterialsList items={dpp} empty="No DPP uploaded yet." />}
