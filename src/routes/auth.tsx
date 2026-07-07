@@ -1,9 +1,8 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Mail, Lock, User, ChevronLeft, Phone, KeyRound } from "lucide-react";
+import { Loader2, Mail, ChevronLeft, Phone, KeyRound, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/section";
@@ -14,7 +13,7 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: `Student Login — ${SITE.name}` },
-      { name: "description", content: "Sign in to your student dashboard." },
+      { name: "description", content: "Sign in to your student dashboard with a one-time password." },
     ],
   }),
   beforeLoad: async () => {
@@ -30,67 +29,18 @@ type Method = "email" | "phone";
 function AuthPage() {
   const navigate = useNavigate();
   const [method, setMethod] = useState<Method>("email");
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
 
-  // phone otp state
+  // Email OTP state
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtp, setEmailOtp] = useState("");
+
+  // Phone OTP state
   const [phone, setPhone] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState("");
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const email = String(fd.get("email") || "").trim();
-    const password = String(fd.get("password") || "");
-    const full_name = String(fd.get("full_name") || "").trim();
-    setLoading(true);
-    try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email, password,
-          options: {
-            data: { full_name },
-            emailRedirectTo: window.location.origin + "/dashboard",
-          },
-        });
-        if (error) throw error;
-        toast.success("Account created! Check your email if confirmation is required.");
-        navigate({ to: "/dashboard" });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast.success("Welcome back!");
-        navigate({ to: "/dashboard" });
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Authentication failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGoogle() {
-    setLoading(true);
-    const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (res.error) {
-      toast.error(res.error.message ?? "Google sign-in failed");
-      setLoading(false);
-      return;
-    }
-    if (res.redirected) return;
-    navigate({ to: "/dashboard" });
-  }
-
-  async function handleForgotPassword() {
-    const email = prompt("Enter your email to receive a password reset link:");
-    if (!email) return;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin + "/reset-password",
-    });
-    if (error) toast.error(error.message);
-    else toast.success("Password reset email sent!");
-  }
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState("");
 
   function normalizePhone(raw: string) {
     const digits = raw.replace(/[^\d+]/g, "");
@@ -99,13 +49,54 @@ function AuthPage() {
     return `+${digits}`;
   }
 
-  async function sendOtp() {
+  async function sendEmailOtp() {
+    if (!email.trim()) return toast.error("Enter your email");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: true,
+          data: fullName.trim() ? { full_name: fullName.trim() } : undefined,
+          emailRedirectTo: window.location.origin + "/dashboard",
+        },
+      });
+      if (error) throw error;
+      setEmailOtpSent(true);
+      toast.success("OTP sent! Check your inbox.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send OTP");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyEmailOtp() {
+    if (!emailOtp.trim()) return toast.error("Enter the OTP");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: emailOtp.trim(),
+        type: "email",
+      });
+      if (error) throw error;
+      toast.success("Signed in!");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid OTP");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendPhoneOtp() {
     if (!phone.trim()) return toast.error("Enter mobile number");
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({ phone: normalizePhone(phone) });
       if (error) throw error;
-      setOtpSent(true);
+      setPhoneOtpSent(true);
       toast.success("OTP sent! Check your SMS.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not send OTP");
@@ -114,13 +105,13 @@ function AuthPage() {
     }
   }
 
-  async function verifyOtp() {
-    if (!otp.trim()) return toast.error("Enter OTP");
+  async function verifyPhoneOtp() {
+    if (!phoneOtp.trim()) return toast.error("Enter OTP");
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
         phone: normalizePhone(phone),
-        token: otp.trim(),
+        token: phoneOtp.trim(),
         type: "sms",
       });
       if (error) throw error;
@@ -138,46 +129,24 @@ function AuthPage() {
       <div className="mx-auto max-w-md">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="glass-strong rounded-3xl p-8">
           <div className="text-center">
-            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">{mode === "login" ? "Welcome back" : "Create account"}</div>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight">{mode === "login" ? "Student Login" : "Sign Up"}</h1>
+            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Welcome</div>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">Student Login</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {mode === "login" ? "Access your dashboard, classes and notes." : "Join Sarvodaya Adhyeta to start preparing."}
+              Sign in with a one-time password — no need to remember any password.
             </p>
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={loading}
-            onClick={handleGoogle}
-            className="mt-6 w-full rounded-2xl glass py-6 text-base"
-          >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09a6.97 6.97 0 0 1 0-4.18V7.07H2.18a11 11 0 0 0 0 9.86l3.66-2.84z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Continue with Google
-          </Button>
-
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            or
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="mb-4 grid grid-cols-2 gap-2">
+          <div className="mb-4 mt-6 grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => { setMethod("email"); setOtpSent(false); }}
+              onClick={() => { setMethod("email"); setPhoneOtpSent(false); }}
               className={`rounded-2xl py-2 text-xs font-semibold transition ${method === "email" ? "bg-primary text-primary-foreground" : "glass"}`}
             >
-              <Mail className="mr-1 inline h-3.5 w-3.5" /> Email
+              <Mail className="mr-1 inline h-3.5 w-3.5" /> Email OTP
             </button>
             <button
               type="button"
-              onClick={() => setMethod("phone")}
+              onClick={() => { setMethod("phone"); setEmailOtpSent(false); }}
               className={`rounded-2xl py-2 text-xs font-semibold transition ${method === "phone" ? "bg-primary text-primary-foreground" : "glass"}`}
             >
               <Phone className="mr-1 inline h-3.5 w-3.5" /> Mobile OTP
@@ -185,30 +154,62 @@ function AuthPage() {
           </div>
 
           {method === "email" && (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {mode === "signup" && (
+            <div className="space-y-3">
+              {!emailOtpSent && (
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input name="full_name" required placeholder="Full name" className="glass border-0 pl-9" />
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Full name (only for new accounts)"
+                    className="glass border-0 pl-9"
+                  />
                 </div>
               )}
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input type="email" name="email" required placeholder="Email" className="glass border-0 pl-9" />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email address"
+                  disabled={emailOtpSent}
+                  className="glass border-0 pl-9"
+                />
               </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input type="password" name="password" required minLength={6} placeholder="Password" className="glass border-0 pl-9" />
-              </div>
-              <Button type="submit" disabled={loading} className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "login" ? "Login" : "Create account"}
+              {emailOtpSent && (
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    inputMode="numeric"
+                    value={emailOtp}
+                    onChange={(e) => setEmailOtp(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    className="glass border-0 pl-9 tracking-widest"
+                  />
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={emailOtpSent ? verifyEmailOtp : sendEmailOtp}
+                disabled={loading}
+                className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : emailOtpSent ? "Verify OTP & Login" : "Send OTP to email"}
               </Button>
-              {mode === "login" && (
-                <button type="button" onClick={handleForgotPassword} className="mt-1 w-full text-center text-xs text-muted-foreground hover:text-primary">
-                  Forgot password?
+              {emailOtpSent && (
+                <button
+                  type="button"
+                  onClick={() => { setEmailOtpSent(false); setEmailOtp(""); }}
+                  className="w-full text-center text-xs text-muted-foreground hover:text-primary"
+                >
+                  Change email
                 </button>
               )}
-            </form>
+              <p className="text-center text-[10px] text-muted-foreground">
+                We'll email you a 6-digit code. New here? Just enter your name and email — account is created automatically.
+              </p>
+            </div>
           )}
 
           {method === "phone" && (
@@ -220,17 +221,17 @@ function AuthPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Mobile number (10 digits)"
-                  disabled={otpSent}
+                  disabled={phoneOtpSent}
                   className="glass border-0 pl-9"
                 />
               </div>
-              {otpSent && (
+              {phoneOtpSent && (
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     inputMode="numeric"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
+                    value={phoneOtp}
+                    onChange={(e) => setPhoneOtp(e.target.value)}
                     placeholder="Enter 6-digit OTP"
                     className="glass border-0 pl-9 tracking-widest"
                   />
@@ -238,16 +239,16 @@ function AuthPage() {
               )}
               <Button
                 type="button"
-                onClick={otpSent ? verifyOtp : sendOtp}
+                onClick={phoneOtpSent ? verifyPhoneOtp : sendPhoneOtp}
                 disabled={loading}
                 className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : otpSent ? "Verify OTP & Login" : "Send OTP"}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : phoneOtpSent ? "Verify OTP & Login" : "Send OTP"}
               </Button>
-              {otpSent && (
+              {phoneOtpSent && (
                 <button
                   type="button"
-                  onClick={() => { setOtpSent(false); setOtp(""); }}
+                  onClick={() => { setPhoneOtpSent(false); setPhoneOtp(""); }}
                   className="w-full text-center text-xs text-muted-foreground hover:text-primary"
                 >
                   Change number
@@ -256,15 +257,6 @@ function AuthPage() {
               <p className="text-center text-[10px] text-muted-foreground">
                 We'll send you a one-time password via SMS.
               </p>
-            </div>
-          )}
-
-          {method === "email" && (
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              {mode === "login" ? "New here?" : "Already a member?"}{" "}
-              <button onClick={() => setMode(mode === "login" ? "signup" : "login")} className="font-medium text-primary">
-                {mode === "login" ? "Create an account" : "Login"}
-              </button>
             </div>
           )}
         </motion.div>
@@ -278,4 +270,3 @@ function AuthPage() {
     </Section>
   );
 }
-
