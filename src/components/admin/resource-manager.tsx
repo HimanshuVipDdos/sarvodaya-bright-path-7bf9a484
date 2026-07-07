@@ -445,8 +445,10 @@ function ImageUploadField({
         upsert: false,
       });
       if (error) throw error;
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      onChange(data.publicUrl);
+      // Bucket is private; use a long-lived signed URL so images render everywhere.
+      const { data, error: signErr } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+      if (signErr || !data?.signedUrl) throw signErr ?? new Error("Could not create signed URL");
+      onChange(data.signedUrl);
       toast.success("Cover uploaded");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
