@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Mail, Lock, User, ChevronLeft } from "lucide-react";
+import { Loader2, Mail, Lock, User, ChevronLeft, Phone, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,18 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type Method = "email" | "phone";
+
 function AuthPage() {
   const navigate = useNavigate();
+  const [method, setMethod] = useState<Method>("email");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
+
+  // phone otp state
+  const [phone, setPhone] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -74,6 +82,57 @@ function AuthPage() {
     navigate({ to: "/dashboard" });
   }
 
+  async function handleForgotPassword() {
+    const email = prompt("Enter your email to receive a password reset link:");
+    if (!email) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + "/reset-password",
+    });
+    if (error) toast.error(error.message);
+    else toast.success("Password reset email sent!");
+  }
+
+  function normalizePhone(raw: string) {
+    const digits = raw.replace(/[^\d+]/g, "");
+    if (digits.startsWith("+")) return digits;
+    if (digits.length === 10) return `+91${digits}`;
+    return `+${digits}`;
+  }
+
+  async function sendOtp() {
+    if (!phone.trim()) return toast.error("Enter mobile number");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone: normalizePhone(phone) });
+      if (error) throw error;
+      setOtpSent(true);
+      toast.success("OTP sent! Check your SMS.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send OTP");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyOtp() {
+    if (!otp.trim()) return toast.error("Enter OTP");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: normalizePhone(phone),
+        token: otp.trim(),
+        type: "sms",
+      });
+      if (error) throw error;
+      toast.success("Signed in!");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid OTP");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <Section>
       <div className="mx-auto max-w-md">
@@ -108,32 +167,106 @@ function AuthPage() {
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {mode === "signup" && (
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input name="full_name" required placeholder="Full name" className="glass border-0 pl-9" />
-              </div>
-            )}
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input type="email" name="email" required placeholder="Email" className="glass border-0 pl-9" />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input type="password" name="password" required minLength={6} placeholder="Password" className="glass border-0 pl-9" />
-            </div>
-            <Button type="submit" disabled={loading} className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "login" ? "Login" : "Create account"}
-            </Button>
-          </form>
-
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "login" ? "New here?" : "Already a member?"}{" "}
-            <button onClick={() => setMode(mode === "login" ? "signup" : "login")} className="font-medium text-primary">
-              {mode === "login" ? "Create an account" : "Login"}
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => { setMethod("email"); setOtpSent(false); }}
+              className={`rounded-2xl py-2 text-xs font-semibold transition ${method === "email" ? "bg-primary text-primary-foreground" : "glass"}`}
+            >
+              <Mail className="mr-1 inline h-3.5 w-3.5" /> Email
+            </button>
+            <button
+              type="button"
+              onClick={() => setMethod("phone")}
+              className={`rounded-2xl py-2 text-xs font-semibold transition ${method === "phone" ? "bg-primary text-primary-foreground" : "glass"}`}
+            >
+              <Phone className="mr-1 inline h-3.5 w-3.5" /> Mobile OTP
             </button>
           </div>
+
+          {method === "email" && (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {mode === "signup" && (
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input name="full_name" required placeholder="Full name" className="glass border-0 pl-9" />
+                </div>
+              )}
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input type="email" name="email" required placeholder="Email" className="glass border-0 pl-9" />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input type="password" name="password" required minLength={6} placeholder="Password" className="glass border-0 pl-9" />
+              </div>
+              <Button type="submit" disabled={loading} className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "login" ? "Login" : "Create account"}
+              </Button>
+              {mode === "login" && (
+                <button type="button" onClick={handleForgotPassword} className="mt-1 w-full text-center text-xs text-muted-foreground hover:text-primary">
+                  Forgot password?
+                </button>
+              )}
+            </form>
+          )}
+
+          {method === "phone" && (
+            <div className="space-y-3">
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Mobile number (10 digits)"
+                  disabled={otpSent}
+                  className="glass border-0 pl-9"
+                />
+              </div>
+              {otpSent && (
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    inputMode="numeric"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    className="glass border-0 pl-9 tracking-widest"
+                  />
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={otpSent ? verifyOtp : sendOtp}
+                disabled={loading}
+                className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : otpSent ? "Verify OTP & Login" : "Send OTP"}
+              </Button>
+              {otpSent && (
+                <button
+                  type="button"
+                  onClick={() => { setOtpSent(false); setOtp(""); }}
+                  className="w-full text-center text-xs text-muted-foreground hover:text-primary"
+                >
+                  Change number
+                </button>
+              )}
+              <p className="text-center text-[10px] text-muted-foreground">
+                We'll send you a one-time password via SMS.
+              </p>
+            </div>
+          )}
+
+          {method === "email" && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              {mode === "login" ? "New here?" : "Already a member?"}{" "}
+              <button onClick={() => setMode(mode === "login" ? "signup" : "login")} className="font-medium text-primary">
+                {mode === "login" ? "Create an account" : "Login"}
+              </button>
+            </div>
+          )}
         </motion.div>
 
         <div className="mt-4 text-center">
@@ -145,3 +278,4 @@ function AuthPage() {
     </Section>
   );
 }
+
