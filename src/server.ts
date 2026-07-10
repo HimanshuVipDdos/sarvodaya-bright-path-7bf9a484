@@ -4,8 +4,19 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
 async function getServerEntry() {
-  const m = await import("@tanstack/react-start/server-entry");
-  return (m.default ?? m) as { fetch: (request: Request) => Promise<Response> | Response };
+  const m: any = await import("@tanstack/react-start/server-entry");
+  const candidate = m.default ?? m;
+  const entry =
+    typeof candidate?.fetch === "function"
+      ? candidate
+      : typeof candidate?.default?.fetch === "function"
+        ? candidate.default
+        : null;
+  if (!entry) {
+    console.error("Unexpected server-entry shape:", Object.keys(candidate ?? {}));
+    throw new Error("Could not resolve TanStack server entry fetch handler.");
+  }
+  return entry as { fetch: (request: Request) => Promise<Response> | Response };
 }
 
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
