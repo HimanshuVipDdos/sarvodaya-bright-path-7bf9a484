@@ -74,9 +74,6 @@ function AuthPage() {
     setLoading(false);
   }
 }
-    if (res.redirected) return;
-    navigate({ to: "/dashboard" });
-  }
 
   return (
     <Section>
