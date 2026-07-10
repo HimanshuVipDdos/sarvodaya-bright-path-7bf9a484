@@ -292,7 +292,62 @@ function BatchPortal() {
           </div>
         )}
 
-        {tab === "live" && <LiveChapterDashboard classes={data.liveClasses} />}
+        {tab === "live" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {data.liveClasses.length === 0 && (
+              <div className="glass-strong col-span-full rounded-3xl p-8 text-center text-sm text-muted-foreground">
+                No live classes scheduled yet.
+              </div>
+            )}
+            {data.liveClasses.map((lc) => (
+              <div key={lc.id} className="glass-strong rounded-3xl p-5">
+                <div className="flex items-center gap-2">
+                  {lc.is_live && (
+                    <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-600">
+                      🔴 Live
+                    </span>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">
+                    {new Date(lc.scheduled_at).toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <h3 className="mt-2 font-semibold">{lc.title}</h3>
+                {lc.description && (
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{lc.description}</p>
+                )}
+                {lc.youtube_url && (
+                  <div className="mt-3">
+                    <VideoPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} />
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {lc.youtube_url && (
+                    <Button size="sm" variant="secondary" asChild>
+                      <a href={lc.youtube_url} target="_blank" rel="noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" /> YouTube
+                      </a>
+                    </Button>
+                  )}
+                  {lc.zoom_url && (
+                    <Button size="sm" variant="secondary" asChild>
+                      <a href={lc.zoom_url} target="_blank" rel="noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" /> Zoom
+                      </a>
+                    </Button>
+                  )}
+                  {lc.meet_url && (
+                    <Button size="sm" variant="secondary" asChild>
+                      <a href={lc.meet_url} target="_blank" rel="noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" /> Meet
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {tab === "notes" && <MaterialsList items={notes} empty="No notes uploaded yet." />}
         {tab === "dpp" && <MaterialsList items={dpp} empty="No DPP uploaded yet." />}
@@ -356,117 +411,6 @@ function MaterialsList({ items, empty }: { items: any[]; empty: string }) {
                 </Button>
               )}
             </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LiveChapterDashboard({ classes }: { classes: any[] }) {
-  if (classes.length === 0) {
-    return (
-      <div className="glass-strong rounded-3xl p-8 text-center text-sm text-muted-foreground">
-        No live classes scheduled yet.
-      </div>
-    );
-  }
-
-  // Group by chapter, live first, then upcoming, then past
-  const groups = new Map<string, any[]>();
-  for (const lc of classes) {
-    const key = lc.chapter || lc.subject || "General";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(lc);
-  }
-
-  const now = Date.now();
-  const rank = (lc: any) => {
-    if (lc.is_live) return 0;
-    const t = new Date(lc.scheduled_at).getTime();
-    if (t > now) return 1;
-    return 2;
-  };
-
-  const chapterEntries = Array.from(groups.entries()).map(([chapter, items]) => {
-    items.sort((a, b) => {
-      const r = rank(a) - rank(b);
-      if (r !== 0) return r;
-      return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
-    });
-    const hasLive = items.some((i) => i.is_live);
-    const minOrder = Math.min(...items.map((i) => i.chapter_order ?? 999));
-    return { chapter, items, hasLive, minOrder };
-  });
-
-  chapterEntries.sort((a, b) => {
-    if (a.hasLive !== b.hasLive) return a.hasLive ? -1 : 1;
-    if (a.minOrder !== b.minOrder) return a.minOrder - b.minOrder;
-    return a.chapter.localeCompare(b.chapter);
-  });
-
-  return (
-    <div className="space-y-6">
-      {chapterEntries.map(({ chapter, items, hasLive }) => (
-        <div key={chapter} className={`glass-strong rounded-3xl p-5 ${hasLive ? "ring-2 ring-red-500/40" : ""}`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary">Chapter</div>
-              <h3 className="mt-0.5 text-lg font-bold">{chapter}</h3>
-            </div>
-            {hasLive && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-                </span>
-                Live now
-              </span>
-            )}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {items.map((lc) => (
-              <div key={lc.id} className={`rounded-2xl border p-3 ${lc.is_live ? "border-red-500/50 bg-red-500/5" : "border-border/60 bg-background/40"}`}>
-                <div className="flex items-center gap-2">
-                  {lc.is_live ? (
-                    <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-600">🔴 Live</span>
-                  ) : (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {new Date(lc.scheduled_at).getTime() > now ? "Upcoming" : "Ended"}
-                    </span>
-                  )}
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(lc.scheduled_at).toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="mt-2 text-sm font-semibold">{lc.title}</div>
-                {lc.subject && <div className="text-[11px] text-muted-foreground">{lc.subject}</div>}
-                {lc.is_live && lc.youtube_url && (
-                  <div className="mt-2">
-                    <VideoPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} />
-                  </div>
-                )}
-                {!lc.is_live && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {lc.youtube_url && (
-                      <Button size="sm" variant="secondary" asChild>
-                        <a href={lc.youtube_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-3 w-3" /> YouTube</a>
-                      </Button>
-                    )}
-                    {lc.zoom_url && (
-                      <Button size="sm" variant="secondary" asChild>
-                        <a href={lc.zoom_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-3 w-3" /> Zoom</a>
-                      </Button>
-                    )}
-                    {lc.meet_url && (
-                      <Button size="sm" variant="secondary" asChild>
-                        <a href={lc.meet_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-3 w-3" /> Meet</a>
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         </div>
       ))}
