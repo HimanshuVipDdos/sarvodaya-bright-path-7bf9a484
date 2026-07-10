@@ -1,13 +1,18 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Mail, Lock, User, ChevronLeft } from "lucide-react";
+import { Loader2, Mail, Lock, User, ChevronLeft, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/section";
 import { SITE } from "@/lib/site";
 import { toast } from "sonner";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -29,6 +34,12 @@ function AuthPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
 
+  // OTP verification step (shown after signup, before account is active)
+  const [step, setStep] = useState<"form" | "otp">("form");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -46,8 +57,10 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Account created! Check your email if confirmation is required.");
-        navigate({ to: "/dashboard" });
+        // Don't log the user in yet — they must verify the OTP sent to their email first.
+        setPendingEmail(email);
+        setStep("otp");
+        toast.success("We've sent a 6-digit code to your email.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -56,6 +69,55 @@ function AuthPage() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (otp.length !== 6) {
+      toast.error("Enter the 6-digit code sent to your email.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: otp,
+        type: "signup",
+      });
+      if (error) throw error;
+      toast.success("Email verified! Welcome to Sarvodaya Adhyeta.");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid or expired code");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResendOtp() {
+    if (resendCooldown > 0) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingEmail,
+      });
+      if (error) throw error;
+      toast.success("New code sent.");
+      setResendCooldown(30);
+      const interval = setInterval(() => {
+        setResendCooldown((s) => {
+          if (s <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't resend code");
     } finally {
       setLoading(false);
     }
@@ -74,6 +136,68 @@ function AuthPage() {
     setLoading(false);
   }
 }
+
+  if (step === "otp") {
+    return (
+      <Section>
+        <div className="mx-auto max-w-md">
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="glass-strong rounded-3xl p-8">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <h1 className="mt-4 text-3xl font-bold tracking-tight">Verify your email</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Enter the 6-digit code sent to <span className="font-medium text-foreground">{pendingEmail}</span>
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-center">
+              <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+
+            <Button
+              type="button"
+              disabled={loading || otp.length !== 6}
+              onClick={handleVerifyOtp}
+              className="mt-6 w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify & continue"}
+            </Button>
+
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              Didn't get the code?{" "}
+              <button
+                onClick={handleResendOtp}
+                disabled={resendCooldown > 0 || loading}
+                className="font-medium text-primary disabled:opacity-50"
+              >
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+              </button>
+            </div>
+
+            <div className="mt-2 text-center">
+              <button
+                onClick={() => { setStep("form"); setOtp(""); }}
+                className="inline-flex items-center text-xs text-muted-foreground hover:text-primary"
+              >
+                <ChevronLeft className="mr-1 h-3 w-3" /> Use a different email
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </Section>
+    );
+  }
 
   return (
     <Section>
