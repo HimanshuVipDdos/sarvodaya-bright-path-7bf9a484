@@ -311,42 +311,63 @@ export type Database = {
       }
       live_classes: {
         Row: {
+          auto_end: boolean
+          auto_start: boolean
           batch_id: string | null
+          chapter: string | null
+          chapter_order: number | null
           created_at: string
           description: string | null
           duration_minutes: number | null
+          end_at: string | null
           id: string
           is_live: boolean
           meet_url: string | null
+          recorded_lecture_id: string | null
           scheduled_at: string
+          subject: string | null
           thumbnail_url: string | null
           title: string
           youtube_url: string | null
           zoom_url: string | null
         }
         Insert: {
+          auto_end?: boolean
+          auto_start?: boolean
           batch_id?: string | null
+          chapter?: string | null
+          chapter_order?: number | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
+          end_at?: string | null
           id?: string
           is_live?: boolean
           meet_url?: string | null
+          recorded_lecture_id?: string | null
           scheduled_at: string
+          subject?: string | null
           thumbnail_url?: string | null
           title: string
           youtube_url?: string | null
           zoom_url?: string | null
         }
         Update: {
+          auto_end?: boolean
+          auto_start?: boolean
           batch_id?: string | null
+          chapter?: string | null
+          chapter_order?: number | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
+          end_at?: string | null
           id?: string
           is_live?: boolean
           meet_url?: string | null
+          recorded_lecture_id?: string | null
           scheduled_at?: string
+          subject?: string | null
           thumbnail_url?: string | null
           title?: string
           youtube_url?: string | null
@@ -358,6 +379,13 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_classes_recorded_lecture_id_fkey"
+            columns: ["recorded_lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
             referencedColumns: ["id"]
           },
         ]
@@ -547,6 +575,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      tick_live_classes: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "student"
