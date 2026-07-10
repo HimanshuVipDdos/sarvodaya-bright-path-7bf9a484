@@ -103,45 +103,18 @@ function Dashboard() {
               </Button>
             </div>
           ) : (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 space-y-3">
               {data.enrollments.map((e: any) => (
-                <Link
-                  key={e.id}
-                  to="/my-batch/$slug"
-                  params={{ slug: e.batch?.slug ?? "" }}
-                  className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card transition hover:shadow-elegant"
-                >
-                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-primary to-primary-glow">
-                    {e.batch?.thumbnail_url && (
-                      <img
-                        src={e.batch.thumbnail_url}
-                        alt={e.batch?.title ?? ""}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-3">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/85">
-                        {e.batch?.exam_category}
-                      </div>
-                      <div className="mt-0.5 line-clamp-1 text-sm font-semibold text-white">
-                        {e.batch?.title}
-                      </div>
-                    </div>
+                <div key={e.id} className="glass flex items-center justify-between rounded-2xl p-4">
+                  <div>
+                    <div className="font-semibold">{e.batch?.title}</div>
+                    <div className="text-xs text-muted-foreground">{e.batch?.exam_category}</div>
                   </div>
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-[11px] text-muted-foreground">
-                      {e.payment_status === "paid" ? "✓ Paid" : e.payment_status ?? "Enrolled"}
-                    </span>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                      Open →
-                    </span>
-                  </div>
-                </Link>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{e.status}</span>
+                </div>
               ))}
             </div>
           )}
-
         </div>
 
         <div className="glass-strong rounded-3xl p-6">

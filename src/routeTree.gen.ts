@@ -25,12 +25,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
-import { Route as AuthenticatedMyBatchSlugRouteImport } from './routes/_authenticated/my-batch.$slug'
 import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
-import { Route as AuthenticatedAdminLiveClassesRouteImport } from './routes/_authenticated/admin.live-classes'
 import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
-import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin.enrollments'
 import { Route as AuthenticatedAdminDppsRouteImport } from './routes/_authenticated/admin.dpps'
 import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
 import { Route as AuthenticatedAdminBatchesRouteImport } from './routes/_authenticated/admin.batches'
@@ -114,12 +111,6 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedMyBatchSlugRoute =
-  AuthenticatedMyBatchSlugRouteImport.update({
-    id: '/my-batch/$slug',
-    path: '/my-batch/$slug',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedAdminPdfsRoute = AuthenticatedAdminPdfsRouteImport.update({
   id: '/admin/pdfs',
   path: '/admin/pdfs',
@@ -131,22 +122,10 @@ const AuthenticatedAdminNotificationsRoute =
     path: '/admin/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAdminLiveClassesRoute =
-  AuthenticatedAdminLiveClassesRouteImport.update({
-    id: '/admin/live-classes',
-    path: '/admin/live-classes',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedAdminLecturesRoute =
   AuthenticatedAdminLecturesRouteImport.update({
     id: '/admin/lectures',
     path: '/admin/lectures',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedAdminEnrollmentsRoute =
-  AuthenticatedAdminEnrollmentsRouteImport.update({
-    id: '/admin/enrollments',
-    path: '/admin/enrollments',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
@@ -185,12 +164,9 @@ export interface FileRoutesByFullPath {
   '/admin/batches': typeof AuthenticatedAdminBatchesRoute
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
   '/admin/dpps': typeof AuthenticatedAdminDppsRoute
-  '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
-  '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
-  '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -211,12 +187,9 @@ export interface FileRoutesByTo {
   '/admin/batches': typeof AuthenticatedAdminBatchesRoute
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
   '/admin/dpps': typeof AuthenticatedAdminDppsRoute
-  '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
-  '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
-  '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -239,12 +212,9 @@ export interface FileRoutesById {
   '/_authenticated/admin/batches': typeof AuthenticatedAdminBatchesRoute
   '/_authenticated/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
   '/_authenticated/admin/dpps': typeof AuthenticatedAdminDppsRoute
-  '/_authenticated/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/_authenticated/admin/lectures': typeof AuthenticatedAdminLecturesRoute
-  '/_authenticated/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
-  '/_authenticated/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -267,12 +237,9 @@ export interface FileRouteTypes {
     | '/admin/batches'
     | '/admin/current-affairs'
     | '/admin/dpps'
-    | '/admin/enrollments'
     | '/admin/lectures'
-    | '/admin/live-classes'
     | '/admin/notifications'
     | '/admin/pdfs'
-    | '/my-batch/$slug'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -293,12 +260,9 @@ export interface FileRouteTypes {
     | '/admin/batches'
     | '/admin/current-affairs'
     | '/admin/dpps'
-    | '/admin/enrollments'
     | '/admin/lectures'
-    | '/admin/live-classes'
     | '/admin/notifications'
     | '/admin/pdfs'
-    | '/my-batch/$slug'
     | '/admin'
   id:
     | '__root__'
@@ -320,12 +284,9 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/batches'
     | '/_authenticated/admin/current-affairs'
     | '/_authenticated/admin/dpps'
-    | '/_authenticated/admin/enrollments'
     | '/_authenticated/admin/lectures'
-    | '/_authenticated/admin/live-classes'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/pdfs'
-    | '/_authenticated/my-batch/$slug'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -459,13 +420,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/my-batch/$slug': {
-      id: '/_authenticated/my-batch/$slug'
-      path: '/my-batch/$slug'
-      fullPath: '/my-batch/$slug'
-      preLoaderRoute: typeof AuthenticatedMyBatchSlugRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/admin/pdfs': {
       id: '/_authenticated/admin/pdfs'
       path: '/admin/pdfs'
@@ -480,25 +434,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin/live-classes': {
-      id: '/_authenticated/admin/live-classes'
-      path: '/admin/live-classes'
-      fullPath: '/admin/live-classes'
-      preLoaderRoute: typeof AuthenticatedAdminLiveClassesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/admin/lectures': {
       id: '/_authenticated/admin/lectures'
       path: '/admin/lectures'
       fullPath: '/admin/lectures'
       preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/admin/enrollments': {
-      id: '/_authenticated/admin/enrollments'
-      path: '/admin/enrollments'
-      fullPath: '/admin/enrollments'
-      preLoaderRoute: typeof AuthenticatedAdminEnrollmentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/dpps': {
@@ -530,12 +470,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminBatchesRoute: typeof AuthenticatedAdminBatchesRoute
   AuthenticatedAdminCurrentAffairsRoute: typeof AuthenticatedAdminCurrentAffairsRoute
   AuthenticatedAdminDppsRoute: typeof AuthenticatedAdminDppsRoute
-  AuthenticatedAdminEnrollmentsRoute: typeof AuthenticatedAdminEnrollmentsRoute
   AuthenticatedAdminLecturesRoute: typeof AuthenticatedAdminLecturesRoute
-  AuthenticatedAdminLiveClassesRoute: typeof AuthenticatedAdminLiveClassesRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminPdfsRoute: typeof AuthenticatedAdminPdfsRoute
-  AuthenticatedMyBatchSlugRoute: typeof AuthenticatedMyBatchSlugRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -544,12 +481,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminBatchesRoute: AuthenticatedAdminBatchesRoute,
   AuthenticatedAdminCurrentAffairsRoute: AuthenticatedAdminCurrentAffairsRoute,
   AuthenticatedAdminDppsRoute: AuthenticatedAdminDppsRoute,
-  AuthenticatedAdminEnrollmentsRoute: AuthenticatedAdminEnrollmentsRoute,
   AuthenticatedAdminLecturesRoute: AuthenticatedAdminLecturesRoute,
-  AuthenticatedAdminLiveClassesRoute: AuthenticatedAdminLiveClassesRoute,
   AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
   AuthenticatedAdminPdfsRoute: AuthenticatedAdminPdfsRoute,
-  AuthenticatedMyBatchSlugRoute: AuthenticatedMyBatchSlugRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
@@ -585,13 +519,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

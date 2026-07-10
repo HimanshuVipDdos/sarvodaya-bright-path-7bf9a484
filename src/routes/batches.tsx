@@ -13,9 +13,7 @@ const batchesQuery = queryOptions({
   queryKey: ["batches", "all"],
   queryFn: async () => {
     const { data } = await supabase.from("batches").select("*").eq("is_active", true).order("is_featured", { ascending: false }).order("title");
-    const { data: live } = await supabase.from("live_classes").select("batch_id").eq("is_live", true);
-    const liveSet = new Set((live ?? []).map((l) => l.batch_id));
-    return (data ?? []).map((b) => ({ ...b, _isLive: liveSet.has(b.id) }));
+    return data ?? [];
   },
 });
 
@@ -46,7 +44,7 @@ function BatchesPage() {
     <Section
       eyebrow="All Batches"
       title="Find the right batch for your exam"
-      description="13+ batches across UP and central competitive exams. Live classes, recorded lectures, DPPs and mock tests included."
+      description="26+ batches across UP and central competitive exams. Live classes, recorded lectures, DPPs and mock tests included."
     >
       <div className="glass-strong mb-8 flex flex-col gap-3 rounded-3xl p-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -79,33 +77,10 @@ function BatchesPage() {
             transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.3) }}
           >
             <Link to="/batches/$slug" params={{ slug: b.slug }} className="block h-full">
-              <div className="glass-strong hover-lift flex h-full flex-col overflow-hidden rounded-3xl">
-                {b.thumbnail_url ? (
-                  <div className="relative aspect-[16/9] w-full overflow-hidden">
-                    <img src={b.thumbnail_url} alt={b.title} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                    <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
-                    {b.is_featured && <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-primary shadow">Featured</span>}
-                    {b._isLive && (
-                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow">
-                        <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span>
-                        Live
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="relative aspect-[16/9] w-full bg-gradient-to-br from-primary/15 via-primary/5 to-primary-glow/20">
-                    {b.is_featured && <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-primary shadow">Featured</span>}
-                    {b._isLive && (
-                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow">
-                        <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span>
-                        Live
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="flex flex-1 flex-col p-6">
+              <div className="glass-strong hover-lift flex h-full flex-col rounded-3xl p-6">
                 <div className="flex items-center justify-between">
                   <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary">{b.exam_category}</div>
+                  {b.is_featured && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Featured</span>}
                 </div>
                 <h3 className="mt-2 text-lg font-semibold tracking-tight">{b.title}</h3>
                 <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{b.description}</p>
@@ -125,7 +100,6 @@ function BatchesPage() {
                   <Button size="sm" className="rounded-full bg-gradient-to-br from-primary to-primary-glow">
                     Details <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
-                </div>
                 </div>
               </div>
             </Link>

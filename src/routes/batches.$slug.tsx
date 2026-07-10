@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { VideoPlayer } from "@/components/video-player";
 import { SITE, whatsappHref } from "@/lib/site";
 
 const batchQuery = (slug: string) =>
@@ -65,25 +64,10 @@ function BatchDetail() {
         <ArrowLeft className="mr-1 h-4 w-4" /> All batches
       </Link>
 
-      {b.thumbnail_url && (
-        <div className="relative mt-6 overflow-hidden rounded-3xl shadow-elegant">
-          <img src={b.thumbnail_url} alt={b.title} className="h-48 w-full object-cover sm:h-64 md:h-80" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
-            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/85">{b.exam_category}</div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-4xl">{b.title}</h1>
-          </div>
-        </div>
-      )}
-
       <div className="mt-6 grid gap-8 lg:grid-cols-3">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2">
-          {!b.thumbnail_url && (
-            <>
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">{b.exam_category}</div>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{b.title}</h1>
-            </>
-          )}
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">{b.exam_category}</div>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{b.title}</h1>
           <p className="mt-3 text-base text-muted-foreground">{b.description}</p>
 
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -131,8 +115,14 @@ function BatchDetail() {
           {b.demo_video_url && (
             <div className="mt-8">
               <h2 className="text-lg font-semibold">Demo Lecture</h2>
-              <div className="mt-3">
-                <VideoPlayer src={b.demo_video_url} poster={b.thumbnail_url ?? undefined} title={`${b.title} — Demo`} />
+              <div className="mt-3 aspect-video overflow-hidden rounded-3xl glass-strong">
+                <iframe
+                  src={b.demo_video_url}
+                  title="Demo Lecture"
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
               </div>
             </div>
           )}

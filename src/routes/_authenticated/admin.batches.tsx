@@ -25,7 +25,7 @@ const fields: Field[] = [
   { name: "fees_inr", label: "Fees (₹)", type: "number" },
   { name: "original_fees_inr", label: "Original Fees (₹)", type: "number" },
   { name: "starts_on", label: "Starts On", type: "date" },
-  { name: "thumbnail_url", label: "Cover Photo", type: "image", bucket: "batch-covers", helper: "Upload a cover image (used as the batch card & portal hero, like PW)" },
+  { name: "thumbnail_url", label: "Thumbnail URL", type: "url" },
   { name: "demo_video_url", label: "Demo Video URL", type: "url" },
   { name: "subjects", label: "Subjects", type: "array" },
   { name: "faculty", label: "Faculty", type: "array" },
