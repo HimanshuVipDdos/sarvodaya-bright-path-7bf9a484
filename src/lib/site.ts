@@ -15,6 +15,7 @@ export const NAV = [
   { to: "/about", label: "About" },
   { to: "/courses", label: "Courses" },
   { to: "/batches", label: "Batches" },
+  { to: "/faculty", label: "Faculty" },
   { to: "/results", label: "Results" },
   { to: "/gallery", label: "Gallery" },
   { to: "/current-affairs", label: "Current Affairs" },
