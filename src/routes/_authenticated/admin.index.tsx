@@ -3,7 +3,7 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Shield, Users, BookOpen, Bell, FileText, Video, Image as ImageIcon,
-  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare,
+  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -83,6 +83,7 @@ function AdminPage() {
     { icon: Video, label: "Live Classes", desc: "Schedule live classes for each batch", to: "/admin/live-classes" },
     { icon: MessageSquare, label: "Live Comments", desc: "Watch & moderate live class comments", to: "/admin/live-chat" },
     { icon: Users, label: "Grant Batch Access", desc: "Enroll students free / discount / paid", to: "/admin/enrollments" },
+    { icon: ListChecks, label: "CBT Tests", desc: "Create tests, questions, and view rankings", to: "/admin/cbt" },
     { icon: FileText, label: "PDFs & Notes", desc: "PDFs, notes, PYQs, answer keys", to: "/admin/pdfs" },
     { icon: FileText, label: "Daily Practice Problems", desc: "Manage DPPs by batch & subject", to: "/admin/dpps" },
     { icon: Newspaper, label: "Current Affairs", desc: "Daily and weekly updates", to: "/admin/current-affairs" },
