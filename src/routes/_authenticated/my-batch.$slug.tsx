@@ -33,7 +33,13 @@ const batchPortalQuery = (slug: string) =>
       const isAdmin = (roles ?? []).some((r) => r.role === "admin");
 
       if (!enrollment && !isAdmin) {
-        return { batch, enrolled: false, lectures: [], liveClasses: [], materials: [], notifications: [] };
+        return {
+          batch, enrolled: false, lectures: [], liveClasses: [], materials: [], notifications: [],
+          tests: [] as {
+            id: string; title: string; description: string | null; duration_minutes: number;
+            attempt: { test_id: string; status: string; score: number; max_score: number } | null;
+          }[],
+        };
       }
 
       // Opportunistically start/end any due live classes (and auto-archive
