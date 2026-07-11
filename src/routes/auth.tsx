@@ -24,7 +24,9 @@ export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
     // Don't bounce recovery links (password reset) away to the dashboard.
+    // Implicit flow puts "type=recovery" in the hash; PKCE flow puts "?code=..." in the query.
     if (window.location.hash.includes("type=recovery")) return;
+    if (new URLSearchParams(window.location.search).has("code")) return;
     const { data } = await supabase.auth.getSession();
     if (data.session) throw redirect({ to: "/dashboard" });
   },
@@ -95,6 +97,19 @@ function AuthPage() {
         setStep("reset");
       }
     });
+
+    // Fallback for the PKCE flow: the code exchange can finish before this
+    // listener mounts, so if we landed with "?code=" and end up with a
+    // session, show the reset form directly.
+    const hasRecoveryCode =
+      new URLSearchParams(window.location.search).has("code") ||
+      window.location.hash.includes("type=recovery");
+    if (hasRecoveryCode) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) setStep("reset");
+      });
+    }
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
