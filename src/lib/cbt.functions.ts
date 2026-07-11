@@ -216,6 +216,52 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
     };
   });
 
+// ---------- Student: public top-20 leaderboard for a test ----------
+export const getCbtPublicLeaderboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { test_id: string }) => {
+    if (!input?.test_id) throw new Error("test_id is required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    // RLS-scoped read confirms the student is eligible to view this test.
+    const { data: test, error: testErr } = await context.supabase
+      .from("cbt_tests")
+      .select("id,title")
+      .eq("id", data.test_id)
+      .maybeSingle();
+    if (testErr) throw new Error(testErr.message);
+    if (!test) throw new Error("Test not found.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: attempts, error } = await supabaseAdmin
+      .from("cbt_attempts")
+      .select("id,user_id,score,max_score,correct_count,submitted_at")
+      .eq("test_id", data.test_id)
+      .eq("status", "submitted")
+      .order("score", { ascending: false })
+      .order("submitted_at", { ascending: true })
+      .limit(20);
+    if (error) throw new Error(error.message);
+
+    const userIds = [...new Set((attempts ?? []).map((a) => a.user_id))];
+    const { data: profiles } = userIds.length
+      ? await supabaseAdmin.from("profiles").select("id,full_name").in("id", userIds)
+      : { data: [] as { id: string; full_name: string | null }[] };
+    const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+
+    return {
+      test_title: test.title,
+      entries: (attempts ?? []).map((a, i) => ({
+        rank: i + 1,
+        name: nameById.get(a.user_id) ?? "Student",
+        score: a.score,
+        max_score: a.max_score,
+        is_me: a.user_id === context.userId,
+      })),
+    };
+  });
+
 // ---------- Admin: leaderboard for a test ----------
 export const getCbtLeaderboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -232,13 +278,25 @@ export const getCbtLeaderboard = createServerFn({ method: "GET" })
 
     const { data: attempts, error } = await supabaseAdmin
       .from("cbt_attempts")
-      .select("id,user_id,score,max_score,correct_count,wrong_count,unanswered_count,submitted_at,profile:profiles(full_name,phone)")
+      .select("id,user_id,score,max_score,correct_count,wrong_count,unanswered_count,submitted_at")
       .eq("test_id", data.test_id)
       .eq("status", "submitted")
       .order("score", { ascending: false })
       .order("submitted_at", { ascending: true });
     if (error) throw new Error(error.message);
 
-    return { test_title: test?.title ?? "Test", attempts: attempts ?? [] };
+    const userIds = [...new Set((attempts ?? []).map((a) => a.user_id))];
+    const { data: profiles } = userIds.length
+      ? await supabaseAdmin.from("profiles").select("id,full_name,phone").in("id", userIds)
+      : { data: [] as { id: string; full_name: string | null; phone: string | null }[] };
+    const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+    return {
+      test_title: test?.title ?? "Test",
+      attempts: (attempts ?? []).map((a) => ({
+        ...a,
+        profile: profileById.get(a.user_id) ?? null,
+      })),
+    };
   });
 

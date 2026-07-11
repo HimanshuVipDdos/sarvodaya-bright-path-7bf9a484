@@ -81,7 +81,7 @@ function ResultPage() {
 
     ctx.font = "14px sans-serif";
     ctx.fillStyle = "#78716c";
-    ctx.fillText(new Date(data.attempt.submitted_at).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }), 500, 600);
+    ctx.fillText(new Date(data.attempt.submitted_at ?? Date.now()).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }), 500, 600);
 
     const link = document.createElement("a");
     link.download = `Certificate-${data.student_name.replace(/\s+/g, "-")}.png`;
@@ -139,6 +139,11 @@ function ResultPage() {
             <Link to="/cbt/$testId/mistakes" params={{ testId }} search={{ attempt: attemptId }}>
               <Button variant="outline" className="gap-2">
                 <Search className="h-4 w-4" /> Review My Mistakes
+              </Button>
+            </Link>
+            <Link to="/cbt/$testId/leaderboard" params={{ testId }}>
+              <Button variant="outline" className="gap-2">
+                <Trophy className="h-4 w-4" /> Leaderboard
               </Button>
             </Link>
           </div>

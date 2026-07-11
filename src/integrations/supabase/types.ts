@@ -77,6 +77,201 @@ export type Database = {
         }
         Relationships: []
       }
+      cbt_answers: {
+        Row: {
+          attempt_id: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_option: string | null
+        }
+        Insert: {
+          attempt_id: string
+          id?: string
+          is_correct?: boolean
+          question_id: string
+          selected_option?: string | null
+        }
+        Update: {
+          attempt_id?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_option?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbt_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "cbt_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cbt_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "cbt_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cbt_attempts: {
+        Row: {
+          correct_count: number
+          id: string
+          max_score: number
+          score: number
+          started_at: string
+          status: string
+          submitted_at: string | null
+          test_id: string
+          topic_breakdown: Json
+          total_questions: number
+          unanswered_count: number
+          user_id: string
+          wrong_count: number
+        }
+        Insert: {
+          correct_count?: number
+          id?: string
+          max_score?: number
+          score?: number
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+          test_id: string
+          topic_breakdown?: Json
+          total_questions?: number
+          unanswered_count?: number
+          user_id: string
+          wrong_count?: number
+        }
+        Update: {
+          correct_count?: number
+          id?: string
+          max_score?: number
+          score?: number
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+          test_id?: string
+          topic_breakdown?: Json
+          total_questions?: number
+          unanswered_count?: number
+          user_id?: string
+          wrong_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbt_attempts_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "cbt_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cbt_questions: {
+        Row: {
+          correct_option: string
+          created_at: string
+          id: string
+          marks: number
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question_text: string
+          sort_order: number
+          test_id: string
+          topic: string | null
+        }
+        Insert: {
+          correct_option: string
+          created_at?: string
+          id?: string
+          marks?: number
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question_text: string
+          sort_order?: number
+          test_id: string
+          topic?: string | null
+        }
+        Update: {
+          correct_option?: string
+          created_at?: string
+          id?: string
+          marks?: number
+          option_a?: string
+          option_b?: string
+          option_c?: string
+          option_d?: string
+          question_text?: string
+          sort_order?: number
+          test_id?: string
+          topic?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbt_questions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "cbt_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cbt_tests: {
+        Row: {
+          access_mode: string
+          batch_id: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          is_published: boolean
+          marks_per_question: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_mode?: string
+          batch_id?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_published?: boolean
+          marks_per_question?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_mode?: string
+          batch_id?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_published?: boolean
+          marks_per_question?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbt_tests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       current_affairs: {
         Row: {
           body: string | null
@@ -167,6 +362,7 @@ export type Database = {
           is_active: boolean
           name: string
           photo_url: string | null
+          qualification: string | null
           sort_order: number | null
           subject: string | null
         }
@@ -179,6 +375,7 @@ export type Database = {
           is_active?: boolean
           name: string
           photo_url?: string | null
+          qualification?: string | null
           sort_order?: number | null
           subject?: string | null
         }
@@ -191,6 +388,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           photo_url?: string | null
+          qualification?: string | null
           sort_order?: number | null
           subject?: string | null
         }
@@ -377,6 +575,41 @@ export type Database = {
             columns: ["recorded_lecture_id"]
             isOneToOne: false
             referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          live_class_id: string
+          message: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          live_class_id: string
+          message: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          live_class_id?: string
+          message?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_chat_messages_live_class_id_fkey"
+            columns: ["live_class_id"]
+            isOneToOne: false
+            referencedRelation: "live_classes"
             referencedColumns: ["id"]
           },
         ]
