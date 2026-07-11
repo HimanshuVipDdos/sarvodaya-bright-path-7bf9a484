@@ -3,7 +3,7 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Shield, Users, BookOpen, Bell, FileText, Video, Image as ImageIcon,
-  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight,
+  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -81,14 +81,15 @@ function AdminPage() {
     { icon: BookOpen, label: "Batches", desc: "Create, edit, delete batches (with cover photos)", to: "/admin/batches" },
     { icon: Video, label: "Recorded Lectures", desc: "Upload and manage lectures", to: "/admin/lectures" },
     { icon: Video, label: "Live Classes", desc: "Schedule live classes for each batch", to: "/admin/live-classes" },
+    { icon: MessageSquare, label: "Live Comments", desc: "Watch & moderate live class comments", to: "/admin/live-chat" },
     { icon: Users, label: "Grant Batch Access", desc: "Enroll students free / discount / paid", to: "/admin/enrollments" },
     { icon: FileText, label: "PDFs & Notes", desc: "PDFs, notes, PYQs, answer keys", to: "/admin/pdfs" },
     { icon: FileText, label: "Daily Practice Problems", desc: "Manage DPPs by batch & subject", to: "/admin/dpps" },
     { icon: Newspaper, label: "Current Affairs", desc: "Daily and weekly updates", to: "/admin/current-affairs" },
     { icon: Bell, label: "Notifications", desc: "Vacancies, admit cards, dates", to: "/admin/notifications" },
-    { icon: Trophy, label: "Results", desc: "Selections and testimonials" },
-    { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles" },
-    { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars" },
+    { icon: Trophy, label: "Results", desc: "Selections and testimonials", to: "/admin/results" },
+    { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles", to: "/admin/faculty" },
+    { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars", to: "/admin/gallery" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
   ];
 
