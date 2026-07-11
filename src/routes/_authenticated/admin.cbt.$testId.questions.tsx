@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ResourceManager, type Column, type Field } from "@/components/admin/resource-manager";
+import { AiQuestionParser } from "@/components/admin/ai-question-parser";
 
 type QuestionRow = {
   id: string; test_id: string; question_text: string;
@@ -53,15 +54,26 @@ function QuestionsAdmin() {
   return (
     <>
       <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
-        <Link to="/admin/cbt" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> All Tests
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link to="/admin/cbt" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" /> All Tests
+          </Link>
+          {/* AI Question Parser - 100% Free */}
+          <AiQuestionParser
+            testId={testId}
+            testTitle={test?.title}
+            onSuccess={() => {
+              // Refresh the resource manager data
+              window.location.reload();
+            }}
+          />
+        </div>
       </div>
       <ResourceManager<QuestionRow>
         table="cbt_questions"
         eyebrow="Admin · CBT"
         title={`Questions — ${test?.title ?? "…"}`}
-        description="Add MCQs for this test. Students never see the correct answer until after they submit."
+        description="Add MCQs for this test. Students never see the correct answer until after they submit. Use the 'AI Upload' button to bulk import from PDF/Photos (100% free, no paid AI needed)."
         columns={columns}
         fields={fields}
         defaults={{ marks: 1, sort_order: 0, correct_option: "a" }}
