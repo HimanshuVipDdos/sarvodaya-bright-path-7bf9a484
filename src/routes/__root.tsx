@@ -127,6 +127,30 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  // Fix: Radix Dialog/AlertDialog can occasionally leave document.body stuck
+  // with `pointer-events: none` after closing (known Radix + React 19 issue),
+  // which makes the entire page unclickable. This watches for that stuck
+  // state and clears it automatically whenever no dialog is actually open.
+  useEffect(() => {
+    const clearStuckPointerEvents = () => {
+      const hasOpenDialog = document.querySelector('[role="dialog"][data-state="open"]');
+      if (!hasOpenDialog && document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = "";
+      }
+    };
+
+    const observer = new MutationObserver(clearStuckPointerEvents);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["style"] });
+
+    // Also do a periodic safety check in case the mutation is missed.
+    const interval = setInterval(clearStuckPointerEvents, 500);
+
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
