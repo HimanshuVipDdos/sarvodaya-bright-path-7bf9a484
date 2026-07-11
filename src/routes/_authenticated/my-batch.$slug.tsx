@@ -4,7 +4,7 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Video, FileText, ClipboardList, Radio, Clock, Calendar,
-  BookOpen, Bell, ExternalLink, PlayCircle,
+  BookOpen, Bell, ExternalLink, PlayCircle, Award, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -40,7 +40,7 @@ const batchPortalQuery = (slug: string) =>
       // ended ones to Lectures) before reading the list below.
       await supabase.rpc("tick_live_classes" as never);
 
-      const [lectures, liveClasses, materials, notifications] = await Promise.all([
+      const [lectures, liveClasses, materials, notifications, batchTests, freeTests, myAttempts] = await Promise.all([
         supabase.from("lectures").select("*")
           .eq("batch_id", batch.id).eq("is_published", true)
           .order("lecture_number", { ascending: true }),
@@ -50,7 +50,17 @@ const batchPortalQuery = (slug: string) =>
           .eq("batch_id", batch.id).order("created_at", { ascending: false }),
         supabase.from("notifications").select("*")
           .order("created_at", { ascending: false }).limit(6),
+        supabase.from("cbt_tests").select("id,title,description,duration_minutes")
+          .eq("batch_id", batch.id).eq("is_published", true),
+        supabase.from("cbt_tests").select("id,title,description,duration_minutes")
+          .eq("access_mode", "free").eq("is_published", true),
+        supabase.from("cbt_attempts").select("test_id,status,score,max_score").eq("user_id", userId),
       ]);
+
+      const attemptByTest = new Map((myAttempts.data ?? []).map((a) => [a.test_id, a]));
+      const tests = [...(batchTests.data ?? []), ...(freeTests.data ?? [])].map((t) => ({
+        ...t, attempt: attemptByTest.get(t.id) ?? null,
+      }));
 
       return {
         batch, enrolled: true,
@@ -58,6 +68,7 @@ const batchPortalQuery = (slug: string) =>
         liveClasses: liveClasses.data ?? [],
         materials: materials.data ?? [],
         notifications: notifications.data ?? [],
+        tests,
       };
     },
   });
@@ -84,7 +95,7 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
   ),
 });
 
-type Tab = "classes" | "live" | "notes" | "dpp" | "updates";
+type Tab = "classes" | "live" | "notes" | "dpp" | "tests" | "updates";
 
 function BatchPortal() {
   const { slug } = Route.useParams();
@@ -124,6 +135,7 @@ function BatchPortal() {
     { key: "live", label: "Live", icon: Radio, count: todayLive.length },
     { key: "notes", label: "Notes", icon: FileText, count: notes.length },
     { key: "dpp", label: "DPP", icon: ClipboardList, count: dpp.length },
+    { key: "tests", label: "Tests", icon: Award, count: data.tests.length },
     { key: "updates", label: "Updates", icon: Bell, count: data.notifications.length },
   ];
 
@@ -365,6 +377,46 @@ function BatchPortal() {
 
         {tab === "notes" && <MaterialsList items={notes} empty="No notes uploaded yet." />}
         {tab === "dpp" && <MaterialsList items={dpp} empty="No DPP uploaded yet." />}
+
+        {tab === "tests" && (
+          <div className="space-y-3">
+            {data.tests.length === 0 && (
+              <div className="glass-strong rounded-3xl p-8 text-center text-sm text-muted-foreground">
+                No tests available right now.
+              </div>
+            )}
+            {data.tests.map((t: any) => (
+              <div key={t.id} className="glass-strong rounded-2xl p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Award className="h-4 w-4 text-primary" /> {t.title}
+                    </div>
+                    {t.description && <div className="mt-1 text-xs text-muted-foreground">{t.description}</div>}
+                    <div className="mt-1 text-[11px] text-muted-foreground">{t.duration_minutes} minutes</div>
+                  </div>
+                  {t.attempt?.status === "submitted" ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600">
+                        <CheckCircle2 className="h-3 w-3" /> {t.attempt.score}/{t.attempt.max_score}
+                      </span>
+                      <Link to="/cbt/$testId/mistakes" params={{ testId: t.id }} search={{ attempt: t.attempt.id } as any}>
+                        <Button size="sm" variant="outline">Review Mistakes</Button>
+                      </Link>
+                      <Link to="/cbt/$testId/result" params={{ testId: t.id }} search={{ attempt: t.attempt.id } as any}>
+                        <Button size="sm">Report Card</Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <Link to="/cbt/$testId" params={{ testId: t.id }}>
+                      <Button size="sm">{t.attempt?.status === "in_progress" ? "Resume Test" : "Start Test"}</Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {tab === "updates" && (
           <div className="space-y-3">
