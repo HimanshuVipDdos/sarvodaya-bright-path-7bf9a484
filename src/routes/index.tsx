@@ -206,20 +206,35 @@ function Index() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.05 }}
             >
-              <Link to="/batches/$slug" params={{ slug: b.slug }} className="block">
-                <div className="glass-strong hover-lift flex h-full flex-col rounded-3xl p-5">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary">{b.exam_category}</div>
-                  <h3 className="mt-2 text-lg font-semibold tracking-tight">{b.title}</h3>
-                  <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{b.description}</p>
-                  <div className="mt-4 flex items-end justify-between">
-                    <div>
-                      <div className="text-2xl font-bold text-gradient">₹{b.fees_inr.toLocaleString("en-IN")}</div>
-                      {b.original_fees_inr && b.original_fees_inr > b.fees_inr && (
-                        <div className="text-xs text-muted-foreground line-through">₹{b.original_fees_inr.toLocaleString("en-IN")}</div>
-                      )}
+              <Link to="/batches/$slug" params={{ slug: b.slug }} className="block h-full">
+                <div className="glass-strong hover-lift group flex h-full flex-col overflow-hidden rounded-3xl">
+                  {b.thumbnail_url ? (
+                    <div className="relative aspect-[16/9] w-full overflow-hidden">
+                      <img
+                        src={b.thumbnail_url}
+                        alt={b.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow">
-                      <ArrowRight className="h-4 w-4 text-primary-foreground" />
+                  ) : (
+                    <div className="aspect-[16/9] w-full bg-gradient-to-br from-primary/15 via-primary/5 to-primary-glow/20" />
+                  )}
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary">{b.exam_category}</div>
+                    <h3 className="mt-2 text-lg font-semibold tracking-tight">{b.title}</h3>
+                    <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{b.description}</p>
+                    <div className="mt-4 flex items-end justify-between">
+                      <div>
+                        <div className="text-2xl font-bold text-gradient">₹{b.fees_inr.toLocaleString("en-IN")}</div>
+                        {b.original_fees_inr && b.original_fees_inr > b.fees_inr && (
+                          <div className="text-xs text-muted-foreground line-through">₹{b.original_fees_inr.toLocaleString("en-IN")}</div>
+                        )}
+                      </div>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow">
+                        <ArrowRight className="h-4 w-4 text-primary-foreground" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -247,8 +262,12 @@ function Index() {
               className="glass-strong rounded-3xl p-6"
             >
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-xl font-bold text-primary-foreground">
-                  {f.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-2xl font-bold text-primary-foreground shadow-elegant">
+                  {f.photo_url ? (
+                    <img src={f.photo_url} alt={f.name} className="h-full w-full object-cover" />
+                  ) : (
+                    f.name.split(" ").map((n) => n[0]).slice(0, 2).join("")
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold leading-tight">{f.name}</h3>
