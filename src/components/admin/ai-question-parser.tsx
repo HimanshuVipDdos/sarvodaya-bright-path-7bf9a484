@@ -1,6 +1,7 @@
 /**
- * AI Question Parser - 100% FREE
- * No paid AI needed! Uses Tesseract.js (client-side OCR)
+ * AI Question Parser
+ * Uses Claude API (via Supabase Edge Function "parse-questions") for real AI-based
+ * extraction from PDF text, photos (vision), or pasted text.
  * Supports: PDF, Images (PNG/JPG), Direct Text Paste
  */
 
@@ -47,7 +48,6 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  extractQuestionsFromText,
   parseFromDelimited,
   parseFromLabeledFormat,
   validateQuestions,
@@ -76,60 +76,77 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   const [defaultTopic, setDefaultTopic] = useState("");
   const [defaultMarks, setDefaultMarks] = useState(1);
   const [showValidation, setShowValidation] = useState(false);
-  const [tesseractLoaded, setTesseractLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
-  // Load Tesseract.js dynamically (only when needed)
-  const loadTesseract = useCallback(async () => {
-    if (tesseractLoaded) return;
-    setProcessingStep("Loading OCR engine...");
-    try {
-      const { createWorker } = await import("tesseract.js");
-      setTesseractLoaded(true);
-      return createWorker;
-    } catch (e) {
-      toast.error("Failed to load OCR engine. Try text paste mode.");
-      throw e;
-    }
-  }, [tesseractLoaded]);
+  // Call the Claude-powered edge function to parse questions from text or an image
+  const callParseQuestionsAPI = useCallback(
+    async (
+      payload:
+        | { mode: "text"; content: string }
+        | { mode: "image"; content: string; mimeType: string }
+    ): Promise<ParsedQuestion[]> => {
+      const { data, error } = await supabase.functions.invoke("parse-questions", {
+        body: {
+          ...payload,
+          defaultTopic: defaultTopic || null,
+          defaultMarks,
+        },
+      });
 
-  // Process image/PDF with OCR
+      if (error) {
+        throw new Error(error.message || "AI parsing request failed");
+      }
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      return (data?.questions || []) as ParsedQuestion[];
+    },
+    [defaultTopic, defaultMarks]
+  );
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // strip the "data:<mime>;base64," prefix
+        resolve(result.split(",")[1] || "");
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  // Process image/PDF using the AI (Claude) edge function
   const processFile = useCallback(
     async (file: File) => {
       setIsProcessing(true);
       setProcessingStep("Reading file...");
 
       try {
-        let text = "";
+        let questions: ParsedQuestion[] = [];
 
         if (file.type === "application/pdf") {
-          // PDF processing
+          // Extract raw text from the PDF client-side, then let Claude parse it
           setProcessingStep("Extracting text from PDF...");
-          text = await extractTextFromPDF(file);
-        } else if (file.type.startsWith("image/")) {
-          // Image OCR with Tesseract
-          setProcessingStep("Running OCR on image (this may take a moment)...");
-          const createWorker = await loadTesseract();
-          if (!createWorker) throw new Error("OCR engine not available");
+          const text = await extractTextFromPDF(file);
 
-          const worker = await createWorker("eng");
-          const imageUrl = URL.createObjectURL(file);
-          const result = await worker.recognize(imageUrl);
-          text = result.data.text;
-          await worker.terminate();
-          URL.revokeObjectURL(imageUrl);
+          setProcessingStep("Asking AI to extract questions...");
+          questions = await callParseQuestionsAPI({ mode: "text", content: text });
+        } else if (file.type.startsWith("image/")) {
+          // Send the image straight to Claude's vision - far more reliable than local OCR
+          setProcessingStep("Asking AI to read the image...");
+          const base64 = await fileToBase64(file);
+          questions = await callParseQuestionsAPI({
+            mode: "image",
+            content: base64,
+            mimeType: file.type,
+          });
         } else {
           throw new Error("Unsupported file type. Use PDF or image (PNG/JPG).");
         }
-
-        setProcessingStep("Parsing questions...");
-        const questions = extractQuestionsFromText(text, {
-          defaultTopic: defaultTopic || null,
-          defaultMarks,
-        });
 
         setParsedQuestions(questions);
         setShowValidation(true);
@@ -146,11 +163,12 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         setProcessingStep("");
       }
     },
-    [loadTesseract, defaultTopic, defaultMarks]
+    [callParseQuestionsAPI]
   );
 
-  // Process pasted text
-  const processPastedText = useCallback(() => {
+  // Process pasted text - fast local path for clean structured formats,
+  // AI fallback (and default "auto" mode) for everything else
+  const processPastedText = useCallback(async () => {
     if (!bulkText.trim()) {
       toast.error("Please paste some text first");
       return;
@@ -159,47 +177,41 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
     setIsProcessing(true);
     setProcessingStep("Parsing questions from text...");
 
-    setTimeout(() => {
-      try {
-        let questions: ParsedQuestion[] = [];
+    try {
+      let questions: ParsedQuestion[] = [];
 
-        if (parserMode === "delimited" || bulkText.includes("|")) {
-          questions = parseFromDelimited(bulkText, "|", {
-            defaultTopic: defaultTopic || null,
-            defaultMarks,
-          });
-        }
-
-        if (questions.length === 0 && (parserMode === "labeled" || bulkText.includes("Q:"))) {
-          questions = parseFromLabeledFormat(bulkText, {
-            defaultTopic: defaultTopic || null,
-            defaultMarks,
-          });
-        }
-
-        if (questions.length === 0 || parserMode === "auto") {
-          questions = extractQuestionsFromText(bulkText, {
-            defaultTopic: defaultTopic || null,
-            defaultMarks,
-          });
-        }
-
-        setParsedQuestions(questions);
-        setShowValidation(true);
-
-        if (questions.length === 0) {
-          toast.warning("No questions parsed. Check the format and try again.");
-        } else {
-          toast.success(`Parsed ${questions.length} questions!`);
-        }
-      } catch (e: any) {
-        toast.error(e.message || "Parsing failed");
-      } finally {
-        setIsProcessing(false);
-        setProcessingStep("");
+      if (parserMode === "delimited") {
+        questions = parseFromDelimited(bulkText, "|", {
+          defaultTopic: defaultTopic || null,
+          defaultMarks,
+        });
+      } else if (parserMode === "labeled") {
+        questions = parseFromLabeledFormat(bulkText, {
+          defaultTopic: defaultTopic || null,
+          defaultMarks,
+        });
       }
-    }, 100);
-  }, [bulkText, parserMode, defaultTopic, defaultMarks]);
+
+      if (questions.length === 0) {
+        setProcessingStep("Asking AI to extract questions...");
+        questions = await callParseQuestionsAPI({ mode: "text", content: bulkText });
+      }
+
+      setParsedQuestions(questions);
+      setShowValidation(true);
+
+      if (questions.length === 0) {
+        toast.warning("No questions parsed. Check the format and try again.");
+      } else {
+        toast.success(`Parsed ${questions.length} questions!`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Parsing failed");
+    } finally {
+      setIsProcessing(false);
+      setProcessingStep("");
+    }
+  }, [bulkText, parserMode, defaultTopic, defaultMarks, callParseQuestionsAPI]);
 
   // Start camera
   const startCamera = useCallback(async () => {
@@ -319,10 +331,10 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              AI Question Parser (100% Free)
+              AI Question Parser
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Upload PDF/Photo or paste text. Uses free client-side OCR - no paid AI needed!
+              Upload PDF/Photo or paste text. Claude AI reads it and extracts questions automatically.
             </p>
           </DialogHeader>
 
@@ -410,7 +422,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                       Supports: PDF, PNG, JPG (Max 10MB)
                     </p>
                     <p className="text-[10px] text-primary mt-2">
-                      Powered by Tesseract.js - 100% Free OCR
+                      Powered by Claude AI
                     </p>
                   </>
                 )}
