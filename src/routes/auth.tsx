@@ -21,7 +21,6 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Sign in to your student dashboard." },
     ],
   }),
-  // REDIRECT LOGIC REMOVED TAAKI PAGE FLICKER NA HO
   beforeLoad: async () => {
     return;
   },
@@ -35,16 +34,15 @@ function friendlyAuthError(err: unknown): string {
   const msg = raw.toLowerCase();
   if (msg.includes("invalid login credentials")) return "Incorrect email or password. Please double-check and try again.";
   if (msg.includes("email not confirmed")) return "Please verify your email first. Check your inbox for the code, or sign up again to get a new one.";
-  if (msg.includes("user already registered") || msg.includes("already registered")) return "An account with this email already exists. Try logging in instead.";
+  if (msg.includes("user already registered")) return "An account with this email already exists. Try logging in instead.";
   if (msg.includes("password should be at least") || msg.includes("password is too short")) return "Your password is too short. Please use at least 6 characters.";
-  if (msg.includes("token has expired") || msg.includes("otp expired") || msg.includes("expired")) return "This code has expired. Please request a new one.";
-  if (msg.includes("invalid otp") || msg.includes("invalid token") || msg.includes("token is invalid")) return "That code isn't right. Please check it and try again.";
-  if (msg.includes("rate limit") || msg.includes("too many requests")) return "Too many attempts. Please wait a minute before trying again.";
-  if (msg.includes("user not found") || msg.includes("unable to validate")) return "We couldn't find an account with that email.";
-  if (msg.includes("network") || msg.includes("fetch failed") || msg.includes("failed to fetch")) return "Network error. Please check your internet connection and try again.";
-  if (msg.includes("same password") || msg.includes("should be different from the old password")) return "Your new password must be different from your current password.";
-  if (!raw) return "Something went wrong. Please try again.";
-  return raw;
+  if (msg.includes("token has expired")) return "This code has expired. Please request a new one.";
+  if (msg.includes("invalid otp")) return "That code isn't right. Please check it and try again.";
+  if (msg.includes("rate limit")) return "Too many attempts. Please wait a minute before trying again.";
+  if (msg.includes("user not found")) return "We couldn't find an account with that email.";
+  if (msg.includes("network")) return "Network error. Please check your internet connection and try again.";
+  if (msg.includes("same password")) return "Your new password must be different from your current password.";
+  return raw || "Something went wrong. Please try again.";
 }
 
 function AuthPage() {
@@ -121,7 +119,7 @@ function AuthPage() {
         type: "signup",
       });
       if (error) throw error;
-      toast.success("Email verified! Welcome to Sarvodaya Adhyeta.");
+      toast.success("Email verified!");
       navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error(friendlyAuthError(err));
@@ -178,14 +176,14 @@ function AuthPage() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords don't match. Please re-enter them.");
+      toast.error("Passwords don't match.");
       return;
     }
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success("Password updated! You're now logged in.");
+      toast.success("Password updated!");
       navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error(friendlyAuthError(err));
@@ -199,25 +197,11 @@ function AuthPage() {
       <Section>
         <div className="mx-auto max-w-md">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="glass-strong rounded-3xl p-8">
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <KeyRound className="h-6 w-6" />
-              </div>
-              <h1 className="mt-4 text-3xl font-bold tracking-tight">Set a new password</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Choose a new password for your account.</p>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Set a new password</h1>
             <form onSubmit={handleSetNewPassword} className="mt-6 space-y-3">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input type="password" required minLength={6} placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="glass border-0 pl-9" />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input type="password" required minLength={6} placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="glass border-0 pl-9" />
-              </div>
-              <Button type="submit" disabled={loading} className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary-glow py-6 text-base font-semibold shadow-elegant">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
-              </Button>
+              <Input type="password" required placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="glass border-0" />
+              <Input type="password" required placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="glass border-0" />
+              <Button type="submit" disabled={loading} className="w-full">Update password</Button>
             </form>
           </motion.div>
         </div>
@@ -230,5 +214,39 @@ function AuthPage() {
       <Section>
         <div className="mx-auto max-w-md">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="glass-strong rounded-3xl p-8">
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-
+            <h1 className="text-3xl font-bold tracking-tight text-center">Verify your email</h1>
+            <div className="mt-6 flex justify-center">
+              <InputOTP maxLength={OTP_LENGTH} value={otp} onChange={setOtp}>
+                <InputOTPGroup>
+                  {Array.from({ length: OTP_LENGTH }).map((_, i) => <InputOTPSlot key={i} index={i} />)}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button onClick={handleVerifyOtp} disabled={loading} className="mt-6 w-full">Verify</Button>
+          </motion.div>
+        </div>
+      </Section>
+    );
+  }
+
+  return (
+    <Section>
+      <div className="mx-auto max-w-md">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="glass-strong rounded-3xl p-8">
+          <h1 className="text-3xl font-bold tracking-tight text-center">{mode === "login" ? "Student Login" : "Sign Up"}</h1>
+          <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+            {mode === "signup" && <Input name="full_name" required placeholder="Full name" className="glass border-0" />}
+            <Input type="email" name="email" required placeholder="Email" className="glass border-0" />
+            <Input type="password" name="password" required minLength={6} placeholder="Password" className="glass border-0" />
+            <Button type="submit" className="w-full">{mode === "login" ? "Login" : "Create account"}</Button>
+          </form>
+          <div className="mt-4 text-center">
+            <button onClick={() => setMode(mode === "login" ? "signup" : "login")} className="text-sm text-primary">
+              {mode === "login" ? "Create an account" : "Login instead"}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </Section>
+  );
+}
