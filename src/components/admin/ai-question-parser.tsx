@@ -1,6 +1,6 @@
 /**
  * AI Question Parser
- * Uses Claude API (via Supabase Edge Function "parse-questions") for real AI-based
+ * Uses Google Gemini API (free tier) (via Supabase Edge Function "parse-questions") for real AI-based
  * extraction from PDF text, photos (vision), or pasted text.
  * Supports: PDF, Images (PNG/JPG), Direct Text Paste
  */
@@ -81,7 +81,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
-  // Call the Claude-powered edge function to parse questions from text or an image
+  // Call the Gemini-powered edge function to parse questions from text or an image
   const callParseQuestionsAPI = useCallback(
     async (
       payload:
@@ -119,7 +119,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
       reader.readAsDataURL(file);
     });
 
-  // Process image/PDF using the AI (Claude) edge function
+  // Process image/PDF using the AI (Gemini) edge function
   const processFile = useCallback(
     async (file: File) => {
       setIsProcessing(true);
@@ -129,14 +129,14 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         let questions: ParsedQuestion[] = [];
 
         if (file.type === "application/pdf") {
-          // Extract raw text from the PDF client-side, then let Claude parse it
+          // Extract raw text from the PDF client-side, then let Gemini parse it
           setProcessingStep("Extracting text from PDF...");
           const text = await extractTextFromPDF(file);
 
           setProcessingStep("Asking AI to extract questions...");
           questions = await callParseQuestionsAPI({ mode: "text", content: text });
         } else if (file.type.startsWith("image/")) {
-          // Send the image straight to Claude's vision - far more reliable than local OCR
+          // Send the image straight to Gemini's vision - far more reliable than local OCR
           setProcessingStep("Asking AI to read the image...");
           const base64 = await fileToBase64(file);
           questions = await callParseQuestionsAPI({
@@ -334,7 +334,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
               AI Question Parser
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Upload PDF/Photo or paste text. Claude AI reads it and extracts questions automatically.
+              Upload PDF/Photo or paste text. Gemini AI reads it and extracts questions automatically.
             </p>
           </DialogHeader>
 
@@ -422,7 +422,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                       Supports: PDF, PNG, JPG (Max 10MB)
                     </p>
                     <p className="text-[10px] text-primary mt-2">
-                      Powered by Claude AI
+                      Powered by Gemini AI
                     </p>
                   </>
                 )}
