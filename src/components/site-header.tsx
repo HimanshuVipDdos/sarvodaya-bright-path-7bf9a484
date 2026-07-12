@@ -10,7 +10,6 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // Ye function direct browser refresh force karega, click 100% kaam karega
   const handleLoginClick = () => {
     window.location.href = "/auth";
   };
@@ -59,7 +58,6 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Force click fix */}
             <Button 
               size="sm" 
               variant="ghost" 
@@ -116,4 +114,6 @@ export function SiteHeader() {
           )}
         </AnimatePresence>
       </div>
-    </
+    </header>
+  );
+}
