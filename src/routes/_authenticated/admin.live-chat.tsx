@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { MessageSquare } from "lucide-react";
+import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { MessageSquare, Loader2, Phone, Mail, BookOpen, ListChecks, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { LiveChat } from "@/components/live-chat";
+import { getStudentDetails } from "@/lib/admin-student-details.functions";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const liveClassesQuery = queryOptions({
   queryKey: ["admin", "live-classes-list"],
@@ -28,6 +32,14 @@ function AdminLiveChatPage() {
   const [selected, setSelected] = useState<string | null>(
     liveClasses.find((l: any) => l.is_live)?.id ?? liveClasses[0]?.id ?? null,
   );
+  const [viewingStudent, setViewingStudent] = useState<{ id: string; name: string } | null>(null);
+  const getDetails = useServerFn(getStudentDetails);
+
+  const { data: details, isLoading: detailsLoading } = useQuery({
+    queryKey: ["admin", "student-details", viewingStudent?.id],
+    queryFn: () => getDetails({ data: { user_id: viewingStudent!.id } }),
+    enabled: !!viewingStudent,
+  });
 
   return (
     <Section>
@@ -75,7 +87,12 @@ function AdminLiveChatPage() {
 
         <div className="glass-strong rounded-3xl p-5 lg:col-span-2">
           {selected ? (
-            <LiveChat liveClassId={selected} canModerate className="[&>div:first-child]:h-[500px]" />
+            <LiveChat
+              liveClassId={selected}
+              canModerate
+              className="[&>div:first-child]:h-[500px]"
+              onViewStudent={(userId, name) => setViewingStudent({ id: userId, name })}
+            />
           ) : (
             <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
               Select a live class to view comments.
@@ -83,6 +100,62 @@ function AdminLiveChatPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!viewingStudent} onOpenChange={(o) => !o && setViewingStudent(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{viewingStudent?.name ?? "Student"}</DialogTitle>
+          </DialogHeader>
+          {detailsLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : details ? (
+            <div className="space-y-4 text-sm">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> {details.phone || "Not provided"}</div>
+                <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> {details.email || "Not available"}</div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Last active: {details.last_sign_in_at ? new Date(details.last_sign_in_at).toLocaleString("en-IN") : "Never signed in"}
+                </div>
+                <div className="text-xs text-muted-foreground pl-6">
+                  Joined: {details.joined_at ? new Date(details.joined_at).toLocaleDateString("en-IN") : "—"}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <BookOpen className="h-3.5 w-3.5" /> Batches
+                </div>
+                {details.batches.length === 0 ? (
+                  <div className="text-muted-foreground">No batch taken yet.</div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {details.batches.map((b, i) => (
+                      <Badge key={i} variant="secondary">
+                        {b.title} · {b.payment_status}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <ListChecks className="h-3.5 w-3.5" /> Tests
+                </div>
+                <div>{details.tests_given} submitted{details.tests_in_progress > 0 ? `, ${details.tests_in_progress} in progress` : ""}</div>
+                {details.last_test_at && (
+                  <div className="text-xs text-muted-foreground">
+                    Last test: {new Date(details.last_test_at).toLocaleDateString("en-IN")}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 text-center text-sm text-muted-foreground">Couldn't load details.</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Section>
   );
 }
