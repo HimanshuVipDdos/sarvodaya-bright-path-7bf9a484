@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -18,12 +18,14 @@ type Props = {
   canModerate?: boolean;
   /** Fixed height for the scrollable message list. */
   className?: string;
+  /** Admin-only: called with (user_id, name) when the name/details icon is clicked. */
+  onViewStudent?: (userId: string, name: string) => void;
 };
 
 // Live comments for a single live class. Backed by the `live_chat_messages`
 // table + Supabase Realtime — new messages appear instantly for everyone
 // watching, no page refresh needed.
-export function LiveChat({ liveClassId, canModerate = false, className }: Props) {
+export function LiveChat({ liveClassId, canModerate = false, className, onViewStudent }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -117,7 +119,18 @@ export function LiveChat({ liveClassId, canModerate = false, className }: Props)
         {messages.map((m) => (
           <div key={m.id} className="group flex items-start justify-between gap-2 text-sm">
             <div className="min-w-0">
-              <span className="font-semibold text-primary">{m.user_name || "Student"}: </span>
+              {canModerate && onViewStudent ? (
+                <button
+                  onClick={() => onViewStudent(m.user_id, m.user_name || "Student")}
+                  className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                  aria-label="View student details"
+                >
+                  <UserRound className="h-3 w-3" />
+                  {m.user_name || "Student"}:
+                </button>
+              ) : (
+                <span className="font-semibold text-primary">{m.user_name || "Student"}: </span>
+              )}
               <span className="break-words">{m.message}</span>
             </div>
             {canModerate && (
