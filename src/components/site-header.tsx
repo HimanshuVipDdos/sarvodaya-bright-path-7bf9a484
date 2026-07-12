@@ -10,8 +10,13 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Ye function direct browser refresh force karega, click 100% kaam karega
+  const handleLoginClick = () => {
+    window.location.href = "/auth";
+  };
+
   return (
-    <header className="sticky top-0 z-50 w-full">
+    <header className="sticky top-0 z-[100] w-full">
       <div className="mx-auto mt-3 max-w-7xl px-3 sm:px-6">
         <motion.div
           initial={{ y: -20, opacity: 0 }}
@@ -54,8 +59,14 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" variant="ghost" className="hidden sm:inline-flex">
-              <Link to="/auth">Login</Link>
+            {/* Force click fix */}
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="hidden sm:inline-flex"
+              onClick={handleLoginClick}
+            >
+              Login
             </Button>
             <Button asChild size="sm" className="hidden rounded-full bg-gradient-to-br from-primary to-primary-glow shadow-elegant sm:inline-flex">
               <Link to="/contact">Enquire</Link>
@@ -94,18 +105,15 @@ export function SiteHeader() {
                     {n.label}
                   </Link>
                 ))}
-                <Link
-                  to="/auth"
-                  onClick={() => setOpen(false)}
+                <button
+                  onClick={handleLoginClick}
                   className="col-span-2 rounded-xl bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground"
                 >
                   Student Login
-                </Link>
+                </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </header>
-  );
-}
+    </
