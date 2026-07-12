@@ -1,23 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-export function AnnouncementTicker() {
-  const [announcement, setAnnouncement] = useState(null);
+export function NotificationBell() {
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
-    // Sabse latest announcement fetch karo
-    const fetchLatest = async () => {
-      const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(1).single();
-      setAnnouncement(data);
-    };
-    fetchLatest();
+    // Realtime listener for new notifications
+    const channel = supabase.channel('notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        setUnread(prev => prev + 1);
+      }).subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
-  if (!announcement) return null;
-
   return (
-    <div className="bg-indigo-600 text-white py-2 px-4 text-sm font-medium text-center animate-pulse">
-      📢 {announcement.title} - <span className="underline cursor-pointer">Click here to check</span>
+    <div className="relative cursor-pointer">
+      <Bell className="text-gray-600" />
+      {unread > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+          {unread}
+        </span>
+      )}
     </div>
   );
 }
