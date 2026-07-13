@@ -1,93 +1,36 @@
-import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X } from "lucide-react";
-import { VideoPlayer } from "@/components/video-player";
-import { LiveChat } from "@/components/live-chat";
-import { cn } from "@/lib/utils";
+import React from 'react';
+import { LiveChat } from './live-chat';
 
-type Props = {
-  src: string;
-  title?: string;
-  poster?: string;
-  liveClassId: string;
-  className?: string;
-};
-
-/**
- * A live class = video + live comments, wired together so fullscreen
- * behaves like the YouTube app: outside fullscreen the chat sits beside the
- * video at all times; entering fullscreen hides it behind a small corner
- * toggle, and opening it slides a chat panel in over the video (without
- * leaving fullscreen or changing the video's resolution/state).
- */
-export function LiveClassPlayer({ src, title, poster, liveClassId, className }: Props) {
-  const fsRef = useRef<HTMLDivElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-
-  useEffect(() => {
-    const handler = () => {
-      const fs = document.fullscreenElement === fsRef.current;
-      setIsFullscreen(fs);
-      if (!fs) setChatOpen(false);
-    };
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
-
+export function LiveClassPlayer({ videoUrl, classId }: { videoUrl: string, classId: string }) {
   return (
-    <div
-      ref={fsRef}
-      className={cn(
-        isFullscreen ? "h-full w-full bg-black" : "flex flex-col gap-3 lg:flex-row",
-        className,
-      )}
-    >
-      <div className={cn("relative", isFullscreen ? "h-full w-full" : "min-w-0 lg:flex-1")}>
-        <VideoPlayer
-          src={src}
-          title={title}
-          poster={poster}
-          fullscreenTargetRef={fsRef}
-          className={isFullscreen ? "h-full w-full rounded-none" : undefined}
-        />
-
-        {isFullscreen && !chatOpen && (
-          <button
-            onClick={() => setChatOpen(true)}
-            aria-label="Open live chat"
-            className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:bg-black/80"
-          >
-            <MessageCircle className="h-4 w-4" /> Chat
-          </button>
-        )}
-
-        {isFullscreen && chatOpen && (
-          <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-xs flex-col bg-black/90 backdrop-blur-md sm:max-w-sm">
-            <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-white/80">Live Chat</span>
-              <button
-                onClick={() => setChatOpen(false)}
-                aria-label="Close chat"
-                className="rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden p-2">
-              <LiveChat liveClassId={liveClassId} />
-            </div>
+    <div className="w-full max-w-[1600px] mx-auto p-4">
+      {/* Grid Layout: YouTube Style */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left Side: Large Resolution Video Player */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden shadow-lg group">
+            <video 
+              src={videoUrl} 
+              controls 
+              className="w-full h-full object-contain"
+              playsInline
+            />
           </div>
-        )}
-      </div>
-
-      {!isFullscreen && (
-        <div className="glass-strong flex flex-col rounded-3xl p-3 lg:w-80 lg:shrink-0">
-          <div className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Live comments
-          </div>
-          <LiveChat liveClassId={liveClassId} />
+          <h1 className="text-xl font-bold mt-2">Live Interactive Session</h1>
         </div>
-      )}
+
+        {/* Right Side: YouTube Style Comments/Chat UI */}
+        <div className="lg:col-span-1 h-[calc(100vh-200px)] min-h-[500px] max-h-[700px] flex flex-col border border-border rounded-xl bg-card overflow-hidden">
+          <div className="p-4 border-b border-border bg-muted/50">
+            <h2 className="font-semibold text-sm uppercase tracking-wider">Live Chat / Comments</h2>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <LiveChat classId={classId} />
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
