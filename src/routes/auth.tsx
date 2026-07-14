@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Mail, Lock, User, KeyRound } from "lucide-react";
+import { Loader2, Mail, Lock, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,6 +38,15 @@ function AuthPage() {
       const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: String(fd.get("full_name")) } } });
       if (error) toast.error(error.message);
       else toast.success("Check your email to verify account.");
+    } else if (mode === "forgot") {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/reset-password",
+      });
+      if (error) toast.error(error.message);
+      else {
+        setSentTo(email);
+        toast.success("Password reset link sent! Check your email.");
+      }
     }
     setLoading(false);
   }
@@ -53,19 +63,28 @@ function AuthPage() {
     }
   }
 
+  function switchMode(next: "login" | "signup" | "forgot") {
+    setMode(next);
+    setSentTo(null);
+  }
+
   return (
     <Section className="flex min-h-[80vh] items-center justify-center">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md glass-strong rounded-3xl p-8 shadow-2xl"
       >
         <div className="text-center space-y-2 mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
-            {mode === "login" ? "Student Login" : "Create Account"}
+            {mode === "login" ? "Student Login" : mode === "signup" ? "Create Account" : "Reset Password"}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {mode === "login" ? "Access your dashboard, classes and notes." : "Join our community and start preparing."}
+            {mode === "login"
+              ? "Access your dashboard, classes and notes."
+              : mode === "signup"
+              ? "Join our community and start preparing."
+              : "Enter your email and we'll send you a reset link."}
           </p>
         </div>
 
@@ -87,41 +106,83 @@ function AuthPage() {
           </Button>
         )}
 
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
-          <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === "signup" && (
-            <div className="relative">
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input name="full_name" placeholder="Full Name" className="pl-9 glass" required />
-            </div>
-          )}
-          <div className="relative">
-            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input type="email" name="email" placeholder="Email address" className="pl-9 glass" required />
+        {mode !== "forgot" && (
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
           </div>
-          {mode !== "forgot" && (
+        )}
+
+        {mode === "forgot" && sentTo ? (
+          <div className="text-center space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              We've sent a password reset link to <span className="font-medium text-foreground">{sentTo}</span>.
+              Click the link in the email to set a new password.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => switchMode("login")}
+            >
+              Back to Sign In
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "signup" && (
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input name="full_name" placeholder="Full Name" className="pl-9 glass" required />
+              </div>
+            )}
             <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input type="password" name="password" placeholder="Password" className="pl-9 glass" required />
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input type="email" name="email" placeholder="Email address" className="pl-9 glass" required />
             </div>
-          )}
-          
-          <Button type="submit" className="w-full rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all">
-            {loading ? <Loader2 className="animate-spin" /> : (mode === "login" ? "Sign In" : "Sign Up")}
-          </Button>
-        </form>
+            {mode !== "forgot" && (
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input type="password" name="password" placeholder="Password" className="pl-9 glass" required />
+              </div>
+            )}
+
+            {mode === "login" && (
+              <div className="text-right -mt-2">
+                <button
+                  type="button"
+                  onClick={() => switchMode("forgot")}
+                  className="text-xs text-muted-foreground hover:text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all">
+              {loading ? <Loader2 className="animate-spin" /> : (mode === "login" ? "Sign In" : mode === "signup" ? "Sign Up" : "Send Reset Link")}
+            </Button>
+          </form>
+        )}
 
         <div className="mt-6 text-center text-sm">
-          <button 
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
-            className="text-primary font-medium hover:underline"
-          >
-            {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-          </button>
+          {mode === "forgot" ? (
+            !sentTo && (
+              <button
+                onClick={() => switchMode("login")}
+                className="text-primary font-medium hover:underline"
+              >
+                Back to Sign In
+              </button>
+            )
+          ) : (
+            <button
+              onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+              className="text-primary font-medium hover:underline"
+            >
+              {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+            </button>
+          )}
         </div>
       </motion.div>
     </Section>
