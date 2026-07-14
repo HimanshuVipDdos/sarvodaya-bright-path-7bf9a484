@@ -249,6 +249,8 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       if (cancelled || !hostRef.current) return;
       playerRef.current = new YT.Player(hostRef.current, {
         videoId: id,
+        width: "100%",
+        height: "100%",
         host: "https://www.youtube-nocookie.com",
         playerVars: {
           controls: 0,
@@ -358,14 +360,22 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         className,
       )}
     >
-      <div ref={hostRef} title={title} className="pointer-events-none absolute inset-0 h-full w-full" />
+      <div
+        ref={hostRef}
+        title={title}
+        className="pointer-events-none absolute inset-0 h-full w-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"
+      />
       <div
         className="absolute inset-0"
         onClick={toggle}
         onContextMenu={(e) => e.preventDefault()}
       />
-      {/* Cover YouTube watermark (bottom-right logo) permanently */}
-      <div className="pointer-events-none absolute bottom-2 right-2 z-10 h-8 w-24 rounded bg-black" aria-hidden />
+      {/* Cover YouTube watermark (bottom-right logo) permanently, sized relative to player so it stays correctly placed in fullscreen too */}
+      <div
+        className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 rounded bg-black"
+        style={{ width: "10%", height: "8%", maxWidth: 96, maxHeight: 32 }}
+        aria-hidden
+      />
       {!started && (
         <>
           {poster && (
