@@ -67,7 +67,7 @@ export function SiteHeader() {
               Login
             </Button>
             <Button asChild size="sm" className="hidden rounded-full bg-gradient-to-br from-primary to-primary-glow shadow-elegant sm:inline-flex">
-              <Link to="/contact">Enquire</Link>
+              <Link to="/dashboard">My Batches</Link>
             </Button>
             <button
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 hover:bg-foreground/5 lg:hidden"
