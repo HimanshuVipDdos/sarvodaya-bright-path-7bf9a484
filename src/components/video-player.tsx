@@ -130,8 +130,8 @@ function ControlBar({
 }) {
   const [showQuality, setShowQuality] = useState(false);
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-3 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
-      <div className="pointer-events-auto flex flex-col gap-2">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2.5 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+      <div className="pointer-events-auto flex flex-col gap-2.5">
         {showScrubber && (
           <input
             type="range"
@@ -140,49 +140,49 @@ function ControlBar({
             step={0.1}
             value={time}
             onChange={(e) => onScrub(Number(e.target.value))}
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            className="h-[3px] w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary transition-all hover:h-1.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125"
             aria-label="Seek"
           />
         )}
-        <div className="flex items-center gap-2 text-white">
-          <button onClick={onPlayToggle} aria-label={playing ? "Pause" : "Play"} className="rounded-full p-1.5 hover:bg-white/15">
+        <div className="flex items-center gap-1 text-white">
+          <button onClick={onPlayToggle} aria-label={playing ? "Pause" : "Play"} className="rounded-full p-2 transition hover:bg-white/15">
             {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
           {showSeekButtons && (
             <>
-              <button onClick={() => onSeek(-10)} aria-label="Back 10s" className="rounded-full p-1.5 hover:bg-white/15">
+              <button onClick={() => onSeek(-10)} aria-label="Back 10s" className="rounded-full p-2 transition hover:bg-white/15">
                 <RotateCcw className="h-4 w-4" />
               </button>
-              <button onClick={() => onSeek(10)} aria-label="Forward 10s" className="rounded-full p-1.5 hover:bg-white/15">
+              <button onClick={() => onSeek(10)} aria-label="Forward 10s" className="rounded-full p-2 transition hover:bg-white/15">
                 <RotateCw className="h-4 w-4" />
               </button>
             </>
           )}
           {showMute && (
-            <button onClick={onMuteToggle} aria-label={muted ? "Unmute" : "Mute"} className="rounded-full p-1.5 hover:bg-white/15">
+            <button onClick={onMuteToggle} aria-label={muted ? "Unmute" : "Mute"} className="rounded-full p-2 transition hover:bg-white/15">
               {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
           )}
-          <div className="text-xs tabular-nums text-white/80">{fmt(time)} / {fmt(duration)}</div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium tabular-nums text-white/85">{fmt(time)} / {fmt(duration)}</div>
+          <div className="ml-auto flex items-center gap-1.5">
             {qualities && qualities.length > 0 && onQualityPick && (
               <div className="relative">
                 <button
                   onClick={() => setShowQuality((s) => !s)}
                   aria-label="Quality"
-                  className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold hover:bg-white/15"
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold transition hover:bg-white/15"
                 >
                   <Settings className="h-3.5 w-3.5" /> {YT_QUALITY_LABEL[currentQuality ?? "auto"] ?? currentQuality ?? "Auto"}
                 </button>
                 {showQuality && (
-                  <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
+                  <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/95 p-1.5 shadow-xl ring-1 ring-white/10 backdrop-blur">
                     {qualities.map((q) => (
                       <button
                         key={q}
                         onClick={() => { onQualityPick(q); setShowQuality(false); }}
                         className={cn(
-                          "rounded-lg px-3 py-1 text-left text-xs hover:bg-white/15",
-                          q === currentQuality && "bg-white/20 font-semibold",
+                          "rounded-lg px-3 py-1.5 text-left text-xs transition hover:bg-white/15",
+                          q === currentQuality && "bg-primary/90 font-semibold",
                         )}
                       >
                         {YT_QUALITY_LABEL[q] ?? q}
@@ -196,19 +196,19 @@ function ControlBar({
               <button
                 onClick={onSpeedToggle}
                 aria-label="Playback speed"
-                className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold hover:bg-white/15"
+                className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold transition hover:bg-white/15"
               >
                 <Gauge className="h-3.5 w-3.5" /> {speed}x
               </button>
               {showSpeed && (
-                <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/90 p-1.5 backdrop-blur">
+                <div className="absolute bottom-full right-0 mb-2 grid gap-0.5 rounded-2xl bg-black/95 p-1.5 shadow-xl ring-1 ring-white/10 backdrop-blur">
                   {SPEEDS.map((s) => (
                     <button
                       key={s}
                       onClick={() => onSpeedPick(s)}
                       className={cn(
-                        "rounded-lg px-3 py-1 text-left text-xs hover:bg-white/15",
-                        s === speed && "bg-white/20 font-semibold",
+                        "rounded-lg px-3 py-1.5 text-left text-xs transition hover:bg-white/15",
+                        s === speed && "bg-primary/90 font-semibold",
                       )}
                     >
                       {s}x
@@ -217,7 +217,7 @@ function ControlBar({
                 </div>
               )}
             </div>
-            <button onClick={onFullscreen} aria-label="Fullscreen" className="rounded-full p-1.5 hover:bg-white/15">
+            <button onClick={onFullscreen} aria-label="Fullscreen" className="rounded-full p-2 transition hover:bg-white/15">
               <Maximize className="h-4 w-4" />
             </button>
           </div>
@@ -280,11 +280,25 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
               setPlaying(true);
               setStarted(true);
               try {
-                // Re-assert highest quality now that playback has actually
-                // begun — this is when YouTube's quality lock actually takes.
+                // Ask for the best available quality the moment playback
+                // starts — YouTube only honors this once buffering begins.
                 const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
                 if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
               } catch {}
+              // YouTube's adaptive bitrate can still silently step the
+              // quality back down a few seconds later even after we've
+              // asked for the best level once. Keep re-asserting for the
+              // first ~15s of playback so the request actually sticks,
+              // then stop so we're not fighting a genuine user choice.
+              let ticks = 0;
+              const reassert = setInterval(() => {
+                ticks += 1;
+                try {
+                  const lv2: string[] = e.target.getAvailableQualityLevels?.() ?? [];
+                  if (lv2.length) e.target.setPlaybackQuality?.(lv2[0]);
+                } catch {}
+                if (ticks >= 5) clearInterval(reassert);
+              }, 3000);
             }
             else if (e.data === 2 || e.data === 0) setPlaying(false);
             try {
@@ -383,12 +397,24 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         onClick={toggle}
         onContextMenu={(e) => e.preventDefault()}
       />
-      {/* Cover YouTube watermark (bottom-right logo) permanently, sized relative to player so it stays correctly placed in fullscreen too */}
+      {/*
+        YouTube always renders its own logo in this corner even with
+        modestbranding on. Rather than a bare black rectangle sitting on top
+        of the video (which used to look like a rendering glitch, especially
+        in fullscreen), cover the exact same spot with a small blurred chip
+        carrying the platform's own mark — same size/position logic so it
+        stays correctly placed in fullscreen too, but now reads as
+        intentional branding instead of a bug.
+      */}
       <div
-        className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 rounded bg-black"
+        className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 flex items-center justify-center rounded-md bg-black/70 shadow-sm backdrop-blur-sm"
         style={{ width: "10%", height: "8%", maxWidth: 96, maxHeight: 32 }}
         aria-hidden
-      />
+      >
+        <span className="select-none truncate px-1 text-[9px] font-semibold uppercase tracking-wider text-white/70">
+          Adhyeta
+        </span>
+      </div>
       {!started && (
         <>
           {poster && (
@@ -498,7 +524,7 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
         src={src}
         poster={poster}
         title={title}
-        className="h-full w-full"
+        className="h-full w-full object-contain bg-black"
         onClick={toggle}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
@@ -510,22 +536,4 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
         <button
           onClick={toggle}
           aria-label="Play"
-          className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-white/90 text-primary shadow-elegant backdrop-blur transition hover:scale-105"
-        >
-          <Play className="h-7 w-7 translate-x-0.5" />
-        </button>
-      )}
-      <ControlBar
-        playing={playing} muted={muted} time={time} duration={duration}
-        speed={speed} showSpeed={showSpeed}
-        onPlayToggle={toggle}
-        onSeek={seek}
-        onScrub={scrubTo}
-        onMuteToggle={toggleMute}
-        onSpeedToggle={() => setShowSpeed((s) => !s)}
-        onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
-        onFullscreen={fullscreen}
-      />
-    </div>
-  );
-}
+          className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-ful
