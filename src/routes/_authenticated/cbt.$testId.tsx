@@ -12,6 +12,16 @@ import { startCbtAttempt, submitCbtAttempt } from "@/lib/cbt.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/cbt/$testId")({
@@ -158,6 +168,12 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
     return () => clearTimeout(t);
   }, [enterFullscreen]);
 
+  // Guards against the mutation ever firing twice (e.g. auto-submit-on-leave
+  // racing with a manual submit), independent of React state timing.
+  const hasSubmittedRef = useRef(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState("");
+
   const submitMutation = useMutation({
     mutationFn: async () => {
       const payload = data.questions.map((q: any) => ({
@@ -177,28 +193,41 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const doSubmit = useCallback(() => {
+    if (hasSubmittedRef.current) return;
+    hasSubmittedRef.current = true;
+    submitMutation.mutate();
+  }, [submitMutation]);
+
   const handleSubmit = useCallback(() => {
     const answered = Object.keys(answers).length;
     const total = data?.questions.length ?? 0;
     const msg = answered < total 
       ? `Only ${answered}/${total} answered. Submit anyway?` 
       : "Submit the test? You can't change answers after this.";
-    if (confirm(msg)) submitMutation.mutate();
-  }, [answers, data, submitMutation]);
+    // NOTE: intentionally not using window.confirm() here — a native
+    // confirm() dialog blurs the window, which used to fire the
+    // anti-cheat auto-submit-on-leave at the same moment and race with
+    // this submit, leaving the test stuck without opening the result page.
+    setConfirmMsg(msg);
+    setConfirmOpen(true);
+  }, [answers, data]);
 
   const autoSubmit = useCallback(() => {
-    if (submitMutation.isPending || submitMutation.isSuccess) return;
+    if (hasSubmittedRef.current) return;
     toast.info("Test auto-submitted — you left the test screen.");
-    submitMutation.mutate();
-  }, [submitMutation]);
+    doSubmit();
+  }, [doSubmit]);
 
   const timer = useTimer(data?.test?.duration_minutes ?? 30, () => {
     toast.info("Time's up! Auto-submitting...");
-    submitMutation.mutate();
+    doSubmit();
   });
 
   // Switching tabs/apps or minimizing during the test auto-submits it.
-  useAutoSubmitOnLeave(autoSubmit, !submitMutation.isPending && !submitMutation.isSuccess);
+  // Disabled while the submit-confirmation dialog itself is open, since
+  // opening/closing that dialog can also trigger a visibility/blur event.
+  useAutoSubmitOnLeave(autoSubmit, !confirmOpen && !submitMutation.isPending && !submitMutation.isSuccess);
 
   const toggleFlag = (qId: string) => {
     setFlagged(prev => {
@@ -409,6 +438,26 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
         answeredCount={answeredCount}
         totalQuestions={totalQuestions}
       />
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submit test?</AlertDialogTitle>
+            <AlertDialogDescription>{confirmMsg}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                doSubmit();
+              }}
+            >
+              Submit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
