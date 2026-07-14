@@ -268,11 +268,24 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
               e.target.unMute?.();
               e.target.setVolume?.(100);
               setDuration(e.target.getDuration?.() ?? 0);
+              // Ask for the best quality straight away (YouTube only honors
+              // this once buffering starts, so we ask again on first play).
+              const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
+              if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
             } catch {}
             setReady(true);
           },
           onStateChange: (e: any) => {
-            if (e.data === 1) { setPlaying(true); setStarted(true); }
+            if (e.data === 1) {
+              setPlaying(true);
+              setStarted(true);
+              try {
+                // Re-assert highest quality now that playback has actually
+                // begun — this is when YouTube's quality lock actually takes.
+                const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
+                if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
+              } catch {}
+            }
             else if (e.data === 2 || e.data === 0) setPlaying(false);
             try {
               setDuration(e.target.getDuration?.() ?? 0);
