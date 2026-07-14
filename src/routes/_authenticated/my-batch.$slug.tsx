@@ -275,8 +275,8 @@ function BatchPortal() {
 
       <div className="mt-6">
         {tab === "classes" && (
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0">
               {current ? (
                 <div className="glass-strong overflow-hidden rounded-3xl">
                   {current._source === "live" ? (
