@@ -1,97 +1,218 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Send } from 'lucide-react';
+import { useEffect, useRef, useState } from "react";
+import { Send, Trash2, UserRound, Shield, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
-export function LiveChat({ classId }: { classId: string }) {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const chatEndRef = useRef<HTMLDivElement>(null);
+type ChatMessage = {
+  id: string;
+  live_class_id: string;
+  user_id: string;
+  user_name: string | null;
+  message: string;
+  created_at: string;
+  is_moderator: boolean;
+};
+
+type Props = {
+  liveClassId: string;
+  /** Show a delete button on every message (admin monitor view). */
+  canModerate?: boolean;
+  /** Fixed height for the scrollable message list. */
+  className?: string;
+  /** Admin-only: called with (user_id, name) when the name/details icon is clicked. */
+  onViewStudent?: (userId: string, name: string) => void;
+};
+
+// Live comments for a single live class. Backed by the `live_chat_messages`
+// table + Supabase Realtime — new messages appear instantly for everyone
+// watching, no page refresh needed.
+export function LiveChat({ liveClassId, canModerate = false, className, onViewStudent }: Props) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 1. Initial messages fetch karein
-    const fetchMessages = async () => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
       const { data } = await supabase
-        .from('live_chat_messages')
-        .select('*')
-        .eq('class_id', classId)
-        .order('created_at', { ascending: true });
-      if (data) setMessages(data);
-    };
+        .from("live_chat_messages")
+        .select("*")
+        .eq("live_class_id", liveClassId)
+        .order("created_at", { ascending: true })
+        .limit(200);
+      if (!cancelled) {
+        setMessages((data as ChatMessage[]) ?? []);
+        setLoading(false);
+      }
+    }
+    load();
 
-    fetchMessages();
-
-    // 2. Realtime listener taaki instant real-time sync ho sake
     const channel = supabase
-      .channel(`chat:${classId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_chat_messages', filter: `class_id=eq.${classId}` }, 
+      .channel(`live-chat-${liveClassId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "live_chat_messages", filter: `live_class_id=eq.${liveClassId}` },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
-        }
+          setMessages((prev) => [...prev, payload.new as ChatMessage]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "live_chat_messages", filter: `live_class_id=eq.${liveClassId}` },
+        (payload) => {
+          setMessages((prev) => prev.filter((m) => m.id !== (payload.old as ChatMessage).id));
+        },
       )
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [classId]);
+  }, [liveClassId]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+  }, [messages.length]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
+  async function send() {
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    try {
+      const { data: userData, error: authError } = await supabase.auth.getUser();
+      const user = userData.user;
+      if (authError || !user) {
+        toast.error("Please log in to comment.");
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      const name = profile?.full_name || user.email?.split("@")[0] || "Student";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert("Please login to send comments!");
-      return;
+      const { data: roleRows } = await supabase
+        .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin");
+      const isAdmin = (roleRows?.length ?? 0) > 0;
+
+      const { error } = await supabase.from("live_chat_messages").insert({
+        live_class_id: liveClassId,
+        user_id: user.id,
+        user_name: name,
+        message: trimmed.slice(0, 500),
+        is_moderator: isAdmin,
+      } as never);
+      if (error) {
+        toast.error(error.message || "Comment could not be sent. Try again.");
+      } else {
+        setText("");
+      }
+    } catch (e) {
+      toast.error("Comment could not be sent. Check your connection and try again.");
+    } finally {
+      setSending(false);
     }
+  }
 
-    // Database schema ke hisab se name fallback select karein
-    const studentName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student';
+  async function remove(id: string) {
+    await supabase.from("live_chat_messages").delete().eq("id", id);
+  }
 
-    const { error } = await supabase.from('live_chat_messages').insert({
-      class_id: classId,
-      user_id: user.id,
-      sender_name: studentName,
-      message: newMessage.trim(),
-    });
-
-    if (!error) {
-      setNewMessage(''); // Input field clean karein
-    } else {
-      console.error("Error sending message:", error);
-    }
-  };
+  const avatarColors = [
+    "bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-sky-500",
+    "bg-violet-500", "bg-pink-500", "bg-teal-500", "bg-orange-500",
+  ];
+  function colorFor(id: string) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return avatarColors[h % avatarColors.length];
+  }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg, idx) => (
-          <div key={msg.id || idx} className="text-sm bg-muted/40 p-2.5 rounded-lg border border-border/50">
-            <span className="font-bold text-primary mr-2">{msg.sender_name || 'Anonymous'}:</span>
-            <span className="text-foreground break-words">{msg.message}</span>
-          </div>
-        ))}
-        <div ref={chatEndRef} />
+    <div className={`flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/60 ${className ?? ""}`}>
+      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+        </span>
+        <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+          Live comments
+        </span>
+        {messages.length > 0 && (
+          <span className="ml-auto text-[11px] text-muted-foreground">{messages.length}</span>
+        )}
       </div>
 
-      <form onSubmit={handleSendMessage} className="p-3 border-t border-border flex gap-2 bg-muted/20">
-        <Input
-          type="text"
-          placeholder="Say something..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          className="flex-1"
+      <div
+        ref={listRef}
+        className="flex h-64 min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 py-2.5"
+      >
+        {loading && <div className="text-xs text-muted-foreground">Loading comments…</div>}
+        {!loading && messages.length === 0 && (
+          <div className="text-xs text-muted-foreground">No comments yet. Say hi 👋</div>
+        )}
+        {messages.map((m) => {
+          const name = m.user_name || "Student";
+          const initial = name.trim().charAt(0).toUpperCase() || "S";
+          return (
+            <div key={m.id} className="group flex items-start gap-2 text-sm">
+              <div
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${colorFor(m.user_id)}`}
+                aria-hidden
+              >
+                {initial}
+              </div>
+              <div className="min-w-0 flex-1 leading-snug">
+                {canModerate && onViewStudent ? (
+                  <button
+                    onClick={() => onViewStudent(m.user_id, name)}
+                    className="font-semibold text-foreground/90 hover:underline inline-flex items-center gap-1 text-xs"
+                    aria-label="View student details"
+                  >
+                    {name}
+                  </button>
+                ) : (
+                  <span className="font-semibold text-foreground/90 text-xs">{name}</span>
+                )}
+                {m.is_moderator && (
+                  <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground align-middle">
+                    <Shield className="h-2.5 w-2.5" /> Admin
+                  </span>
+                )}
+                <p className="break-words text-foreground/80">{m.message}</p>
+              </div>
+              {canModerate && (
+                <button
+                  onClick={() => remove(m.id)}
+                  aria-label="Delete message"
+                  className="shrink-0 rounded p-1 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 border-t border-border/60 p-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); send(); } }}
+          maxLength={500}
+          placeholder="Type a comment…"
+          className="min-w-0 flex-1 rounded-full border border-border/60 bg-background px-4 py-2 text-sm outline-none focus:border-primary"
         />
-        <Button type="submit" size="icon" className="shrink-0">
-          <Send className="h-4 w-4" />
+        <Button size="icon" className="h-9 w-9 shrink-0 rounded-full" onClick={send} disabled={sending || !text.trim()}>
+          <Send className="h-3.5 w-3.5" />
         </Button>
-      </form>
+      </div>
     </div>
   );
 }
