@@ -273,7 +273,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
         <div
           ref={listRef}
           onScroll={handleScroll}
-          className="flex h-64 min-h-0 w-full flex-col gap-2.5 overflow-y-auto overflow-x-hidden px-3 py-2.5"
+          className="flex h-full min-h-0 w-full flex-col gap-2.5 overflow-y-auto overflow-x-hidden px-3 py-2.5"
         >
           {loading && <div className="text-xs text-muted-foreground">Loading comments…</div>}
           {!loading && messages.length === 0 && (
