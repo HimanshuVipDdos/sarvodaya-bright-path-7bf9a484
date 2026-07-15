@@ -571,3 +571,17 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
       />
     </div>
   );
+<ControlBar
+        playing={playing} muted={muted} time={time} duration={duration}
+        speed={speed} showSpeed={showSpeed}
+        onPlayToggle={toggle}
+        onSeek={seek}
+        onScrub={scrubTo}
+        onMuteToggle={toggleMute}
+        onSpeedToggle={() => setShowSpeed((s) => !s)}
+        onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
+        onFullscreen={fullscreen}
+      />
+    </div>
+  );
+}
