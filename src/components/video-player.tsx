@@ -102,7 +102,13 @@ export function VideoPlayer({ src, poster, title, className, fullscreenTargetRef
   if (vimeoId) return <VimeoPlayer id={vimeoId} title={title} className={className} />;
   // Other embeds (Drive etc): plain iframe wrapped in matching frame
   return (
-    <div className={cn("aspect-video overflow-hidden rounded-3xl bg-black shadow-elegant", className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-3xl bg-black shadow-elegant",
+        !className?.includes("h-full") && "aspect-video",
+        className,
+      )}
+    >
       <iframe
         src={toGenericEmbed(src)}
         title={title ?? "Video"}
@@ -129,9 +135,6 @@ function ControlBar({
   qualities?: string[]; currentQuality?: string; onQualityPick?: (q: string) => void;
 }) {
   const [showQuality, setShowQuality] = useState(false);
-  // While actively dragging the scrubber, show the dragged position instead
-  // of the real playback time — otherwise the ~2x/sec time updates from the
-  // player fight the drag and make seeking feel broken/jumpy.
   const [dragTime, setDragTime] = useState<number | null>(null);
   const displayTime = dragTime ?? time;
   return (
@@ -151,7 +154,6 @@ function ControlBar({
               setDragTime(null);
             }}
             onKeyUp={(e) => {
-              // Arrow-key seeking doesn't fire pointerup — commit immediately.
               const v = Number((e.target as HTMLInputElement).value);
               onScrub(v);
               setDragTime(null);
@@ -284,8 +286,6 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
               e.target.unMute?.();
               e.target.setVolume?.(100);
               setDuration(e.target.getDuration?.() ?? 0);
-              // Ask for the best quality straight away (YouTube only honors
-              // this once buffering starts, so we ask again on first play).
               const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
               if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
             } catch {}
@@ -296,16 +296,9 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
               setPlaying(true);
               setStarted(true);
               try {
-                // Ask for the best available quality the moment playback
-                // starts — YouTube only honors this once buffering begins.
                 const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
                 if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
               } catch {}
-              // YouTube's adaptive bitrate can still silently step the
-              // quality back down a few seconds later even after we've
-              // asked for the best level once. Keep re-asserting for the
-              // first ~15s of playback so the request actually sticks,
-              // then stop so we're not fighting a genuine user choice.
               let ticks = 0;
               const reassert = setInterval(() => {
                 ticks += 1;
@@ -399,7 +392,8 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
     <div
       ref={wrapRef}
       className={cn(
-        "group relative aspect-video overflow-hidden rounded-3xl bg-black shadow-elegant",
+        "group relative overflow-hidden rounded-3xl bg-black shadow-elegant",
+        !className?.includes("h-full") && "aspect-video",
         className,
       )}
     >
@@ -413,15 +407,6 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         onClick={toggle}
         onContextMenu={(e) => e.preventDefault()}
       />
-      {/*
-        YouTube always renders its own logo in this corner even with
-        modestbranding on. Rather than a bare black rectangle sitting on top
-        of the video (which used to look like a rendering glitch, especially
-        in fullscreen), cover the exact same spot with a small blurred chip
-        carrying the platform's own mark — same size/position logic so it
-        stays correctly placed in fullscreen too, but now reads as
-        intentional branding instead of a bug.
-      */}
       <div
         className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 flex items-center justify-center rounded-md bg-black/70 shadow-sm backdrop-blur-sm"
         style={{ width: "10%", height: "8%", maxWidth: 96, maxHeight: 32 }}
@@ -468,7 +453,13 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
 function VimeoPlayer({ id, title, className }: { id: string; title?: string; className?: string }) {
   const src = `https://player.vimeo.com/video/${id}?title=0&byline=0&portrait=0&badge=0`;
   return (
-    <div className={cn("aspect-video overflow-hidden rounded-3xl bg-black shadow-elegant", className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-3xl bg-black shadow-elegant",
+        !className?.includes("h-full") && "aspect-video",
+        className,
+      )}
+    >
       <iframe
         src={src}
         title={title ?? "Video"}
@@ -531,7 +522,8 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
     <div
       ref={wrapRef}
       className={cn(
-        "group relative aspect-video overflow-hidden rounded-3xl bg-black shadow-elegant",
+        "group relative overflow-hidden rounded-3xl bg-black shadow-elegant",
+        !className?.includes("h-full") && "aspect-video",
         className,
       )}
     >
