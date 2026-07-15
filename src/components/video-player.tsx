@@ -536,4 +536,23 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
         <button
           onClick={toggle}
           aria-label="Play"
-          className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-ful
+          className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-white/90 text-primary shadow-elegant backdrop-blur transition hover:scale-105"
+        >
+          <Play className="h-7 w-7 translate-x-0.5" />
+        </button>
+      )}
+
+      <ControlBar
+        playing={playing} muted={muted} time={time} duration={duration}
+        speed={speed} showSpeed={showSpeed}
+        onPlayToggle={toggle}
+        onSeek={seek}
+        onScrub={scrubTo}
+        onMuteToggle={toggleMute}
+        onSpeedToggle={() => setShowSpeed((s) => !s)}
+        onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
+        onFullscreen={fullscreen}
+      />
+    </div>
+  );
+}
