@@ -75,10 +75,10 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   const [bulkText, setBulkText] = useState("");
   const [defaultTopic, setDefaultTopic] = useState("");
   const [defaultMarks, setDefaultMarks] = useState(1);
-  // Only used as guidance when the source turns out to be pure theory/notes
-  // (no ready-made questions) — the AI writes fresh MCQs from that theory.
-  const [targetQuestionCount, setTargetQuestionCount] = useState(10);
   const [showValidation, setShowValidation] = useState(false);
+  const [fromPage, setFromPage] = useState<string>("");
+  const [toPage, setToPage] = useState<string>("");
+  const [pdfTotalPages, setPdfTotalPages] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,7 +96,6 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
           ...payload,
           defaultTopic: defaultTopic || null,
           defaultMarks,
-          targetQuestionCount: targetQuestionCount || null,
         },
       });
 
@@ -108,7 +107,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
       }
       return (data?.questions || []) as ParsedQuestion[];
     },
-    [defaultTopic, defaultMarks, targetQuestionCount]
+    [defaultTopic, defaultMarks]
   );
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -133,9 +132,13 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         let questions: ParsedQuestion[] = [];
 
         if (file.type === "application/pdf") {
-          // Extract raw text from the PDF client-side, then let Gemini parse it
+          // Extract raw text from the PDF client-side (optionally only the
+          // page range the admin specified), then let Gemini parse it
           setProcessingStep("Extracting text from PDF...");
-          const text = await extractTextFromPDF(file);
+          const from = fromPage ? parseInt(fromPage, 10) : undefined;
+          const to = toPage ? parseInt(toPage, 10) : undefined;
+          const { text, totalPages } = await extractTextFromPDF(file, from, to);
+          setPdfTotalPages(totalPages);
 
           setProcessingStep("Asking AI to extract questions...");
           questions = await callParseQuestionsAPI({ mode: "text", content: text });
@@ -167,7 +170,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         setProcessingStep("");
       }
     },
-    [callParseQuestionsAPI]
+    [callParseQuestionsAPI, fromPage, toPage]
   );
 
   // Process pasted text - fast local path for clean structured formats,
@@ -338,9 +341,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
               AI Question Parser
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Upload PDF/Photo or paste text. Gemini AI reads it — if it already has questions
-              it extracts them (filling in any missing options), and if it's just theory/notes
-              it writes fresh MCQs from that content automatically.
+              Upload PDF/Photo or paste text. Gemini AI reads it and extracts questions automatically.
             </p>
           </DialogHeader>
 
@@ -364,19 +365,6 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                   onChange={(e) => setDefaultMarks(Number(e.target.value))}
                   className="h-8 text-sm mt-1"
                   min={1}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs">
-                  Questions to generate, if content is theory/notes (no ready-made questions found)
-                </Label>
-                <Input
-                  type="number"
-                  value={targetQuestionCount}
-                  onChange={(e) => setTargetQuestionCount(Number(e.target.value))}
-                  className="h-8 text-sm mt-1"
-                  min={1}
-                  max={50}
                 />
               </div>
             </div>
@@ -404,17 +392,52 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
 
             {/* Upload Mode */}
             {inputMode === "upload" && (
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => !isProcessing && fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
-                  isProcessing
-                    ? "border-muted bg-muted/50 cursor-not-allowed"
-                    : "border-border hover:border-primary/50 hover:bg-primary/5"
-                }`}
-              >
+              <div className="space-y-3">
+                {/* PDF page range — leave blank to parse the whole file. Useful
+                    for a large PDF (e.g. 500 questions) when you only want a
+                    specific chunk, from the start, the middle, or wherever. */}
+                <div className="grid grid-cols-2 gap-3 p-3 bg-muted/30 rounded-xl">
+                  <div>
+                    <Label className="text-xs">From Page (PDF only, optional)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={fromPage}
+                      onChange={(e) => setFromPage(e.target.value)}
+                      placeholder="e.g. 1"
+                      className="h-8 text-sm mt-1"
+                      disabled={isProcessing}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">To Page (PDF only, optional)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={toPage}
+                      onChange={(e) => setToPage(e.target.value)}
+                      placeholder={pdfTotalPages ? `e.g. ${pdfTotalPages}` : "e.g. 10"}
+                      className="h-8 text-sm mt-1"
+                      disabled={isProcessing}
+                    />
+                  </div>
+                  <p className="col-span-2 text-[10px] text-muted-foreground">
+                    Leave both blank to parse the entire PDF.{" "}
+                    {pdfTotalPages ? `Last file had ${pdfTotalPages} pages.` : "Only applies to PDF uploads, not images."}
+                  </p>
+                </div>
+
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => !isProcessing && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+                    isProcessing
+                      ? "border-muted bg-muted/50 cursor-not-allowed"
+                      : "border-border hover:border-primary/50 hover:bg-primary/5"
+                  }`}
+                >
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -445,6 +468,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                     </p>
                   </>
                 )}
+              </div>
               </div>
             )}
 
@@ -657,18 +681,6 @@ Answer: B`}
                                 Valid
                               </Badge>
                             )}
-                            {q.source === "generated" && (
-                              <Badge variant="outline" className="text-[10px] h-5 text-purple-600 border-purple-300">
-                                <Sparkles className="h-2.5 w-2.5 mr-0.5" />
-                                AI-written — verify facts
-                              </Badge>
-                            )}
-                            {q.source === "options_filled" && (
-                              <Badge variant="outline" className="text-[10px] h-5 text-blue-600 border-blue-300">
-                                <Sparkles className="h-2.5 w-2.5 mr-0.5" />
-                                AI-filled options
-                              </Badge>
-                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <button
@@ -837,9 +849,17 @@ Answer: B`}
 }
 
 /**
- * Extract text from PDF using PDF.js (free)
+ * Extract text from PDF using PDF.js (free).
+ * If fromPage/toPage are given, only those pages (1-indexed, inclusive) are
+ * extracted — lets the admin pull just a portion of a large PDF (e.g. only
+ * the first 50 questions, or questions from page 30-45) instead of sending
+ * the whole document to the AI parser every time.
  */
-async function extractTextFromPDF(file: File): Promise<string> {
+async function extractTextFromPDF(
+  file: File,
+  fromPage?: number,
+  toPage?: number
+): Promise<{ text: string; totalPages: number }> {
   try {
     const pdfjs = await import("pdfjs-dist");
     // Use CDN worker (free)
@@ -847,24 +867,32 @@ async function extractTextFromPDF(file: File): Promise<string> {
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = pdf.numPages;
+
+    const start = fromPage && fromPage > 0 ? fromPage : 1;
+    const end = toPage && toPage > 0 ? Math.min(toPage, totalPages) : totalPages;
+    if (start > totalPages) {
+      throw new Error(`This PDF only has ${totalPages} pages — "From page" is too high.`);
+    }
 
     let fullText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
+    for (let i = start; i <= end; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       const pageText = content.items.map((item: any) => item.str).join(" ");
       fullText += pageText + "\n";
     }
 
-    return fullText;
+    return { text: fullText, totalPages };
   } catch (e: any) {
     // Fallback: try to read as text
     try {
       const text = await file.text();
-      if (text.length > 100) return text;
+      if (text.length > 100) return { text, totalPages: 1 };
     } catch {
       // ignore
     }
+    if (e?.message?.includes("From page")) throw e;
     throw new Error(
       "Failed to extract text from PDF. Try converting to image or use text paste mode."
     );
