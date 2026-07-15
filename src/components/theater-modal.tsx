@@ -22,23 +22,12 @@ type Props = {
   title: string;
   meta?: string | null;
   description?: string | null;
-  /** Present only for live classes — turns on the live chat drawer. */
   liveClassId?: string | null;
-  /** The full list shown in the "Classes" drawer for switching without closing. */
   lectures?: TheaterLecture[];
   activeLectureId?: string;
   onSelectLecture?: (id: string) => void;
 };
 
-/**
- * Full "cinema mode" player, opened by tapping a lecture. Mirrors the
- * YouTube-app layout:
- *  - Outside browser-fullscreen: chat sits permanently beside the video
- *    (like the YouTube app's watch screen), never as an overlay.
- *  - Inside browser-fullscreen: the video goes fully edge-to-edge, and
- *    chat becomes a slide-in drawer toggled from the top bar so it never
- *    shrinks or letterboxes the video.
- */
 export function TheaterModal({
   open, onClose, videoSrc, poster, title, meta, description,
   liveClassId, lectures = [], activeLectureId, onSelectLecture,
@@ -47,17 +36,43 @@ export function TheaterModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [panel, setPanel] = useState<"none" | "chat" | "list">("none");
 
+  // ---- Auto-hide top bar in fullscreen, YouTube-style ----
+  const [topBarVisible, setTopBarVisible] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     const handler = () => {
       const fs = document.fullscreenElement === rootRef.current;
       setIsFullscreen(fs);
-      // Leaving fullscreen: drop the drawer version of chat since it's
-      // shown permanently in the side-by-side layout instead.
-      if (!fs) setPanel((p) => (p === "chat" ? "none" : p));
+      if (!fs) {
+        setPanel((p) => (p === "chat" ? "none" : p));
+        setTopBarVisible(true); // always visible outside fullscreen
+      }
     };
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    // Reset visibility + timer whenever the user moves/touches inside.
+    function activity() {
+      setTopBarVisible(true);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      hideTimer.current = setTimeout(() => setTopBarVisible(false), 3000);
+    }
+    activity(); // show immediately on entering fullscreen
+    const el = rootRef.current;
+    el?.addEventListener("mousemove", activity);
+    el?.addEventListener("touchstart", activity);
+    el?.addEventListener("click", activity);
+    return () => {
+      el?.removeEventListener("mousemove", activity);
+      el?.removeEventListener("touchstart", activity);
+      el?.removeEventListener("click", activity);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [isFullscreen]);
 
   // Lock page scroll while the theater is open.
   useEffect(() => {
@@ -67,7 +82,6 @@ export function TheaterModal({
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  // Reset transient UI state whenever a fresh video is opened.
   useEffect(() => {
     if (open) setPanel("none");
   }, [open, videoSrc]);
@@ -91,12 +105,15 @@ export function TheaterModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          // z-index bumped well above any sticky site header/nav so the
-          // theater always renders on top of the page underneath it.
           className="fixed inset-0 z-[9999] flex flex-col bg-black isolate"
         >
-          {/* ===== Top bar ===== */}
-          <div className="flex flex-shrink-0 items-center justify-between gap-3 bg-black/90 px-3 py-2 sm:px-4">
+          {/* ===== Top bar — auto-hides in fullscreen after 3s idle ===== */}
+          <div
+            className={cn(
+              "z-30 flex flex-shrink-0 items-center justify-between gap-3 bg-black/90 px-3 py-2 transition-opacity duration-300 sm:px-4",
+              isFullscreen && !topBarVisible ? "pointer-events-none opacity-0" : "opacity-100",
+            )}
+          >
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-white sm:text-base">{title}</div>
               {meta && <div className="truncate text-[11px] text-white/60">{meta}</div>}
@@ -110,8 +127,6 @@ export function TheaterModal({
                   icon={<ListVideo className="h-4 w-4" />}
                 />
               )}
-              {/* Chat toggle only makes sense in fullscreen — outside of
-                  it, chat is already permanently visible beside the video. */}
               {liveClassId && isFullscreen && (
                 <IconButton
                   active={panel === "chat"}
@@ -133,12 +148,9 @@ export function TheaterModal({
           <div
             className={cn(
               "relative flex flex-1 overflow-hidden",
-              // Side-by-side layout outside fullscreen; video-only,
-              // edge-to-edge stage inside fullscreen.
               !isFullscreen && "flex-col lg:flex-row",
             )}
           >
-            {/* ---- Video stage ---- */}
             <div
               className={cn(
                 "flex min-h-0 flex-1 items-center justify-center overflow-hidden",
@@ -164,7 +176,6 @@ export function TheaterModal({
               </div>
             </div>
 
-            {/* ---- Permanent side chat (outside fullscreen only) ---- */}
             {!isFullscreen && liveClassId && (
               <div className="flex max-h-[45vh] w-full shrink-0 flex-col border-t border-white/10 bg-neutral-950 lg:h-auto lg:max-h-none lg:w-80 lg:border-l lg:border-t-0">
                 <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5">
@@ -176,7 +187,6 @@ export function TheaterModal({
               </div>
             )}
 
-            {/* ---- Lecture list drawer (left, both modes) ---- */}
             <AnimatePresence>
               {panel === "list" && (
                 <>
@@ -237,7 +247,6 @@ export function TheaterModal({
               )}
             </AnimatePresence>
 
-            {/* ---- Live chat drawer (right, fullscreen only) ---- */}
             <AnimatePresence>
               {isFullscreen && panel === "chat" && liveClassId && (
                 <>
