@@ -129,6 +129,11 @@ function ControlBar({
   qualities?: string[]; currentQuality?: string; onQualityPick?: (q: string) => void;
 }) {
   const [showQuality, setShowQuality] = useState(false);
+  // While actively dragging the scrubber, show the dragged position instead
+  // of the real playback time — otherwise the ~2x/sec time updates from the
+  // player fight the drag and make seeking feel broken/jumpy.
+  const [dragTime, setDragTime] = useState<number | null>(null);
+  const displayTime = dragTime ?? time;
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2.5 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
       <div className="pointer-events-auto flex flex-col gap-2.5">
@@ -138,8 +143,19 @@ function ControlBar({
             min={0}
             max={duration || 0}
             step={0.1}
-            value={time}
-            onChange={(e) => onScrub(Number(e.target.value))}
+            value={displayTime}
+            onChange={(e) => setDragTime(Number(e.target.value))}
+            onPointerUp={(e) => {
+              const v = Number((e.target as HTMLInputElement).value);
+              onScrub(v);
+              setDragTime(null);
+            }}
+            onKeyUp={(e) => {
+              // Arrow-key seeking doesn't fire pointerup — commit immediately.
+              const v = Number((e.target as HTMLInputElement).value);
+              onScrub(v);
+              setDragTime(null);
+            }}
             className="h-[3px] w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary transition-all hover:h-1.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125"
             aria-label="Seek"
           />
@@ -163,7 +179,7 @@ function ControlBar({
               {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
           )}
-          <div className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium tabular-nums text-white/85">{fmt(time)} / {fmt(duration)}</div>
+          <div className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium tabular-nums text-white/85">{fmt(displayTime)} / {fmt(duration)}</div>
           <div className="ml-auto flex items-center gap-1.5">
             {qualities && qualities.length > 0 && onQualityPick && (
               <div className="relative">
@@ -555,4 +571,3 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
       />
     </div>
   );
-}
