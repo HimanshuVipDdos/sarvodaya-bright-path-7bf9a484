@@ -32,10 +32,12 @@ type Props = {
 
 /**
  * Full "cinema mode" player, opened by tapping a lecture. Mirrors the
- * PW-style layout: big video in the middle, a lecture list drawer that
- * slides in from the left, a live-chat drawer that slides in from the
- * right, and a real (browser) fullscreen toggle — all reachable without
- * ever leaving this view.
+ * YouTube-app layout:
+ *  - Outside browser-fullscreen: chat sits permanently beside the video
+ *    (like the YouTube app's watch screen), never as an overlay.
+ *  - Inside browser-fullscreen: the video goes fully edge-to-edge, and
+ *    chat becomes a slide-in drawer toggled from the top bar so it never
+ *    shrinks or letterboxes the video.
  */
 export function TheaterModal({
   open, onClose, videoSrc, poster, title, meta, description,
@@ -46,7 +48,13 @@ export function TheaterModal({
   const [panel, setPanel] = useState<"none" | "chat" | "list">("none");
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(document.fullscreenElement === rootRef.current);
+    const handler = () => {
+      const fs = document.fullscreenElement === rootRef.current;
+      setIsFullscreen(fs);
+      // Leaving fullscreen: drop the drawer version of chat since it's
+      // shown permanently in the side-by-side layout instead.
+      if (!fs) setPanel((p) => (p === "chat" ? "none" : p));
+    };
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
@@ -83,7 +91,9 @@ export function TheaterModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[95] flex flex-col bg-black"
+          // z-index bumped well above any sticky site header/nav so the
+          // theater always renders on top of the page underneath it.
+          className="fixed inset-0 z-[9999] flex flex-col bg-black isolate"
         >
           {/* ===== Top bar ===== */}
           <div className="flex flex-shrink-0 items-center justify-between gap-3 bg-black/90 px-3 py-2 sm:px-4">
@@ -100,7 +110,9 @@ export function TheaterModal({
                   icon={<ListVideo className="h-4 w-4" />}
                 />
               )}
-              {liveClassId && (
+              {/* Chat toggle only makes sense in fullscreen — outside of
+                  it, chat is already permanently visible beside the video. */}
+              {liveClassId && isFullscreen && (
                 <IconButton
                   active={panel === "chat"}
                   onClick={() => setPanel((p) => (p === "chat" ? "none" : "chat"))}
@@ -118,18 +130,33 @@ export function TheaterModal({
           </div>
 
           {/* ===== Main area ===== */}
-          <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-            <div className="flex h-full w-full max-w-6xl items-center justify-center p-0 sm:p-4">
-              <div className="w-full">
+          <div
+            className={cn(
+              "relative flex flex-1 overflow-hidden",
+              // Side-by-side layout outside fullscreen; video-only,
+              // edge-to-edge stage inside fullscreen.
+              !isFullscreen && "flex-col lg:flex-row",
+            )}
+          >
+            {/* ---- Video stage ---- */}
+            <div
+              className={cn(
+                "flex min-h-0 flex-1 items-center justify-center overflow-hidden",
+                isFullscreen ? "h-full w-full p-0" : "p-0 sm:p-4",
+              )}
+            >
+              <div className={cn(isFullscreen ? "h-full w-full" : "mx-auto w-full max-w-5xl")}>
                 <VideoPlayer
                   key={videoSrc}
                   src={videoSrc}
                   poster={poster ?? undefined}
                   title={title}
                   fullscreenTargetRef={rootRef}
-                  className="rounded-none sm:rounded-2xl"
+                  className={cn(
+                    isFullscreen ? "h-full w-full rounded-none" : "rounded-none sm:rounded-2xl",
+                  )}
                 />
-                {description && (
+                {description && !isFullscreen && (
                   <div className="hidden px-1 pt-3 text-sm text-white/70 sm:block">
                     {description}
                   </div>
@@ -137,7 +164,19 @@ export function TheaterModal({
               </div>
             </div>
 
-            {/* ---- Lecture list drawer (left) ---- */}
+            {/* ---- Permanent side chat (outside fullscreen only) ---- */}
+            {!isFullscreen && liveClassId && (
+              <div className="flex max-h-[45vh] w-full shrink-0 flex-col border-t border-white/10 bg-neutral-950 lg:h-auto lg:max-h-none lg:w-80 lg:border-l lg:border-t-0">
+                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-white/80">Live Chat</span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden p-2">
+                  <LiveChat liveClassId={liveClassId} className="h-full" />
+                </div>
+              </div>
+            )}
+
+            {/* ---- Lecture list drawer (left, both modes) ---- */}
             <AnimatePresence>
               {panel === "list" && (
                 <>
@@ -198,9 +237,9 @@ export function TheaterModal({
               )}
             </AnimatePresence>
 
-            {/* ---- Live chat drawer (right) ---- */}
+            {/* ---- Live chat drawer (right, fullscreen only) ---- */}
             <AnimatePresence>
-              {panel === "chat" && liveClassId && (
+              {isFullscreen && panel === "chat" && liveClassId && (
                 <>
                   <motion.button
                     aria-label="Close panel"
@@ -219,7 +258,7 @@ export function TheaterModal({
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="flex-1 overflow-hidden p-2">
+                    <div className="min-h-0 flex-1 overflow-hidden p-2">
                       <LiveChat liveClassId={liveClassId} className="h-full" />
                     </div>
                   </motion.div>
