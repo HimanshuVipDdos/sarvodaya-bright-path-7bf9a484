@@ -49,7 +49,7 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
 
     const { data: allQuestions, error: qErr } = await supabaseAdmin
       .from("cbt_questions")
-      .select("id,question_text,option_a,option_b,option_c,option_d,marks,sort_order")
+      .select("id,question_text,option_a,option_b,option_c,option_d,marks,sort_order,topic")
       .eq("test_id", data.test_id)
       .order("sort_order", { ascending: true });
     if (qErr) throw new Error(qErr.message);
