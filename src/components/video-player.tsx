@@ -398,10 +398,10 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       )}
     >
       <div
-        ref={hostRef}
-        title={title}
-        className="pointer-events-none absolute inset-0 h-full w-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"
-      />
+  ref={hostRef}
+  title={title}
+  className="pointer-events-none absolute left-1/2 top-1/2 h-[177.78vh] min-h-full w-[100vw] min-w-[56.25vh] -translate-x-1/2 -translate-y-1/2 [&>iframe]:h-full [&>iframe]:w-full"
+/>
       <div
         className="absolute inset-0"
         onClick={toggle}
