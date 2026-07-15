@@ -117,6 +117,31 @@ function useAutoSubmitOnLeave(onLeave: () => void, enabled: boolean) {
   }, [enabled]);
 }
 
+/* ============ SUBJECT GROUPING ============
+ * Groups the flat question list by `topic` (used as "Subject"), preserving
+ * the order subjects first appear in (which follows sort_order from the
+ * admin panel / parser). Falls back to a single "General" subject if no
+ * question has a topic set, so tests created before this feature still work
+ * exactly as before (tab bar just won't show, since there'd only be 1 tab).
+ */
+function useSubjectGroups(questions: any[]) {
+  return useMemo(() => {
+    const order: string[] = [];
+    const startIndex: Record<string, number> = {};
+    const indices: Record<string, number[]> = {};
+    questions.forEach((q, i) => {
+      const subject = q.topic?.trim() || "General";
+      if (!(subject in startIndex)) {
+        order.push(subject);
+        startIndex[subject] = i;
+        indices[subject] = [];
+      }
+      indices[subject].push(i);
+    });
+    return { subjects: order, startIndex, indices };
+  }, [questions]);
+}
+
 /* ============ OUTER: loads the attempt, then mounts the runner ============ */
 function TestTakingPage() {
   const { testId } = Route.useParams();
@@ -243,6 +268,21 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
   const answeredCount = Object.keys(answers).length;
   const totalQuestions = questions.length;
 
+  const { subjects, startIndex, indices } = useSubjectGroups(questions);
+  const currentSubject = currentQ.topic?.trim() || "General";
+  const showSubjectTabs = subjects.length > 1;
+  const subjectStats = useMemo(() => {
+    const stats: Record<string, { answered: number; total: number }> = {};
+    subjects.forEach((s) => {
+      const qIdx = indices[s];
+      stats[s] = {
+        total: qIdx.length,
+        answered: qIdx.filter((i) => !!answers[questions[i].id]).length,
+      };
+    });
+    return stats;
+  }, [subjects, indices, answers, questions]);
+
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* ===== OFFICIAL CBT HEADER ===== */}
@@ -259,6 +299,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
               Candidate: <span className="font-medium text-primary-foreground">{candidateName ?? "…"}</span>
               <span className="mx-1.5">•</span>
               Q{currentQIndex + 1} of {totalQuestions}
+              {showSubjectTabs && <><span className="mx-1.5">•</span>{currentSubject}</>}
             </div>
           </div>
           
@@ -283,6 +324,33 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
           </div>
         </div>
       </header>
+
+      {/* ===== SUBJECT TABS (Testbook-style) — only shown when questions have topics set ===== */}
+      {showSubjectTabs && (
+        <div className="flex-shrink-0 border-b bg-card overflow-x-auto">
+          <div className="flex gap-1 px-3 py-2 min-w-max">
+            {subjects.map((subject) => {
+              const stat = subjectStats[subject];
+              const isActive = subject === currentSubject;
+              return (
+                <button
+                  key={subject}
+                  onClick={() => setCurrentQIndex(startIndex[subject])}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors",
+                    isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  )}
+                >
+                  {subject}
+                  <span className={cn("rounded-full px-1.5 text-[10px]", isActive ? "bg-white/20" : "bg-background")}>
+                    {stat.answered}/{stat.total}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ===== MAIN CONTENT: Question + Palette ===== */}
       <div className="flex-1 flex overflow-hidden">
@@ -378,30 +446,40 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-gray-300" /> Unanswered</span>
           </div>
 
-          <div className="grid grid-cols-5 gap-1.5">
-            {questions.map((q: any, i: number) => {
-              const isAnswered = !!answers[q.id];
-              const isFlagged = flagged.has(q.id);
-              const isCurrent = i === currentQIndex;
-              
-              return (
-                <button
-                  key={q.id}
-                  onClick={() => setCurrentQIndex(i)}
-                  className={cn(
-                    "aspect-square rounded-lg text-xs font-bold transition-all",
-                    isCurrent ? "ring-2 ring-primary ring-offset-1 bg-primary text-primary-foreground"
-                    : isAnswered && isFlagged ? "bg-yellow-500 text-white"
-                    : isAnswered ? "bg-green-500 text-white"
-                    : isFlagged ? "bg-yellow-200 text-yellow-700"
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-                  )}
-                >
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
+          {subjects.map((subject) => (
+            <div key={subject} className="mb-4">
+              {showSubjectTabs && (
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {subject}
+                </div>
+              )}
+              <div className="grid grid-cols-5 gap-1.5">
+                {indices[subject].map((i) => {
+                  const q = questions[i];
+                  const isAnswered = !!answers[q.id];
+                  const isFlagged = flagged.has(q.id);
+                  const isCurrent = i === currentQIndex;
+
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => setCurrentQIndex(i)}
+                      className={cn(
+                        "aspect-square rounded-lg text-xs font-bold transition-all",
+                        isCurrent ? "ring-2 ring-primary ring-offset-1 bg-primary text-primary-foreground"
+                        : isAnswered && isFlagged ? "bg-yellow-500 text-white"
+                        : isAnswered ? "bg-green-500 text-white"
+                        : isFlagged ? "bg-yellow-200 text-yellow-700"
+                        : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                      )}
+                    >
+                      {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
           <div className="mt-4 pt-4 border-t space-y-1 text-xs">
             <div className="flex justify-between">
@@ -437,6 +515,9 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
         onSelect={setCurrentQIndex}
         answeredCount={answeredCount}
         totalQuestions={totalQuestions}
+        subjects={subjects}
+        indices={indices}
+        showSubjectTabs={showSubjectTabs}
       />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -489,7 +570,7 @@ function ErrorScreen({ error }: { error: any }) {
   );
 }
 
-function MobilePalette({ questions, currentQIndex, answers, flagged, onSelect, answeredCount, totalQuestions }: any) {
+function MobilePalette({ questions, currentQIndex, answers, flagged, onSelect, answeredCount, totalQuestions, subjects, indices, showSubjectTabs }: any) {
   const [open, setOpen] = useState(false);
   
   return (
@@ -509,26 +590,38 @@ function MobilePalette({ questions, currentQIndex, answers, flagged, onSelect, a
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t rounded-t-2xl p-4 z-50 max-h-[50vh] overflow-y-auto"
+            className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t rounded-t-2xl p-4 z-50 max-h-[60vh] overflow-y-auto"
           >
             <div className="w-8 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-3" />
-            <div className="grid grid-cols-6 gap-1.5">
-              {questions.map((q: any, i: number) => (
-                <button
-                  key={q.id}
-                  onClick={() => { onSelect(i); setOpen(false); }}
-                  className={cn(
-                    "aspect-square rounded-lg text-xs font-bold",
-                    i === currentQIndex ? "bg-primary text-primary-foreground"
-                    : answers[q.id] ? "bg-green-500 text-white"
-                    : flagged.has(q.id) ? "bg-yellow-400"
-                    : "bg-gray-200"
-                  )}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
+            {(subjects ?? [null]).map((subject: string | null) => (
+              <div key={subject ?? "all"} className="mb-3">
+                {showSubjectTabs && subject && (
+                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {subject}
+                  </div>
+                )}
+                <div className="grid grid-cols-6 gap-1.5">
+                  {(subject ? indices[subject] : questions.map((_: any, i: number) => i)).map((i: number) => {
+                    const q = questions[i];
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => { onSelect(i); setOpen(false); }}
+                        className={cn(
+                          "aspect-square rounded-lg text-xs font-bold",
+                          i === currentQIndex ? "bg-primary text-primary-foreground"
+                          : answers[q.id] ? "bg-green-500 text-white"
+                          : flagged.has(q.id) ? "bg-yellow-400"
+                          : "bg-gray-200"
+                        )}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
