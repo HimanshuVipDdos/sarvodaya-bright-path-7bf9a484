@@ -15,6 +15,11 @@ export interface ParsedQuestion {
   topic: string | null;
   marks: number;
   sort_order: number;
+  /** Where this question came from — undefined for local (non-AI) parsers.
+   *  "extracted": question + all options were already present in the source.
+   *  "options_filled": question was present but AI invented some/all options.
+   *  "generated": AI wrote the whole question from theory/notes text. */
+  source?: "extracted" | "options_filled" | "generated";
 }
 
 // Raw text parsing options
