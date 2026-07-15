@@ -83,6 +83,51 @@ function loadYouTubeApi(): Promise<any> {
   return ytApiPromise;
 }
 
+/** Tracks whether `ref.current` is the element currently in native fullscreen. */
+function useIsFullscreen(ref: RefObject<HTMLElement | null>) {
+  const [isFs, setIsFs] = useState(false);
+  useEffect(() => {
+    const handler = () => setIsFs(document.fullscreenElement === ref.current);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return isFs;
+}
+
+/**
+ * Controls the show/hide of the control bar.
+ * - Always visible while paused / not started.
+ * - While playing: visible on interaction, auto-hides after 3s of no interaction.
+ * This replaces the old CSS-only `group-hover` reveal, which never triggers on
+ * touch devices (mobile users could never see or tap the seek buttons).
+ */
+function useControlsReveal(playing: boolean) {
+  const [visible, setVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const show = () => {
+    setVisible(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (playing) {
+      timerRef.current = setTimeout(() => setVisible(false), 3000);
+    }
+  };
+
+  useEffect(() => {
+    if (!playing) {
+      setVisible(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    } else {
+      show();
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
+
+  return { visible, show };
+}
+
 type Props = {
   src: string;
   poster?: string;
@@ -122,15 +167,15 @@ export function VideoPlayer({ src, poster, title, className, fullscreenTargetRef
 
 /* ---------------- Shared control bar UI ---------------- */
 function ControlBar({
-  playing, muted, time, duration, speed, showSpeed,
-  onPlayToggle, onSeek, onScrub, onMuteToggle, onSpeedToggle, onSpeedPick, onFullscreen,
+  playing, muted, time, duration, speed, showSpeed, visible,
+  onPlayToggle, onSeek, onScrub, onMuteToggle, onSpeedToggle, onSpeedPick, onFullscreen, onInteract,
   showScrubber = true, showMute = true, showSeekButtons = true,
   qualities, currentQuality, onQualityPick,
 }: {
-  playing: boolean; muted: boolean; time: number; duration: number; speed: number; showSpeed: boolean;
+  playing: boolean; muted: boolean; time: number; duration: number; speed: number; showSpeed: boolean; visible: boolean;
   onPlayToggle: () => void; onSeek: (d: number) => void;
   onScrub: (t: number) => void; onMuteToggle: () => void;
-  onSpeedToggle: () => void; onSpeedPick: (s: number) => void; onFullscreen: () => void;
+  onSpeedToggle: () => void; onSpeedPick: (s: number) => void; onFullscreen: () => void; onInteract: () => void;
   showScrubber?: boolean; showMute?: boolean; showSeekButtons?: boolean;
   qualities?: string[]; currentQuality?: string; onQualityPick?: (q: string) => void;
 }) {
@@ -138,7 +183,14 @@ function ControlBar({
   const [dragTime, setDragTime] = useState<number | null>(null);
   const displayTime = dragTime ?? time;
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2.5 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+    <div
+      onClick={(e) => { e.stopPropagation(); onInteract(); }}
+      onPointerMove={onInteract}
+      className={cn(
+        "pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2.5 pt-8 transition-opacity duration-200",
+        visible ? "opacity-100" : "opacity-0",
+      )}
+    >
       <div className="pointer-events-auto flex flex-col gap-2.5">
         {showScrubber && (
           <input
@@ -261,6 +313,10 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
   const [qualities, setQualities] = useState<string[]>([]);
   const [quality, setQuality] = useState<string>("auto");
 
+  const fsElRef = fullscreenTargetRef ?? wrapRef;
+  const isFs = useIsFullscreen(fsElRef);
+  const { visible: controlsVisible, show: revealControls } = useControlsReveal(playing);
+
   useEffect(() => {
     let cancelled = false;
     loadYouTubeApi().then((YT) => {
@@ -361,6 +417,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       const cur = p.getCurrentTime?.() ?? 0;
       const dur = p.getDuration?.() ?? 0;
       p.seekTo?.(Math.min(Math.max(0, cur + delta), dur), true);
+      setTime(Math.min(Math.max(0, cur + delta), dur));
     } catch {}
   }
   function scrubTo(t: number) {
@@ -375,7 +432,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
     } catch {}
   }
   function fullscreen() {
-    const el = fullscreenTargetRef?.current ?? wrapRef.current; if (!el) return;
+    const el = fsElRef.current; if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen();
     else el.requestFullscreen?.();
   }
@@ -388,12 +445,22 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
     } catch {}
   }
 
+  function handleVideoTap() {
+    // First tap only reveals controls (mobile-safe); a tap while controls
+    // are already visible toggles play/pause, same as before.
+    if (!controlsVisible) { revealControls(); return; }
+    revealControls();
+    toggle();
+  }
+
   return (
     <div
       ref={wrapRef}
       className={cn(
-        "group relative overflow-hidden rounded-3xl bg-black shadow-elegant",
-        !className?.includes("h-full") && "aspect-video",
+        "group relative overflow-hidden bg-black shadow-elegant",
+        isFs
+          ? "!aspect-auto h-full w-full !rounded-none"
+          : cn("rounded-3xl", !className?.includes("h-full") && "aspect-video"),
         className,
       )}
     >
@@ -404,7 +471,8 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       />
       <div
         className="absolute inset-0"
-        onClick={toggle}
+        onClick={handleVideoTap}
+        onPointerMove={revealControls}
         onContextMenu={(e) => e.preventDefault()}
       />
       <div
@@ -422,7 +490,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
             <img src={poster} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); toggle(); }}
+            onClick={(e) => { e.stopPropagation(); toggle(); revealControls(); }}
             aria-label="Play"
             className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-white/90 text-primary shadow-elegant backdrop-blur transition hover:scale-105"
           >
@@ -433,7 +501,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
 
       <ControlBar
         playing={playing} muted={muted} time={time} duration={duration}
-        speed={speed} showSpeed={showSpeed}
+        speed={speed} showSpeed={showSpeed} visible={controlsVisible}
         onPlayToggle={toggle}
         onSeek={seek}
         onScrub={scrubTo}
@@ -441,6 +509,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         onSpeedToggle={() => setShowSpeed((s) => !s)}
         onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
         onFullscreen={fullscreen}
+        onInteract={revealControls}
         qualities={qualities}
         currentQuality={quality}
         onQualityPick={pickQuality}
@@ -482,6 +551,10 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
 
+  const fsElRef = fullscreenTargetRef ?? wrapRef;
+  const isFs = useIsFullscreen(fsElRef);
+  const { visible: controlsVisible, show: revealControls } = useControlsReveal(playing);
+
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
@@ -512,18 +585,26 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
     setMuted(v.muted);
   }
   function fullscreen() {
-    const el = fullscreenTargetRef?.current ?? wrapRef.current;
+    const el = fsElRef.current;
     if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen();
     else el.requestFullscreen?.();
+  }
+
+  function handleVideoTap() {
+    if (!controlsVisible) { revealControls(); return; }
+    revealControls();
+    toggle();
   }
 
   return (
     <div
       ref={wrapRef}
       className={cn(
-        "group relative overflow-hidden rounded-3xl bg-black shadow-elegant",
-        !className?.includes("h-full") && "aspect-video",
+        "group relative overflow-hidden bg-black shadow-elegant",
+        isFs
+          ? "!aspect-auto h-full w-full !rounded-none"
+          : cn("rounded-3xl", !className?.includes("h-full") && "aspect-video"),
         className,
       )}
     >
@@ -533,7 +614,8 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
         poster={poster}
         title={title}
         className="h-full w-full object-contain bg-black"
-        onClick={toggle}
+        onClick={handleVideoTap}
+        onPointerMove={revealControls}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
@@ -542,7 +624,7 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
       />
       {!playing && (
         <button
-          onClick={toggle}
+          onClick={() => { toggle(); revealControls(); }}
           aria-label="Play"
           className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-white/90 text-primary shadow-elegant backdrop-blur transition hover:scale-105"
         >
@@ -552,7 +634,7 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
 
       <ControlBar
         playing={playing} muted={muted} time={time} duration={duration}
-        speed={speed} showSpeed={showSpeed}
+        speed={speed} showSpeed={showSpeed} visible={controlsVisible}
         onPlayToggle={toggle}
         onSeek={seek}
         onScrub={scrubTo}
@@ -560,6 +642,7 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
         onSpeedToggle={() => setShowSpeed((s) => !s)}
         onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
         onFullscreen={fullscreen}
+        onInteract={revealControls}
       />
     </div>
   );
