@@ -1,73 +1,103 @@
-import React, { useState } from "react";
-import { VideoPlayer } from "./VideoPlayer";
+import React, { useState, useRef, useCallback } from "react";
+import ReactPlayer from "react-player/youtube";
+import type { OnProgressProps } from "react-player/base";
 
-export default function LiveStreamRoom() {
-  const [chatMessages, setChatMessages] = useState<string[]>([]);
-  const [typedMessage, setTypedMessage] = useState("");
+interface VideoPlayerProps {
+  /** YouTube video URL (watch, youtu.be, or embed link — sab chalega) */
+  src: string;
+  /** Thumbnail shown before play (react-player ka "light" mode ke liye) */
+  poster?: string;
+  title?: string;
+  isLive?: boolean;
+  /** Optional: 0 se 1 tak progress milega, apna DB update yahan karo */
+  onProgress?: (playedFraction: number) => void;
+  /** Optional: video complete hone par fire hoga (lecture "done" mark karne ke liye) */
+  onEnded?: () => void;
+}
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (typedMessage.trim()) {
-      setChatMessages([...chatMessages, typedMessage]);
-      setTypedMessage("");
-    }
-  };
+export function VideoPlayer({
+  src,
+  poster,
+  title,
+  isLive = false,
+  onProgress,
+  onEnded,
+}: VideoPlayerProps) {
+  const [playing, setPlaying] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const playerRef = useRef<ReactPlayer>(null);
+
+  const handleProgress = useCallback(
+    (state: OnProgressProps) => {
+      onProgress?.(state.played);
+    },
+    [onProgress]
+  );
+
+  const handleError = useCallback(() => {
+    setError("Video load nahi ho paya. Link check karo ya thodi der baad try karo.");
+  }, []);
+
+  if (!src) {
+    return (
+      <div className="w-full aspect-video bg-gray-900 border border-gray-800 rounded-lg flex items-center justify-center text-gray-500">
+        Video URL missing hai
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 max-w-7xl mx-auto">
-      {/* Video Section */}
-      <div className="lg:col-span-2">
-        <VideoPlayer
-          src="https://mux.com" // Replace with your HLS/DASH/MP4 url
-          poster="https://mux.com"
-          title="Live Q&A Session"
-          isLive={true}
-        />
-        <div className="mt-4">
-          <h1 className="text-xl font-bold text-white">Live Session Title</h1>
-          <p className="text-gray-400">Welcome to the live broadcast. Chat is live below.</p>
-        </div>
-      </div>
-
-      {/* Live Chat Section */}
-      <div className="flex flex-col h-[500px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-gray-800 bg-gray-800 text-white font-semibold">
-          Live Chat
-        </div>
-        
-        {/* Messages */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-2 text-sm text-gray-200">
-          {chatMessages.length === 0 ? (
-            <div className="text-gray-500 text-center mt-10">No messages yet. Say hi!</div>
-          ) : (
-            chatMessages.map((msg, idx) => (
-              <div key={idx} className="p-2 bg-gray-800 rounded-md">
-                <span className="font-bold text-blue-400">User: </span>
-                {msg}
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Input */}
-        <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-800">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={typedMessage}
-              onChange={(e) => setTypedMessage(e.target.value)}
-              placeholder="Send a message..."
-              className="flex-1 bg-gray-900 text-white p-2 rounded-md border border-gray-700 focus:outline-none focus:border-blue-500"
-            />
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-500 transition-colors"
-            >
-              Chat
-            </button>
+    <div className="w-full">
+      <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-gray-800">
+        {isLive && (
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            LIVE
           </div>
-        </form>
+        )}
+
+        {error ? (
+          <div className="w-full h-full flex items-center justify-center text-red-400 text-sm p-4 text-center">
+            {error}
+          </div>
+        ) : (
+          <ReactPlayer
+            ref={playerRef}
+            url={src}
+            light={!playing ? poster ?? true : false}
+            playing={playing}
+            controls
+            width="100%"
+            height="100%"
+            onClickPreview={() => setPlaying(true)}
+            onReady={() => setReady(true)}
+            onProgress={handleProgress}
+            onEnded={onEnded}
+            onError={handleError}
+            progressInterval={5000}
+            config={{
+              playerVars: {
+                modestbranding: 1,
+                rel: 0,
+                disablekb: 0,
+                iv_load_policy: 3, // annotations off
+              },
+            }}
+            style={{ position: "absolute", top: 0, left: 0 }}
+          />
+        )}
+
+        {!ready && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none text-gray-400 text-sm">
+            Loading player...
+          </div>
+        )}
       </div>
+
+      {title && (
+        <p className="mt-2 text-sm text-gray-400 truncate">{title}</p>
+      )}
     </div>
   );
 }
