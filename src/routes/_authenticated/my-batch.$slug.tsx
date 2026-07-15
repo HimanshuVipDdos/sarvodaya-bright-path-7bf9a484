@@ -9,8 +9,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
-import { VideoPlayer } from "@/components/video-player";
-import { LiveClassPlayer } from "@/components/live-class-player";
+import { TheaterModal, type TheaterLecture } from "@/components/theater-modal";
 import { DocumentViewer } from "@/components/document-viewer";
 
 const batchPortalQuery = (slug: string) =>
@@ -109,6 +108,13 @@ function BatchPortal() {
   const { data } = useSuspenseQuery(batchPortalQuery(slug));
   const [tab, setTab] = useState<Tab>("classes");
   const [activeLecture, setActiveLecture] = useState<string | null>(null);
+  const [theaterOpen, setTheaterOpen] = useState(false);
+  // When set, the theater plays THIS live class instead of the classes-tab
+  // "current" lecture (used when opening straight from the Live tab / the
+  // today's-live banner, which aren't part of the lecture list).
+  const [theaterLive, setTheaterLive] = useState<
+    { id: string; src: string; poster?: string | null; title: string } | null
+  >(null);
 
   if (!data.enrolled) {
     return (
@@ -175,7 +181,40 @@ function BatchPortal() {
     ? combinedLectures.find((l) => l.id === activeLecture) ?? null
     : null;
 
+  // What the theater modal is actually showing: a live class opened from
+  // the Live tab / today's-live banner takes priority, otherwise it's
+  // whatever's selected in the Classes tab.
+  const nowPlaying = theaterLive
+    ? {
+        src: theaterLive.src,
+        poster: theaterLive.poster,
+        title: theaterLive.title,
+        meta: "Live class",
+        description: null as string | null,
+        liveClassId: theaterLive.id,
+      }
+    : current
+    ? {
+        src: current.video_url ?? "",
+        poster: current.thumbnail_url,
+        title: current.title,
+        meta: current._source === "live"
+          ? "Recording of a past live class"
+          : [current.subject, current.chapter].filter(Boolean).join(" • ") || "Lecture",
+        description: current.description ?? null,
+        liveClassId: current._source === "live" ? current.id : undefined,
+      }
+    : null;
+
+  const theaterLectures: TheaterLecture[] = combinedLectures.map((l) => ({
+    id: l.id,
+    title: l.lecture_number ? `#${l.lecture_number} · ${l.title}` : l.title,
+    subtitle: l._source === "lecture" ? [l.subject, l.chapter].filter(Boolean).join(" • ") : "Recording",
+    isLive: l._source === "live",
+  }));
+
   return (
+    <>
     <Section>
       <motion.div
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -228,9 +267,16 @@ function BatchPortal() {
                     {new Date(lc.scheduled_at).toLocaleString("en-IN")}
                   </div>
                   {lc.is_live && lc.youtube_url && (
-                    <div className="mt-2">
-                      <LiveClassPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} liveClassId={lc.id} />
-                    </div>
+                    <Button
+                      size="sm"
+                      className="mt-2 gap-1.5"
+                      onClick={() => {
+                        setTheaterLive({ id: lc.id, src: lc.youtube_url!, poster: lc.thumbnail_url, title: lc.title });
+                        setTheaterOpen(true);
+                      }}
+                    >
+                      <PlayCircle className="h-3.5 w-3.5" /> Watch Live
+                    </Button>
                   )}
                   {!lc.is_live && (lc.zoom_url || lc.meet_url) && (
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -275,36 +321,48 @@ function BatchPortal() {
 
       <div className="mt-6">
         {tab === "classes" && (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
               {current ? (
-                <div className="glass-strong overflow-hidden rounded-3xl">
-                  {current._source === "live" ? (
-                    <LiveClassPlayer
-                      src={current.video_url ?? ""}
-                      poster={current.thumbnail_url ?? undefined}
-                      title={current.title}
-                      liveClassId={current.id}
-                    />
-                  ) : (
-                    <VideoPlayer
-                      src={current.video_url ?? ""}
-                      poster={current.thumbnail_url ?? undefined}
-                      title={current.title}
-                    />
-                  )}
+                <button
+                  onClick={() => { setTheaterLive(null); setTheaterOpen(true); }}
+                  className="glass-strong group relative block w-full overflow-hidden rounded-3xl text-left"
+                >
+                  <div className="relative aspect-video w-full bg-black">
+                    {current.thumbnail_url ? (
+                      <img
+                        src={current.thumbnail_url}
+                        alt=""
+                        className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/40 to-primary-glow/30">
+                        <PlayCircle className="h-14 w-14 text-white/70" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/25 transition group-hover:bg-black/35">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-primary shadow-elegant transition group-hover:scale-105">
+                        <PlayCircle className="h-8 w-8" />
+                      </div>
+                    </div>
+                    {current._source === "live" && (
+                      <span className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                        Recording
+                      </span>
+                    )}
+                  </div>
                   <div className="p-5">
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
                       {current._source === "live"
-                        ? "Recording of a past live class"
-                        : [current.subject, current.chapter].filter(Boolean).join(" • ") || "Lecture"}
+                        ? "Recording of a past live class · tap to watch"
+                        : [current.subject, current.chapter].filter(Boolean).join(" • ") || "Lecture · tap to watch"}
                     </div>
                     <h3 className="mt-1 text-lg font-semibold">{current.title}</h3>
                     {current.description && (
                       <p className="mt-2 text-sm text-muted-foreground">{current.description}</p>
                     )}
                   </div>
-                </div>
+                </button>
               ) : (
                 <div className="glass-strong flex h-64 items-center justify-center rounded-3xl text-sm text-muted-foreground">
                   Select a lecture to start watching
@@ -322,7 +380,7 @@ function BatchPortal() {
                 {combinedLectures.map((l) => (
                   <button
                     key={l.id}
-                    onClick={() => setActiveLecture(l.id)}
+                    onClick={() => { setActiveLecture(l.id); setTheaterLive(null); setTheaterOpen(true); }}
                     className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition ${
                       activeLecture === l.id ? "bg-primary/10" : "hover:bg-muted/60"
                     }`}
@@ -377,9 +435,26 @@ function BatchPortal() {
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{lc.description}</p>
                 )}
                 {lc.youtube_url && (
-                  <div className="mt-3">
-                    <LiveClassPlayer src={lc.youtube_url} title={lc.title} poster={lc.thumbnail_url ?? undefined} liveClassId={lc.id} />
-                  </div>
+                  <button
+                    onClick={() => {
+                      setTheaterLive({ id: lc.id, src: lc.youtube_url!, poster: lc.thumbnail_url, title: lc.title });
+                      setTheaterOpen(true);
+                    }}
+                    className="group relative mt-3 block aspect-video w-full overflow-hidden rounded-2xl bg-black"
+                  >
+                    {lc.thumbnail_url ? (
+                      <img src={lc.thumbnail_url} alt="" className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/40 to-primary-glow/30">
+                        <PlayCircle className="h-10 w-10 text-white/70" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/25 transition group-hover:bg-black/35">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-primary shadow-elegant">
+                        <PlayCircle className="h-6 w-6" />
+                      </div>
+                    </div>
+                  </button>
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -473,6 +548,23 @@ function BatchPortal() {
         )}
       </div>
     </Section>
+
+    {nowPlaying && (
+      <TheaterModal
+        open={theaterOpen}
+        onClose={() => setTheaterOpen(false)}
+        videoSrc={nowPlaying.src}
+        poster={nowPlaying.poster}
+        title={nowPlaying.title}
+        meta={nowPlaying.meta}
+        description={nowPlaying.description}
+        liveClassId={nowPlaying.liveClassId}
+        lectures={theaterLectures}
+        activeLectureId={theaterLive ? undefined : activeLecture ?? undefined}
+        onSelectLecture={(id) => { setTheaterLive(null); setActiveLecture(id); }}
+      />
+    )}
+    </>
   );
 }
 
