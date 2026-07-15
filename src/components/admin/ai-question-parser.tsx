@@ -75,6 +75,9 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   const [bulkText, setBulkText] = useState("");
   const [defaultTopic, setDefaultTopic] = useState("");
   const [defaultMarks, setDefaultMarks] = useState(1);
+  // Only used as guidance when the source turns out to be pure theory/notes
+  // (no ready-made questions) — the AI writes fresh MCQs from that theory.
+  const [targetQuestionCount, setTargetQuestionCount] = useState(10);
   const [showValidation, setShowValidation] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -93,6 +96,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
           ...payload,
           defaultTopic: defaultTopic || null,
           defaultMarks,
+          targetQuestionCount: targetQuestionCount || null,
         },
       });
 
@@ -104,7 +108,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
       }
       return (data?.questions || []) as ParsedQuestion[];
     },
-    [defaultTopic, defaultMarks]
+    [defaultTopic, defaultMarks, targetQuestionCount]
   );
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -334,7 +338,9 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
               AI Question Parser
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Upload PDF/Photo or paste text. Gemini AI reads it and extracts questions automatically.
+              Upload PDF/Photo or paste text. Gemini AI reads it — if it already has questions
+              it extracts them (filling in any missing options), and if it's just theory/notes
+              it writes fresh MCQs from that content automatically.
             </p>
           </DialogHeader>
 
@@ -358,6 +364,19 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                   onChange={(e) => setDefaultMarks(Number(e.target.value))}
                   className="h-8 text-sm mt-1"
                   min={1}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs">
+                  Questions to generate, if content is theory/notes (no ready-made questions found)
+                </Label>
+                <Input
+                  type="number"
+                  value={targetQuestionCount}
+                  onChange={(e) => setTargetQuestionCount(Number(e.target.value))}
+                  className="h-8 text-sm mt-1"
+                  min={1}
+                  max={50}
                 />
               </div>
             </div>
@@ -636,6 +655,18 @@ Answer: B`}
                               <Badge variant="outline" className="text-[10px] h-5 text-green-600 border-green-300">
                                 <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
                                 Valid
+                              </Badge>
+                            )}
+                            {q.source === "generated" && (
+                              <Badge variant="outline" className="text-[10px] h-5 text-purple-600 border-purple-300">
+                                <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                                AI-written — verify facts
+                              </Badge>
+                            )}
+                            {q.source === "options_filled" && (
+                              <Badge variant="outline" className="text-[10px] h-5 text-blue-600 border-blue-300">
+                                <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                                AI-filled options
                               </Badge>
                             )}
                           </div>
