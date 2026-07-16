@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { Loader2, ArrowLeft, Trophy, Medal } from "lucide-react";
+import { formatScore } from "@/lib/utils";
 import { getCbtPublicLeaderboard } from "@/lib/cbt.functions";
 import { Section } from "@/components/section";
 
@@ -85,7 +86,7 @@ function StudentLeaderboardPage() {
                     {e.is_me && <span className="ml-1.5 text-xs font-semibold text-primary">(You)</span>}
                   </div>
                   <div className="shrink-0 text-sm font-bold tabular-nums">
-                    {e.score}
+                    {formatScore(e.score)}
                     <span className="text-xs font-normal text-muted-foreground">/{e.max_score}</span>
                   </div>
                 </motion.li>
