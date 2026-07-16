@@ -37,7 +37,7 @@ function FacultyPage() {
           <p className="mt-3 text-sm text-muted-foreground">Faculty profiles are being added and will appear here soon.</p>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {data.map((f, i) => (
             <motion.div
               key={f.id}
@@ -47,9 +47,14 @@ function FacultyPage() {
               transition={{ duration: 0.4, delay: Math.min(i * 0.04, 0.3) }}
               className="glass-strong hover-lift overflow-hidden rounded-3xl"
             >
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-primary-glow/20">
+              <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-primary-glow/20">
                 {f.photo_url ? (
-                  <img src={f.photo_url} alt={f.name} loading="lazy" className="h-full w-full object-cover" />
+                  <img
+                    src={f.photo_url}
+                    alt={f.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover object-top"
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-primary/40">
                     {f.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
@@ -90,4 +95,3 @@ function FacultyPage() {
     </Section>
   );
 }
-
