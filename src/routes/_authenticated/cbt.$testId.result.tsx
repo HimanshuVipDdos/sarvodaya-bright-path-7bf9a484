@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { getCbtAttemptResult } from "@/lib/cbt.functions";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
+import { formatScore } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/cbt/$testId/result")({
   validateSearch: z.object({ attempt: z.string() }),
@@ -75,7 +76,7 @@ function ResultPage() {
     ctx.font = "bold 22px sans-serif";
     ctx.fillStyle = "#1c1917";
     ctx.fillText(
-      `Score: ${data.attempt.score} / ${data.attempt.max_score}   •   Rank #${data.rank} of ${data.total_participants}`,
+      `Score: ${formatScore(data.attempt.score)} / ${data.attempt.max_score}   •   Rank #${data.rank} of ${data.total_participants}`,
       500, 445,
     );
 
@@ -121,7 +122,7 @@ function ResultPage() {
           <div className="mt-1 text-sm text-muted-foreground">Report Card</div>
 
           <div className="mt-6 grid grid-cols-3 gap-3">
-            <Stat label="Score" value={`${a.score}/${a.max_score}`} />
+            <Stat label="Score" value={`${formatScore(a.score)}/${a.max_score}`} />
             <Stat label="Percentage" value={`${percent}%`} />
             <Stat label="Rank" value={`#${data.rank} / ${data.total_participants}`} />
           </div>
