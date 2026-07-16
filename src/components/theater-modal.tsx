@@ -57,7 +57,7 @@ export function TheaterModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md"
+      className="fixed inset-0 z-[200] flex flex-col bg-background/95 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-label={title}
