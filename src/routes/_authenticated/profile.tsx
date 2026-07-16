@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Loader2, Save, User, Phone, Mail } from "lucide-react";
+import { Loader2, Save, User, Phone, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -25,14 +25,24 @@ const profileQuery = queryOptions({
   },
 });
 
+function isValidPhone(p: string) {
+  const digits = p.replace(/\D/g, "");
+  return digits.length >= 10;
+}
+
 export const Route = createFileRoute("/_authenticated/profile")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    setup: search.setup === "1",
+  }),
   loader: ({ context }) => context.queryClient.ensureQueryData(profileQuery),
   component: ProfilePage,
 });
 
 function ProfilePage() {
   const { data } = useSuspenseQuery(profileQuery);
+  const { setup } = Route.useSearch();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(data.profile?.full_name ?? "");
   const [phone, setPhone] = useState(data.profile?.phone ?? "");
@@ -42,18 +52,26 @@ function ProfilePage() {
     setPhone(data.profile?.phone ?? "");
   }, [data.profile?.full_name, data.profile?.phone]);
 
+  const isIncomplete = !data.profile?.full_name?.trim() || !data.profile?.phone?.trim();
+  const mustComplete = setup || isIncomplete;
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const trimmedName = fullName.trim();
+      const trimmedPhone = phone.trim();
       if (!trimmedName) throw new Error("Name can't be empty.");
+      if (!isValidPhone(trimmedPhone)) throw new Error("Please enter a valid mobile number (at least 10 digits).");
       const { error } = await supabase
         .from("profiles")
-        .upsert({ id: data.userId, full_name: trimmedName, phone: phone.trim() || null });
+        .upsert({ id: data.userId, full_name: trimmedName, phone: trimmedPhone });
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
-      toast.success("Profile updated. Your new name will show on future comments.");
+      toast.success("Profile saved!");
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+      if (mustComplete) {
+        navigate({ to: "/dashboard" });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -62,11 +80,22 @@ function ProfilePage() {
     <Section>
       <div className="mb-6">
         <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Account</div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">My Profile</h1>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">
+          {mustComplete ? "Complete your profile" : "My Profile"}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          This name shows on the leaderboard and on your live class comments.
+          {mustComplete
+            ? "Add your name and mobile number to continue."
+            : "This name shows on the leaderboard and on your live class comments."}
         </p>
       </div>
+
+      {mustComplete && (
+        <div className="mx-auto mb-4 flex max-w-lg items-start gap-2 rounded-2xl bg-primary/10 p-4 text-sm text-primary">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Name and mobile number are required before you can access batches, tests and lectures.</span>
+        </div>
+      )}
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-lg">
         <div className="glass-strong rounded-3xl p-6 sm:p-8">
@@ -81,7 +110,7 @@ function ProfilePage() {
 
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5 text-xs">
-                <User className="h-3.5 w-3.5" /> Full name
+                <User className="h-3.5 w-3.5" /> Full name *
               </Label>
               <Input
                 value={fullName}
@@ -93,7 +122,7 @@ function ProfilePage() {
 
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5 text-xs">
-                <Phone className="h-3.5 w-3.5" /> Mobile number
+                <Phone className="h-3.5 w-3.5" /> Mobile number *
               </Label>
               <Input
                 value={phone}
@@ -109,7 +138,7 @@ function ProfilePage() {
               className="w-full gap-2"
             >
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save changes
+              {mustComplete ? "Save & Continue" : "Save changes"}
             </Button>
           </div>
         </div>
