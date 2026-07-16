@@ -487,7 +487,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       {!started && (
         <>
           {poster && (
-            <img src={poster} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+            <img src={poster} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-contain bg-black" />
           )}
           <button
             onClick={(e) => { e.stopPropagation(); toggle(); revealControls(); }}
