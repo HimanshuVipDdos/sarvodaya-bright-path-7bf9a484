@@ -21,6 +21,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { InquiryForm } from "@/components/inquiry-form";
+import { HeroSlider } from "@/components/hero-slider";
 import { Button } from "@/components/ui/button";
 import { SITE, whatsappHref, telHref } from "@/lib/site";
 
@@ -60,6 +61,9 @@ function Index() {
 
   return (
     <>
+      {/* PROMOTIONAL SLIDER — sits just below the header, admin-managed at /admin/hero-slides */}
+      <HeroSlider />
+
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 sm:pt-16">
