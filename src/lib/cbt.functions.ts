@@ -163,8 +163,10 @@ export const submitCbtAttempt = createServerFn({ method: "POST" })
       });
     }
 
-    // Don't let a heavy-negative-marking test show a confusing negative
-    // total; floor at 0 the way most official CBT report cards do.
+    // Round to 2 decimals FIRST to kill floating-point drift from repeated
+    // subtraction (e.g. 2 - 0.33 - 0.33 in raw JS math becomes
+    // 1.3399999999999999 instead of 1.34). Then floor at 0.
+    score = Math.round(score * 100) / 100;
     score = Math.max(0, score);
 
     if (answerRows.length > 0) {
