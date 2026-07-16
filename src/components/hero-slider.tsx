@@ -95,7 +95,7 @@ export function HeroSlider() {
           return (
             <div
               key={`${slide.id}-${i}`}
-              className="aspect-[16/7] shrink-0 sm:aspect-[3/1]"
+              className="aspect-[21/9] shrink-0"
               style={{ width: `${100 / extended.length}%` }}
             >
               {href ? (
