@@ -84,18 +84,29 @@ export function HeroSlider() {
         {extended.map((slide, i) => {
           const href = buildHref(slide);
           const img = (
-            <img
-              src={slide.image_url}
-              alt=""
-              className="h-full w-full object-cover"
-              draggable={false}
-              loading={i === 0 ? "eager" : "lazy"}
-            />
+            <div className="relative h-full w-full overflow-hidden">
+              {/* blurred backdrop fills any empty space, no matter the image's ratio */}
+              <img
+                src={slide.image_url}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
+                draggable={false}
+              />
+              {/* full image, always shown completely — never cropped */}
+              <img
+                src={slide.image_url}
+                alt=""
+                className="relative h-full w-full object-contain"
+                draggable={false}
+                loading={i === 0 ? "eager" : "lazy"}
+              />
+            </div>
           );
           return (
             <div
               key={`${slide.id}-${i}`}
-              className="aspect-[5/1] shrink-0"
+              className="h-40 shrink-0 sm:h-56 md:h-72"
               style={{ width: `${100 / extended.length}%` }}
             >
               {href ? (
