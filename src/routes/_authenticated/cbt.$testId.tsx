@@ -209,11 +209,10 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
     },
     onSuccess: (res) => {
       if (!res) return;
-      navigate({ 
-        to: "/cbt/$testId/result", 
-        params: { testId }, 
-        search: { attempt: res.attempt_id } as any 
-      });
+      // Hard navigation (full page load) instead of soft client-side
+      // navigate — guarantees a fresh page load even if the browser has
+      // an old cached JS bundle, so the wrong screen never shows up.
+      window.location.href = `/cbt/${testId}/result?attempt=${res.attempt_id}`;
     },
     onError: (e: Error) => toast.error(e.message),
   });
