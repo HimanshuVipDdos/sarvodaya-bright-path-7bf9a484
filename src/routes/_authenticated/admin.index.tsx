@@ -91,6 +91,7 @@ function AdminPage() {
     { icon: Trophy, label: "Results", desc: "Selections and testimonials", to: "/admin/results" },
     { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles", to: "/admin/faculty" },
     { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars", to: "/admin/gallery" },
+    { icon: ImageIcon, label: "Homepage Slider", desc: "Promotional images with WhatsApp/link redirect", to: "/admin/hero-slides" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
   ];
 
