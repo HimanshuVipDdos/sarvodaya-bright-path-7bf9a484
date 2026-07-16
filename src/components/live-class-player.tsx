@@ -75,15 +75,16 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, className }: 
             </div>
             <div className="flex-1 overflow-hidden p-2">
               <LiveChat liveClassId={liveClassId} className="h-full" />
-            </div>                                                                                                                                                                                                                                                                                                                                                                                                              
-         {!isFullscreen && (
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!isFullscreen && (
         <div className="w-full min-w-0 lg:w-80 lg:shrink-0">
           <LiveChat liveClassId={liveClassId} className="h-64 sm:h-72 lg:h-[26rem]" />
         </div>
       )}
-          </div>
-        )}
-      </div>                                                                                                                                                                                                                                                                                     
     </div>
   );
 }
