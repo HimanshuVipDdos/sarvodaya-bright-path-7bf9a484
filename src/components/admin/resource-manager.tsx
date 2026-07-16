@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Plus, Pencil, Trash2, Search, Loader2, Save, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import Cropper, { type Area } from "react-easy-crop";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export type Field = {
   required?: boolean;
   helper?: string;
   bucket?: string;
+  aspect?: number; // e.g. 3/4 for portrait faculty photos, 16/9 for covers
 };
 
 
@@ -404,6 +406,7 @@ function FieldsForm({
               <ImageUploadField
                 value={(v as string) ?? ""}
                 bucket={f.bucket ?? "batch-covers"}
+                aspect={f.aspect ?? 4 / 3}
                 onChange={(url: string) => set(f.name, url)}
               />
             )}
@@ -417,16 +420,51 @@ function FieldsForm({
   );
 }
 
+async function getCroppedImageBlob(imageSrc: string, cropPixels: Area, mimeType: string): Promise<Blob> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = cropPixels.width;
+  canvas.height = cropPixels.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  ctx.drawImage(
+    image,
+    cropPixels.x, cropPixels.y, cropPixels.width, cropPixels.height,
+    0, 0, cropPixels.width, cropPixels.height
+  );
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Failed to crop image"));
+    }, mimeType, 0.92);
+  });
+}
+
 function ImageUploadField({
-  value, bucket, onChange,
+  value, bucket, aspect, onChange,
 }: {
   value: string;
   bucket: string;
+  aspect: number;
   onChange: (url: string) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string>("");
+  const [fileType, setFileType] = useState<string>("image/png");
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
-  async function handleFile(file: File) {
+  function handleFileSelect(file: File) {
     if (!file.type.startsWith("image/")) {
       toast.error("Please choose an image file");
       return;
@@ -435,23 +473,44 @@ function ImageUploadField({
       toast.error("Image must be under 8 MB");
       return;
     }
+    setFileType(file.type);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageSrc(reader.result as string);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCroppedAreaPixels(null);
+      setCropOpen(true);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  const onCropComplete = useCallback((_area: Area, areaPixels: Area) => {
+    setCroppedAreaPixels(areaPixels);
+  }, []);
+
+  async function handleConfirmCrop() {
+    if (!croppedAreaPixels || !imageSrc) return;
     setUploading(true);
+    setCropOpen(false);
     try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels, fileType);
+      const ext = fileType.split("/").pop() || "png";
       const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from(bucket).upload(path, file, {
-        contentType: file.type,
+      const { error } = await supabase.storage.from(bucket).upload(path, blob, {
+        contentType: fileType,
         cacheControl: "3600",
         upsert: false,
       });
       if (error) throw error;
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       onChange(data.publicUrl);
-      toast.success("Cover uploaded");
+      toast.success("Photo uploaded");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
+      setImageSrc("");
     }
   }
 
@@ -460,7 +519,7 @@ function ImageUploadField({
       {value ? (
         <div className="relative overflow-hidden rounded-2xl border border-border/60">
           {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
-          <img src={value} alt="Cover preview" className="h-40 w-full object-cover" />
+          <img src={value} alt="Preview" className="h-40 w-full object-cover object-top" />
           <Button
             type="button"
             size="sm"
@@ -475,7 +534,7 @@ function ImageUploadField({
       <div className="flex items-center gap-2">
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm hover:bg-muted">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          {uploading ? "Uploading…" : value ? "Replace image" : "Upload cover"}
+          {uploading ? "Uploading…" : value ? "Replace image" : "Upload image"}
           <input
             type="file"
             accept="image/*"
@@ -483,7 +542,7 @@ function ImageUploadField({
             disabled={uploading}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handleFile(f);
+              if (f) handleFileSelect(f);
               e.target.value = "";
             }}
           />
@@ -495,7 +554,55 @@ function ImageUploadField({
           className="flex-1"
         />
       </div>
+
+      <Dialog open={cropOpen} onOpenChange={(o) => { if (!o) { setCropOpen(false); setImageSrc(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adjust photo</DialogTitle>
+            <DialogDescription>Drag to reposition, use the slider to zoom. Nothing will be cut off unexpectedly.</DialogDescription>
+          </DialogHeader>
+
+          <div className="relative h-80 w-full overflow-hidden rounded-xl bg-muted">
+            {imageSrc && (
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={aspect}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <span className="text-xs text-muted-foreground">Zoom</span>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.05}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="flex-1"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => { setCropOpen(false); setImageSrc(""); }}
+              className="gap-2"
+            >
+              <X className="h-4 w-4" /> Cancel
+            </Button>
+            <Button onClick={handleConfirmCrop} className="gap-2">
+              <Save className="h-4 w-4" /> Save & Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
