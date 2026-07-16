@@ -103,11 +103,20 @@ export function SiteHeader() {
                     {n.label}
                   </Link>
                 ))}
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-1">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl bg-gradient-to-br from-primary to-primary-glow px-3 py-2 text-center text-sm font-semibold text-primary-foreground"
+                >
+                  My Batches
+                </Link>
                 <button
                   onClick={handleLoginClick}
-                  className="col-span-2 rounded-xl bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground"
+                  className="rounded-xl border border-border px-3 py-2 text-center text-sm font-medium"
                 >
-                  Student Login
+                  Login
                 </button>
               </div>
             </motion.div>
