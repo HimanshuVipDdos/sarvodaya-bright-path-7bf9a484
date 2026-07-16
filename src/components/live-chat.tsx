@@ -233,7 +233,9 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
   );
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/60 ${className ?? ""}`}>
+    <div
+      className={`flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/60 ${className ?? "h-64 sm:h-80"}`}
+    >
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
@@ -255,7 +257,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
             <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
               Pinned by {pinned.is_moderator ? "Teacher" : pinned.user_name ?? "Admin"}
             </div>
-            <p className="break-words text-xs text-foreground/85">{pinned.message}</p>
+            <p className="break-words [overflow-wrap:anywhere] text-xs text-foreground/85">{pinned.message}</p>
           </div>
           {canModerate && (
             <button
@@ -290,7 +292,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
                 >
                   {initial}
                 </div>
-                <div className="min-w-0 flex-1 leading-snug break-words">
+                <div className="min-w-0 flex-1 leading-snug break-words [overflow-wrap:anywhere]">
                   {canModerate && onViewStudent ? (
                     <button
                       onClick={() => onViewStudent(m.user_id, name)}
@@ -307,7 +309,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
                       <Shield className="h-2.5 w-2.5" /> Teacher
                     </span>
                   )}
-                  <p className="break-words text-foreground/80">{m.message}</p>
+                  <p className="break-words [overflow-wrap:anywhere] text-foreground/80">{m.message}</p>
                 </div>
                 {canModerate && (
                   <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
