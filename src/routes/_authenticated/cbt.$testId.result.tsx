@@ -136,11 +136,11 @@ function ResultPage() {
             <Button onClick={downloadCertificate} className="gap-2">
               <Award className="h-4 w-4" /> Download Certificate
             </Button>
-            <Link to="/cbt/$testId/mistakes" params={{ testId }} search={{ attempt: attemptId }}>
+            <a href={`/cbt/${testId}/mistakes?attempt=${attemptId}`}>
               <Button variant="outline" className="gap-2">
                 <Search className="h-4 w-4" /> Review My Mistakes
               </Button>
-            </Link>
+            </a>
             <Link to="/cbt/$testId/leaderboard" params={{ testId }}>
               <Button variant="outline" className="gap-2">
                 <Trophy className="h-4 w-4" /> Leaderboard
