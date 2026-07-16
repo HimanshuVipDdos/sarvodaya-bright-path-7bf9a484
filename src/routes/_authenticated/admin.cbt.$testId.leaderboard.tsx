@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Download, Trophy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatScore } from "@/lib/utils";
 import { getCbtLeaderboard } from "@/lib/cbt.functions";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ function LeaderboardPage() {
     ctx.fillStyle = "#a5b4fc";
     ctx.fillText("RANK", 28, y);
     ctx.fillText("STUDENT", 100, y);
-    ctx.fillText("SCORE", 520, y);
+    ctx.fillText(`${formatScore(a.score)}/${a.max_score}`, 520, y);
     ctx.fillText("CORRECT", 620, y);
     y += 14;
     ctx.strokeStyle = "rgba(255,255,255,0.15)";
@@ -126,7 +127,7 @@ function LeaderboardPage() {
                     </td>
                     <td className="py-3 pr-3 align-top">{a.profile?.full_name ?? "—"}</td>
                     <td className="py-3 pr-3 align-top text-muted-foreground">{a.profile?.phone ?? "—"}</td>
-                    <td className="py-3 pr-3 align-top font-medium">{a.score}/{a.max_score}</td>
+                    <td className="py-3 pr-3 align-top font-medium">{formatScore(a.score)}/{a.max_score}</td>
                     <td className="py-3 pr-3 align-top text-emerald-600">{a.correct_count}</td>
                     <td className="py-3 pr-3 align-top text-destructive">{a.wrong_count}</td>
                     <td className="py-3 pl-3 align-top text-muted-foreground">{new Date(a.submitted_at).toLocaleString("en-IN")}</td>
