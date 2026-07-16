@@ -48,13 +48,20 @@ export function HeroSlider() {
   useEffect(() => {
     if (count <= 1) return;
     const timer = setInterval(() => {
-      if (!hoverRef.current) setIndex((i) => i + 1);
+      if (!hoverRef.current) {
+        // Clamp every tick instead of only reacting to onTransitionEnd —
+        // if a transitionend event is ever missed (tab backgrounded,
+        // browser throttling, etc.) the old code let `index` climb past
+        // `count` forever, pushing the strip fully off-screen and making
+        // the slider look "stopped". This self-corrects every tick.
+        setIndex((i) => (i >= count ? 0 : i + 1));
+      }
     }, AUTOPLAY_MS);
     return () => clearInterval(timer);
   }, [count]);
 
   function handleTransitionEnd() {
-    if (index === count) {
+    if (index >= count) {
       setAnimate(false);
       setIndex(0);
       requestAnimationFrame(() => {
