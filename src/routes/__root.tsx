@@ -101,6 +101,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" },
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+      { rel: "manifest", href: "/manifest.json" },
     ],
   }),
   shellComponent: RootShell,
@@ -143,6 +144,15 @@ function RootComponent() {
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
+
+  // Register the service worker so the app shell (header/footer/layout) is
+  // cached and shows instantly even on slow or no internet, while live data
+  // still refreshes in the background whenever a connection is available.
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
 
   // Fix: Radix Dialog/AlertDialog can occasionally leave document.body stuck
   // with `pointer-events: none` after closing (known Radix + React 19 issue),
