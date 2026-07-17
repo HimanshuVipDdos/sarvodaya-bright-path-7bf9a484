@@ -9,7 +9,7 @@ type HeroSlide = {
   link_value: string | null;
 };
 
-const AUTOPLAY_MS = 4000;
+const AUTOPLAY_MS = 3500;
 
 function buildHref(slide: HeroSlide): string | null {
   if (slide.link_type === "whatsapp" && slide.link_value) {
