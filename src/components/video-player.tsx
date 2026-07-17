@@ -83,11 +83,25 @@ function loadYouTubeApi(): Promise<any> {
   return ytApiPromise;
 }
 
-/** Tracks whether `ref.current` is the element currently in native fullscreen. */
+/** Tracks whether `ref.current` is the element currently in native fullscreen.
+ *  Also locks the screen to landscape on entering fullscreen (and unlocks on
+ *  exit) so mobile behaves like the YouTube app instead of staying portrait
+ *  with a small letterboxed video in the middle of the screen. Silently
+ *  no-ops on browsers/devices that don't support the Orientation Lock API
+ *  (e.g. iOS Safari) — those users can still rotate their phone manually. */
 function useIsFullscreen(ref: RefObject<HTMLElement | null>) {
   const [isFs, setIsFs] = useState(false);
   useEffect(() => {
-    const handler = () => setIsFs(document.fullscreenElement === ref.current);
+    const handler = () => {
+      const fs = document.fullscreenElement === ref.current;
+      setIsFs(fs);
+      const orientation = (screen as any).orientation;
+      if (fs) {
+        orientation?.lock?.("landscape").catch(() => {});
+      } else {
+        orientation?.unlock?.();
+      }
+    };
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,6 +358,12 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
               setDuration(e.target.getDuration?.() ?? 0);
               const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
               if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
+              // YouTube's IFrame API can fall back to a fixed pixel size
+              // (e.g. 640x360) instead of honoring width/height:"100%",
+              // which overflows narrow mobile screens. Force it to match
+              // the actual container right away.
+              const box = wrapRef.current?.getBoundingClientRect();
+              if (box) e.target.setSize?.(box.width, box.height);
             } catch {}
             setReady(true);
           },
@@ -385,6 +405,23 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       playerRef.current = null;
     };
   }, [id]);
+
+  // Keep the YouTube iframe's real pixel size locked to its container at
+  // all times — not just on load. This is what actually fixes the mobile
+  // overflow/letterbox bug: whenever the container resizes (entering/
+  // exiting fullscreen, rotating the phone, opening the chat drawer), we
+  // re-call setSize so the iframe can never end up wider than the screen.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box || !playerRef.current?.setSize) return;
+      try { playerRef.current.setSize(box.width, box.height); } catch {}
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!playing) return;
