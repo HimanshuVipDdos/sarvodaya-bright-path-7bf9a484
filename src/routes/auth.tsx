@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Mail, Lock, User } from "lucide-react";
+import { Loader2, Mail, Lock, User, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,10 @@ export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {},
   component: AuthPage,
 });
+
+function isValidPhone(p: string) {
+  return p.replace(/\D/g, "").length >= 10;
+}
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -35,7 +39,18 @@ function AuthPage() {
       if (error) toast.error(error.message);
       else navigate({ to: "/dashboard" });
     } else if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: String(fd.get("full_name")) } } });
+      const fullName = String(fd.get("full_name") ?? "").trim();
+      const phone = String(fd.get("phone") ?? "").trim();
+      if (!isValidPhone(phone)) {
+        toast.error("Please enter a valid mobile number (at least 10 digits).");
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName, phone } },
+      });
       if (error) toast.error(error.message);
       else toast.success("Check your email to verify account.");
     } else if (mode === "forgot") {
@@ -134,6 +149,22 @@ function AuthPage() {
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input name="full_name" placeholder="Full Name" className="pl-9 glass" required />
+              </div>
+            )}
+            {mode === "signup" && (
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="tel"
+                  name="phone"
+                  placeholder="Mobile number"
+                  className="pl-9 glass"
+                  maxLength={15}
+                  required
+                  onChange={(e) => {
+                    e.currentTarget.value = e.currentTarget.value.replace(/[^\d+ ]/g, "");
+                  }}
+                />
               </div>
             )}
             <div className="relative">
