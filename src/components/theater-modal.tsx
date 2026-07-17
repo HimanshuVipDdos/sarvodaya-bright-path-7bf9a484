@@ -57,7 +57,7 @@ export function TheaterModal({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col bg-background/95 backdrop-blur-md"
+      className="fixed inset-0 z-[200] flex flex-col overflow-x-hidden bg-background/95 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -78,9 +78,9 @@ export function TheaterModal({
       </div>
 
       {/* Body */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="grid min-w-0 gap-6 p-4 sm:p-6 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
             {liveClassId ? (
               <LiveClassPlayer
                 src={videoSrc}
