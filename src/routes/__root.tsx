@@ -116,6 +116,29 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Pure-CSS boot spinner: paints the instant HTML arrives, before any
+            JS has downloaded or run. Removed once React mounts (see the
+            'app-ready' class added in RootComponent's useEffect below).
+            This is what prevents a blank white screen on slow connections. */}
+        <style>{`
+          html:not(.app-ready) body::after {
+            content: "";
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            z-index: 10000;
+            width: 40px;
+            height: 40px;
+            margin: -20px 0 0 -20px;
+            border-radius: 9999px;
+            border: 3px solid rgba(58, 141, 255, 0.2);
+            border-top-color: #3a8dff;
+            animation: boot-spin 0.8s linear infinite;
+          }
+          @keyframes boot-spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </head>
       <body>
         {children}
@@ -134,6 +157,14 @@ function RootComponent() {
   // header/footer, or the site logo/branding bleeds through on top of the
   // question text. Sub-routes like /cbt/$testId/result stay normal.
   const isTakingTest = /^\/cbt\/[^/]+\/?$/.test(pathname);
+
+  // Remove the pure-CSS boot spinner (defined in RootShell) the instant
+  // React has actually mounted and can take over rendering. Runs on every
+  // route's first paint, not just first load, since this component is
+  // shared — but adding the class again is a no-op if already present.
+  useEffect(() => {
+    document.documentElement.classList.add("app-ready");
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
