@@ -38,7 +38,7 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, className }: 
     <div
       ref={fsRef}
       className={cn(
-        isFullscreen ? "h-full w-full bg-black" : "flex flex-col gap-3 lg:flex-row",
+        isFullscreen ? "h-full w-full overflow-hidden bg-black" : "flex flex-col gap-3 lg:flex-row",
         className,
       )}
     >
