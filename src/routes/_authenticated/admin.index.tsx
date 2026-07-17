@@ -68,17 +68,18 @@ function AdminPage() {
   }
 
   const c = data.counts!;
-  const stats = [
-    { icon: BookOpen, label: "Batches", value: c.batches },
-    { icon: Users, label: "Students", value: c.students },
+  const stats: { icon: typeof BookOpen; label: string; value: number; to?: string }[] = [
+    { icon: BookOpen, label: "Batches", value: c.batches, to: "/admin/batches" },
+    { icon: Users, label: "Students", value: c.students, to: "/admin/students" },
     { icon: Inbox, label: "Inquiries", value: c.inquiries },
-    { icon: Video, label: "Lectures", value: c.lectures },
-    { icon: FileText, label: "Study Materials", value: c.materials },
-    { icon: Bell, label: "Notifications", value: c.notifications },
+    { icon: Video, label: "Lectures", value: c.lectures, to: "/admin/lectures" },
+    { icon: FileText, label: "Study Materials", value: c.materials, to: "/admin/pdfs" },
+    { icon: Bell, label: "Notifications", value: c.notifications, to: "/admin/notifications" },
   ];
 
   const sections: { icon: typeof BookOpen; label: string; desc: string; to?: string }[] = [
     { icon: BookOpen, label: "Batches", desc: "Create, edit, delete batches (with cover photos)", to: "/admin/batches" },
+    { icon: Users, label: "Students", desc: "View student names, phone, email & batch enrollment", to: "/admin/students" },
     { icon: Video, label: "Recorded Lectures", desc: "Upload and manage lectures", to: "/admin/lectures" },
     { icon: Video, label: "Live Classes", desc: "Schedule live classes for each batch", to: "/admin/live-classes" },
     { icon: MessageSquare, label: "Live Comments", desc: "Watch & moderate live class comments", to: "/admin/live-chat" },
@@ -104,15 +105,22 @@ function AdminPage() {
       </motion.div>
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {stats.map((s) => (
-          <div key={s.label} className="glass-strong rounded-2xl p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
-              <s.icon className="h-4 w-4 text-primary-foreground" />
+        {stats.map((s) => {
+          const card = (
+            <div className="glass-strong hover-lift rounded-2xl p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
+                <s.icon className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div className="mt-2 text-2xl font-bold">{s.value}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
             </div>
-            <div className="mt-2 text-2xl font-bold">{s.value}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
+          );
+          return s.to ? (
+            <Link key={s.label} to={s.to}>{card}</Link>
+          ) : (
+            <div key={s.label}>{card}</div>
+          );
+        })}
       </div>
 
       <h2 className="mt-12 text-lg font-semibold">Management modules</h2>
