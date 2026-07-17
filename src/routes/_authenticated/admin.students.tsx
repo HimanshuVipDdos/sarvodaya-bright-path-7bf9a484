@@ -21,6 +21,7 @@ type StudentRow = {
   id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
   enrollments: { batch_id: string; batch_title: string }[];
 };
 
@@ -51,7 +52,7 @@ function StudentsAdmin() {
     queryKey: ["admin", "students"],
     queryFn: async () => {
       const [profilesRes, enrollmentsRes] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, phone").order("full_name", { ascending: true }),
+        supabase.from("profiles").select("id, full_name, phone, email").order("full_name", { ascending: true }),
         supabase.from("enrollments").select("user_id, batch_id, batch:batches(title)"),
       ]);
       if (profilesRes.error) throw profilesRes.error;
@@ -74,7 +75,7 @@ function StudentsAdmin() {
   const filtered = students.filter((s) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return (s.full_name ?? "").toLowerCase().includes(q) || (s.phone ?? "").includes(q);
+    return (s.full_name ?? "").toLowerCase().includes(q) || (s.phone ?? "").includes(q) || (s.email ?? "").toLowerCase().includes(q);
   });
 
   const openEdit = (s: StudentRow) => {
@@ -135,7 +136,7 @@ function StudentsAdmin() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or phone…"
+          placeholder="Search by name, phone, or email…"
           className="pl-9"
         />
       </div>
@@ -152,6 +153,7 @@ function StudentsAdmin() {
               <div className="min-w-0">
                 <div className="font-medium truncate">{s.full_name || "Unnamed student"}</div>
                 <div className="text-xs text-muted-foreground truncate">{s.phone || "No phone on file"}</div>
+                <div className="text-xs text-muted-foreground truncate">{s.email || "No email on file"}</div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {s.enrollments?.length ? (
                     s.enrollments.map((e) => (
