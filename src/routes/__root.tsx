@@ -38,6 +38,19 @@ function NotFoundComponent() {
   );
 }
 
+function PendingComponent() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="flex flex-col items-center gap-3">
+        <span className="relative flex h-10 w-10 items-center justify-center">
+          <span className="absolute h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        </span>
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    </div>
+  );
+}
+
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
@@ -94,6 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
+  pendingComponent: PendingComponent,
 });
 
 function RootShell({ children }: { children: ReactNode }) {
