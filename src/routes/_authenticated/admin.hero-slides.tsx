@@ -28,7 +28,7 @@ const columns: Column<HeroSlideRow>[] = [
 ];
 
 const fields: Field[] = [
-  { name: "image_url", label: "Slide Photo", type: "image", bucket: "hero-slides", required: true },
+  { name: "image_url", label: "Slide Photo", type: "image", bucket: "hero-slides", required: true, aspect: 2320 / 464 },
   { name: "title", label: "Label (admin only, not shown on site)", type: "text", placeholder: "e.g. Yakeen Batch Promo" },
   {
     name: "link_type", label: "On click, redirect to", type: "select",
