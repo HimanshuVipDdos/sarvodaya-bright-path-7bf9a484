@@ -1,14 +1,26 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { Radio, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { ResourceManager, type Column, type Field } from "@/components/admin/resource-manager";
 
 type LiveClass = {
   id: string; title: string; scheduled_at: string; is_live: boolean; batch_id: string | null;
+  recorded_lecture_id: string | null;
 };
 
 const columns: Column<LiveClass>[] = [
   { key: "title", label: "Title", render: (r) => <span className="font-medium">{r.title}</span> },
   { key: "scheduled_at", label: "Scheduled", render: (r) => r.scheduled_at ? new Date(r.scheduled_at).toLocaleString("en-IN") : "—" },
-  { key: "is_live", label: "Live", render: (r) => (r.is_live ? "🔴 Live" : "—") },
+  {
+    key: "is_live",
+    label: "Status",
+    render: (r) =>
+      r.is_live ? "🔴 Live" : r.recorded_lecture_id ? "✅ Ended (saved as lecture)" : "—",
+  },
 ];
 
 const fields: Field[] = [
@@ -26,6 +38,34 @@ const fields: Field[] = [
   { name: "is_live", label: "Mark as LIVE now (manual override)", type: "boolean" },
 ];
 
+function EndLiveClassButton({ row }: { row: LiveClass }) {
+  const qc = useQueryClient();
+  const [ending, setEnding] = useState(false);
+
+  if (!row.is_live) return null;
+
+  async function handleEnd() {
+    setEnding(true);
+    try {
+      const { error } = await supabase.rpc("end_live_class_now", { p_class_id: row.id });
+      if (error) throw error;
+      toast.success("Live class ended — now available in Recorded Lectures.");
+      qc.invalidateQueries({ queryKey: ["admin", "live_classes"] });
+      qc.invalidateQueries({ queryKey: ["admin", "lectures"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't end the live class.");
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  return (
+    <Button size="sm" variant="ghost" onClick={handleEnd} disabled={ending} aria-label="End Live Class">
+      {ending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4 text-red-600" />}
+    </Button>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/admin/live-classes")({
   component: () => (
     <ResourceManager<LiveClass>
@@ -38,6 +78,7 @@ export const Route = createFileRoute("/_authenticated/admin/live-classes")({
       defaults={{ is_live: false, auto_start: true, auto_end: true, duration_minutes: 60 }}
       searchKeys={["title"]}
       orderBy={{ column: "scheduled_at", ascending: false }}
+      rowActions={(row) => <EndLiveClassButton row={row} />}
     />
   ),
 });
