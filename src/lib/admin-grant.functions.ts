@@ -1,20 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
 
-type GrantInput = {
-  email: string;
-  batch_id: string;
-  amount_paid_inr?: number;
-  payment_status?: string;
-  expires_at?: string | null;
-};
+const grantInputSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  batch_id: z.string().uuid("Invalid batch ID format"),
+  amount_paid_inr: z.number().nonnegative().optional(),
+  payment_status: z.enum(["paid", "unpaid", "refunded"]).optional(),
+  expires_at: z.string().datetime().nullable().optional(),
+}).strict();
 
 export const grantBatchAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: GrantInput) => {
-    if (!input?.email || !input?.batch_id) throw new Error("Email and batch are required");
-    return input;
-  })
+  .validator((input: unknown) => grantInputSchema.parse(input))
   .handler(async ({ data, context }) => {
     // Verify caller is admin
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
