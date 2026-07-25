@@ -1,13 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
+
+const testIdSchema = z.object({ test_id: z.string().uuid("Invalid test ID format") }).strict();
+const attemptIdSchema = z.object({ attempt_id: z.string().uuid("Invalid attempt ID format") }).strict();
+const submitCbtSchema = z.object({
+  attempt_id: z.string().uuid("Invalid attempt ID format"),
+  answers: z.array(z.object({
+    question_id: z.string().uuid("Invalid question ID format"),
+    selected_option: z.enum(["a", "b", "c", "d"]).nullable()
+  }).strict())
+}).strict();
 
 // ---------- Start (or resume) an attempt ----------
 export const startCbtAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { test_id: string }) => {
-    if (!input?.test_id) throw new Error("test_id is required");
-    return input;
-  })
+  .validator((input: unknown) => testIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = context.userId;
@@ -82,15 +90,9 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
   });
 
 // ---------- Submit & grade an attempt (server-side only) ----------
-type SubmitAnswer = { question_id: string; selected_option: "a" | "b" | "c" | "d" | null };
-
 export const submitCbtAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { attempt_id: string; answers: SubmitAnswer[] }) => {
-    if (!input?.attempt_id) throw new Error("attempt_id is required");
-    if (!Array.isArray(input.answers)) throw new Error("answers must be an array");
-    return input;
-  })
+  .validator((input: unknown) => submitCbtSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = context.userId;
@@ -196,10 +198,7 @@ export const submitCbtAttempt = createServerFn({ method: "POST" })
 // ---------- Fetch a full result (report card + rank + mistakes) ----------
 export const getCbtAttemptResult = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { attempt_id: string }) => {
-    if (!input?.attempt_id) throw new Error("attempt_id is required");
-    return input;
-  })
+  .validator((input: unknown) => attemptIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = context.userId;
@@ -276,10 +275,7 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
 // ---------- Student: public top-20 leaderboard for a test ----------
 export const getCbtPublicLeaderboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { test_id: string }) => {
-    if (!input?.test_id) throw new Error("test_id is required");
-    return input;
-  })
+  .validator((input: unknown) => testIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     // RLS-scoped read confirms the student is eligible to view this test.
     const { data: test, error: testErr } = await context.supabase
@@ -322,10 +318,7 @@ export const getCbtPublicLeaderboard = createServerFn({ method: "GET" })
 // ---------- Admin: leaderboard for a test ----------
 export const getCbtLeaderboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { test_id: string }) => {
-    if (!input?.test_id) throw new Error("test_id is required");
-    return input;
-  })
+  .validator((input: unknown) => testIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (!isAdmin) throw new Error("Forbidden");

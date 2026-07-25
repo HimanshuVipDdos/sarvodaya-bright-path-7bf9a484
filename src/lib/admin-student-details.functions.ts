@@ -1,12 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
+
+const studentDetailsSchema = z.object({
+  user_id: z.string().uuid("Invalid user ID format"),
+}).strict();
 
 export const getStudentDetails = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { user_id: string }) => {
-    if (!input?.user_id) throw new Error("user_id is required");
-    return input;
-  })
+  .validator((input: unknown) => studentDetailsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
