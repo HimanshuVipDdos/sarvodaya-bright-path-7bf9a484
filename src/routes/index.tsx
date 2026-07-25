@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import {
   Sparkles,
   Trophy,
@@ -58,9 +58,15 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { data } = useSuspenseQuery(landingQuery);
+  const { scrollY } = useScroll();
+  
+  // 3D Parallax for Hero
+  const heroOpacity = useTransform(scrollY, [0, 500], [1, 0]);
+  const heroScale = useTransform(scrollY, [0, 500], [1, 0.85]);
+  const heroY = useTransform(scrollY, [0, 500], [0, 100]);
 
   return (
-    <>
+    <div className="perspective-1000">
       {/* PROMOTIONAL SLIDER — sits just below the header, admin-managed at /admin/hero-slides */}
       <HeroSlider />
 
@@ -81,7 +87,10 @@ function Index() {
           />
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-12 sm:px-6 sm:pt-20 lg:pb-28">
+        <motion.div 
+          style={{ opacity: heroOpacity, scale: heroScale, y: heroY }}
+          className="relative mx-auto max-w-7xl px-4 pb-20 pt-12 sm:px-6 sm:pt-20 lg:pb-28"
+        >
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <motion.div
               initial="hidden"
@@ -194,7 +203,7 @@ function Index() {
               </div>
             </motion.div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* WHY CHOOSE */}
@@ -212,11 +221,12 @@ function Index() {
           ].map((f, i) => (
             <motion.div
               key={f.title}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
+              initial={{ opacity: 0, rotateX: 30, y: 50, scale: 0.9 }}
+              whileInView={{ opacity: 1, rotateX: 0, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.7, delay: i * 0.1, type: "spring", bounce: 0.3 }}
               className="glass-strong hover-lift rounded-3xl p-6"
+              style={{ transformPerspective: 1000 }}
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow">
                 <f.icon className="h-5 w-5 text-primary-foreground" />
@@ -234,10 +244,12 @@ function Index() {
           {data.batches.map((b, i) => (
             <motion.div
               key={b.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
+              initial={{ opacity: 0, rotateY: -15, rotateX: 20, y: 60, scale: 0.9 }}
+              whileInView={{ opacity: 1, rotateY: 0, rotateX: 0, y: 0, scale: 1 }}
+              whileHover={{ rotateY: 5, rotateX: -5, scale: 1.02 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.6, delay: i * 0.1 }}
+              style={{ transformPerspective: 1200 }}
             >
               <Link to="/batches/$slug" params={{ slug: b.slug }} className="block h-full">
                 <div className="glass-strong hover-lift group flex h-full flex-col overflow-hidden rounded-3xl">
@@ -288,11 +300,13 @@ function Index() {
           {data.faculty.map((f, i) => (
             <motion.div
               key={f.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
+              initial={{ opacity: 0, rotateX: 20, y: 40 }}
+              whileInView={{ opacity: 1, rotateX: 0, y: 0 }}
+              whileHover={{ scale: 1.03, rotateX: 5 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
               className="glass-strong rounded-3xl p-6"
+              style={{ transformPerspective: 1000 }}
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-2xl font-bold text-primary-foreground shadow-elegant">
@@ -320,11 +334,12 @@ function Index() {
           {data.results.map((r, i) => (
             <motion.div
               key={r.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: i * 0.05 }}
+              initial={{ opacity: 0, rotateY: 15, rotateX: 20, scale: 0.8 }}
+              whileInView={{ opacity: 1, rotateY: 0, rotateX: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.6, delay: i * 0.08, type: "spring", bounce: 0.4 }}
               className="glass-strong hover-lift rounded-3xl p-5"
+              style={{ transformPerspective: 1000 }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow font-bold text-primary-foreground">
@@ -419,6 +434,6 @@ function Index() {
           </div>
         </div>
       </Section>
-    </>
+    </div>
   );
 }
