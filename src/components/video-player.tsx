@@ -15,6 +15,9 @@ function isDirectVideo(url: string) {
 }
 
 function parseYouTubeId(url: string): string | null {
+  const plainId = url.trim();
+  // Permit the video ID itself in admin fields as well as a full YouTube URL.
+  if (/^[a-zA-Z0-9_-]{11}$/.test(plainId)) return plainId;
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, "");
@@ -48,6 +51,11 @@ function toGenericEmbed(url: string): string {
     if (host === "drive.google.com") {
       const m = u.pathname.match(/\/file\/d\/([^/]+)/);
       if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+      // Google Drive's older share formats also need converting to preview.
+      const id = u.searchParams.get("id");
+      if (id && (u.pathname === "/open" || u.pathname === "/uc")) {
+        return `https://drive.google.com/file/d/${id}/preview`;
+      }
     }
   } catch {}
   return url;
@@ -154,6 +162,7 @@ type Props = {
 };
 
 export function VideoPlayer({ src, poster, title, className, fullscreenTargetRef }: Props) {
+  if (!src?.trim()) return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   const ytId = parseYouTubeId(src);
   if (ytId) return <YouTubePlayer id={ytId} title={title} poster={poster} className={className} fullscreenTargetRef={fullscreenTargetRef} />;
   if (isDirectVideo(src)) return <NativePlayer src={src} poster={poster} title={title} className={className} fullscreenTargetRef={fullscreenTargetRef} />;
@@ -175,6 +184,15 @@ export function VideoPlayer({ src, poster, title, className, fullscreenTargetRef
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
       />
+    </div>
+  );
+}
+
+function VideoUnavailable({ message, className, openUrl }: { message: string; className?: string; openUrl?: string }) {
+  return (
+    <div className={cn("flex aspect-video flex-col items-center justify-center gap-3 rounded-3xl bg-black p-6 text-center text-sm text-white/80", className)}>
+      <p>{message}</p>
+      {openUrl && <a href={openUrl} target="_blank" rel="noreferrer" className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-black">Open video in a new tab</a>}
     </div>
   );
 }
@@ -326,6 +344,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
   const [started, setStarted] = useState(false);
   const [qualities, setQualities] = useState<string[]>([]);
   const [quality, setQuality] = useState<string>("auto");
+  const [embedError, setEmbedError] = useState(false);
 
   const fsElRef = fullscreenTargetRef ?? wrapRef;
   const isFs = useIsFullscreen(fsElRef);
@@ -342,6 +361,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         host: "https://www.youtube-nocookie.com",
         playerVars: {
           controls: 0,
+          enablejsapi: 1,
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
@@ -396,6 +416,7 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
           onPlaybackQualityChange: (e: any) => {
             try { setQuality(e.target.getPlaybackQuality?.() ?? "auto"); } catch {}
           },
+          onError: () => setEmbedError(true),
         },
       });
     });
@@ -405,6 +426,14 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
       playerRef.current = null;
     };
   }, [id]);
+
+  if (embedError) {
+    return <VideoUnavailable
+      className={className}
+      message="This YouTube video cannot be played inside the website. Open it in YouTube instead."
+      openUrl={`https://www.youtube.com/watch?v=${id}`}
+    />;
+  }
 
   // Keep the YouTube iframe's real pixel size locked to its container at
   // all times — not just on load. This is what actually fixes the mobile
@@ -587,6 +616,7 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const fsElRef = fullscreenTargetRef ?? wrapRef;
   const isFs = useIsFullscreen(fsElRef);
@@ -601,7 +631,8 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
   function toggle() {
     const v = ref.current;
     if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
+    if (v.paused) {
+      v.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
     else { v.pause(); setPlaying(false); }
   }
   function seek(delta: number) {
@@ -657,8 +688,15 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
         onPause={() => setPlaying(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        onError={() => setLoadError(true)}
         playsInline
       />
+      {loadError && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/90 p-6 text-center text-sm text-white/80">
+          <p>This video link could not be played here. Check that it is a public, direct MP4/WebM link.</p>
+          <a href={src} target="_blank" rel="noreferrer" className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-black">Open video in a new tab</a>
+        </div>
+      )}
       {!playing && (
         <button
           onClick={() => { toggle(); revealControls(); }}
