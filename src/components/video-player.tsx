@@ -633,7 +633,10 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
     if (!v) return;
     if (v.paused) {
       v.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
-    else { v.pause(); setPlaying(false); }
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
   }
   function seek(delta: number) {
     const v = ref.current;
