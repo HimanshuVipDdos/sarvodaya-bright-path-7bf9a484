@@ -42,8 +42,6 @@ const batchPortalQuery = (slug: string) =>
         };
       }
 
-      // Opportunistically start/end any due live classes (and auto-archive
-      // ended ones to Lectures) before reading the list below.
       await supabase.rpc("tick_live_classes" as never);
 
       const [lectures, liveClasses, materials, notifications, batchTests, freeTests, myAttempts] = await Promise.all([
@@ -103,15 +101,30 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
 
 type Tab = "classes" | "live" | "notes" | "dpp" | "tests" | "updates";
 
+// Helper: determine if a live class is "active" (currently live OR scheduled within next 24h)
+function isActiveOrUpcoming(lc: { is_live: boolean; scheduled_at: string }) {
+  if (lc.is_live) return true;
+  const t = new Date(lc.scheduled_at).getTime();
+  const now = Date.now();
+  // Upcoming: starts within next 24h but hasn't started yet
+  return t > now && t < now + 24 * 3600_000;
+}
+
+// Helper: determine if a live class has ended (timeline passed, not live)
+function hasEnded(lc: { is_live: boolean; scheduled_at: string; duration_minutes?: number | null }) {
+  if (lc.is_live) return false;
+  const startTime = new Date(lc.scheduled_at).getTime();
+  const durationMs = (lc.duration_minutes ?? 60) * 60_000;
+  const endTime = startTime + durationMs;
+  return Date.now() > endTime;
+}
+
 function BatchPortal() {
   const { slug } = Route.useParams();
   const { data } = useSuspenseQuery(batchPortalQuery(slug));
   const [tab, setTab] = useState<Tab>("classes");
   const [activeLecture, setActiveLecture] = useState<string | null>(null);
   const [theaterOpen, setTheaterOpen] = useState(false);
-  // When set, the theater plays THIS live class instead of the classes-tab
-  // "current" lecture (used when opening straight from the Live tab / the
-  // today's-live banner, which aren't part of the lecture list).
   const [theaterLive, setTheaterLive] = useState<
     { id: string; src: string; poster?: string | null; title: string } | null
   >(null);
@@ -134,21 +147,14 @@ function BatchPortal() {
     );
   }
 
-  const now = Date.now();
-  const todayLive = data.liveClasses.filter((l) => {
-    const t = new Date(l.scheduled_at).getTime();
-    return l.is_live || (t > now - 2 * 3600_000 && t < now + 24 * 3600_000);
-  });
+  // ─── LIVE TAB: only currently-live OR genuinely upcoming (future) classes ───
+  // Ended classes are EXCLUDED from here — they move to the Classes/Recorded section only
+  const activeLiveClasses = data.liveClasses.filter(isActiveOrUpcoming);
 
-  const notes = data.materials.filter((m) => m.material_type === "notes" || m.material_type === "pdf");
-  const dpp = data.materials.filter((m) => m.material_type === "dpp");
-
-  // Recorded Lectures tab = real "lectures" table entries PLUS any live
-  // class that has finished (is_live turned off) and has a video to replay.
-  // No data is copied/duplicated — this just merges two sources for display,
-  // so the moment a class ends it shows up here automatically.
+  // ─── RECORDED FROM LIVE: ended live classes that have a video replay ───
+  // These show ONLY in the Classes tab, never in Live tab
   const endedLiveAsLectures = data.liveClasses
-    .filter((lc) => !lc.is_live && lc.youtube_url)
+    .filter((lc) => hasEnded(lc) && lc.youtube_url)
     .map((lc) => ({
       id: lc.id,
       title: lc.title,
@@ -156,7 +162,7 @@ function BatchPortal() {
       subject: null as string | null,
       chapter: null as string | null,
       lecture_number: null as number | null,
-      duration_minutes: null as number | null,
+      duration_minutes: lc.duration_minutes as number | null,
       video_url: lc.youtube_url,
       thumbnail_url: lc.thumbnail_url,
       created_at: lc.scheduled_at,
@@ -168,9 +174,12 @@ function BatchPortal() {
     ...endedLiveAsLectures,
   ].sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
 
+  const notes = data.materials.filter((m) => m.material_type === "notes" || m.material_type === "pdf");
+  const dpp = data.materials.filter((m) => m.material_type === "dpp");
+
   const tabs: { key: Tab; label: string; icon: typeof Video; count?: number }[] = [
     { key: "classes", label: "Classes", icon: Video, count: combinedLectures.length },
-    { key: "live", label: "Live", icon: Radio, count: todayLive.length },
+    { key: "live", label: "Live", icon: Radio, count: activeLiveClasses.length },
     { key: "notes", label: "Notes", icon: FileText, count: notes.length },
     { key: "dpp", label: "DPP", icon: ClipboardList, count: dpp.length },
     { key: "tests", label: "Tests", icon: Award, count: data.tests.length },
@@ -181,9 +190,6 @@ function BatchPortal() {
     ? combinedLectures.find((l) => l.id === activeLecture) ?? null
     : null;
 
-  // What the theater modal is actually showing: a live class opened from
-  // the Live tab / today's-live banner takes priority, otherwise it's
-  // whatever's selected in the Classes tab.
   const nowPlaying = theaterLive
     ? {
         src: theaterLive.src,
@@ -220,12 +226,14 @@ function BatchPortal() {
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <Link to="/dashboard" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
         </Link>
       </motion.div>
 
-      <div
+      {/* ─── Batch Hero Banner ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         className="relative overflow-hidden rounded-3xl border border-border/60"
         style={data.batch.thumbnail_url ? {
           backgroundImage: `url(${data.batch.thumbnail_url})`,
@@ -233,100 +241,114 @@ function BatchPortal() {
         } : undefined}
       >
         <div className="bg-gradient-to-br from-primary/85 to-primary-glow/70 p-8 backdrop-blur-md sm:p-10">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary-foreground/80">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">
             {data.batch.exam_category}
           </div>
-          <h1 className="mt-1 text-3xl font-bold text-primary-foreground sm:text-4xl">{data.batch.title}</h1>
+          <h1 className="mt-1.5 text-3xl font-bold text-primary-foreground sm:text-4xl leading-tight">
+            {data.batch.title}
+          </h1>
           {data.batch.duration && (
-            <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary-foreground/85">
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1 text-xs text-primary-foreground/90">
               <Clock className="h-3.5 w-3.5" /> {data.batch.duration}
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      {todayLive.length > 0 && (
+      {/* ─── Live / Upcoming Banner — only shows truly active/upcoming classes ─── */}
+      {activeLiveClasses.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="mt-4 glass-strong rounded-3xl border border-red-500/30 p-4"
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="mt-4 glass-strong rounded-3xl border border-red-500/25 p-5"
         >
-          <div className="flex items-center gap-2 text-xs font-semibold text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-red-500">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
             </span>
-            LIVE / UPCOMING TODAY
+            Live / Upcoming Today
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {todayLive.slice(0, 2).map((lc) => {
-              return (
-                <div key={lc.id} className="rounded-2xl bg-background/60 p-3">
-                  <div className="text-sm font-semibold">{lc.title}</div>
-                  <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(lc.scheduled_at).toLocaleString("en-IN")}
-                  </div>
-                  {lc.is_live && lc.youtube_url && (
-                    <Button
-                      size="sm"
-                      className="mt-2 gap-1.5"
-                      onClick={() => {
-                        setTheaterLive({ id: lc.id, src: lc.youtube_url!, poster: lc.thumbnail_url, title: lc.title });
-                        setTheaterOpen(true);
-                      }}
-                    >
-                      <PlayCircle className="h-3.5 w-3.5" /> Watch Live
-                    </Button>
-                  )}
-                  {!lc.is_live && (lc.zoom_url || lc.meet_url) && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {lc.zoom_url && (
-                        <Button size="sm" variant="secondary" asChild>
-                          <a href={lc.zoom_url} target="_blank" rel="noreferrer">Zoom</a>
-                        </Button>
-                      )}
-                      {lc.meet_url && (
-                        <Button size="sm" variant="secondary" asChild>
-                          <a href={lc.meet_url} target="_blank" rel="noreferrer">Meet</a>
-                        </Button>
-                      )}
-                    </div>
+            {activeLiveClasses.slice(0, 2).map((lc) => (
+              <div key={lc.id} className="rounded-2xl bg-background/50 p-4 border border-border/40">
+                <div className="flex items-center gap-2 mb-1">
+                  {lc.is_live && (
+                    <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-500">
+                      🔴 Live Now
+                    </span>
                   )}
                 </div>
-              );
-            })}
+                <div className="text-sm font-semibold">{lc.title}</div>
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(lc.scheduled_at).toLocaleString("en-IN")}
+                </div>
+                {lc.is_live && lc.youtube_url && (
+                  <Button
+                    size="sm"
+                    className="mt-3 gap-1.5"
+                    onClick={() => {
+                      setTheaterLive({ id: lc.id, src: lc.youtube_url!, poster: lc.thumbnail_url, title: lc.title });
+                      setTheaterOpen(true);
+                    }}
+                  >
+                    <PlayCircle className="h-3.5 w-3.5" /> Watch Live
+                  </Button>
+                )}
+                {!lc.is_live && (lc.zoom_url || lc.meet_url) && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {lc.zoom_url && (
+                      <Button size="sm" variant="secondary" asChild>
+                        <a href={lc.zoom_url} target="_blank" rel="noreferrer">Zoom</a>
+                      </Button>
+                    )}
+                    {lc.meet_url && (
+                      <Button size="sm" variant="secondary" asChild>
+                        <a href={lc.meet_url} target="_blank" rel="noreferrer">Meet</a>
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-
         </motion.div>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-2">
+      {/* ─── Tab Bar ─── */}
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+        className="mt-6 flex flex-wrap gap-2"
+      >
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`glass inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
-              tab === t.key ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+              tab === t.key
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "glass hover:bg-muted/60 text-muted-foreground hover:text-foreground"
             }`}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}
             {typeof t.count === "number" && (
-              <span className={`rounded-full px-1.5 text-[10px] ${
-                tab === t.key ? "bg-primary-foreground/20" : "bg-muted-foreground/10"
+              <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${
+                tab === t.key ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
               }`}>{t.count}</span>
             )}
           </button>
         ))}
-      </div>
+      </motion.div>
 
       <div className="mt-6">
+        {/* ─── Classes Tab (recorded lectures + ended live classes) ─── */}
         {tab === "classes" && (
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               {current ? (
                 <button
                   onClick={() => { setTheaterLive(null); setTheaterOpen(true); }}
-                  className="glass-strong group relative block w-full overflow-hidden rounded-3xl text-left"
+                  className="glass-strong group relative block w-full overflow-hidden rounded-3xl text-left transition-transform hover:scale-[1.005]"
                 >
                   <div className="relative aspect-video w-full bg-black">
                     {current.thumbnail_url ? (
@@ -359,41 +381,47 @@ function BatchPortal() {
                     </div>
                     <h3 className="mt-1 text-lg font-semibold">{current.title}</h3>
                     {current.description && (
-                      <p className="mt-2 text-sm text-muted-foreground">{current.description}</p>
+                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{current.description}</p>
                     )}
                   </div>
                 </button>
               ) : (
-                <div className="glass-strong flex h-64 items-center justify-center rounded-3xl text-sm text-muted-foreground">
-                  Select a lecture to start watching
+                <div className="glass-strong flex h-64 flex-col items-center justify-center gap-3 rounded-3xl text-center">
+                  <PlayCircle className="h-10 w-10 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Select a lecture from the list to start watching</p>
                 </div>
               )}
             </div>
+
             <div className="glass-strong rounded-3xl p-3">
-              <div className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Lectures ({combinedLectures.length})
+              <div className="px-2 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                All Lectures ({combinedLectures.length})
               </div>
               <div className="max-h-[520px] space-y-1 overflow-y-auto pr-1">
                 {combinedLectures.length === 0 && (
-                  <div className="p-4 text-sm text-muted-foreground">No lectures published yet.</div>
+                  <div className="p-4 text-sm text-muted-foreground text-center">No lectures published yet.</div>
                 )}
                 {combinedLectures.map((l) => (
                   <button
                     key={l.id}
                     onClick={() => { setActiveLecture(l.id); setTheaterLive(null); setTheaterOpen(true); }}
-                    className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition ${
-                      activeLecture === l.id ? "bg-primary/10" : "hover:bg-muted/60"
+                    className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition-colors ${
+                      activeLecture === l.id ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/60"
                     }`}
                   >
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
+                    <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                      l._source === "live"
+                        ? "bg-gradient-to-br from-orange-500 to-red-500"
+                        : "bg-gradient-to-br from-primary to-primary-glow"
+                    } text-white`}>
                       <PlayCircle className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">
                         {l.lecture_number ? `#${l.lecture_number} · ` : ""}{l.title}
                         {l._source === "live" && (
-                          <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-primary align-middle">
-                            Recording
+                          <span className="ml-1.5 rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-orange-500 align-middle">
+                            REC
                           </span>
                         )}
                       </div>
@@ -401,6 +429,11 @@ function BatchPortal() {
                         <div className="truncate text-[11px] text-muted-foreground">
                           {[l.subject, l.chapter, l.duration_minutes ? `${l.duration_minutes} min` : null]
                             .filter(Boolean).join(" • ")}
+                        </div>
+                      )}
+                      {l._source === "live" && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {new Date(l.created_at ?? "").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </div>
                       )}
                     </div>
@@ -411,36 +444,46 @@ function BatchPortal() {
           </div>
         )}
 
+        {/* ─── Live Tab — only active/upcoming classes, NO ended ones ─── */}
         {tab === "live" && (
           <div className="grid gap-4 sm:grid-cols-2">
-            {data.liveClasses.length === 0 && (
-              <div className="glass-strong col-span-full rounded-3xl p-8 text-center text-sm text-muted-foreground">
-                No live classes scheduled yet.
+            {activeLiveClasses.length === 0 && (
+              <div className="glass-strong col-span-full rounded-3xl p-10 text-center">
+                <Radio className="mx-auto h-8 w-8 text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">No live classes right now.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Past recordings are available in the Classes tab.
+                </p>
               </div>
             )}
-            {data.liveClasses.map((lc) => (
-              <div key={lc.id} className="glass-strong rounded-3xl p-5">
-                <div className="flex items-center gap-2">
-                  {lc.is_live && (
-                    <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-600">
-                      🔴 Live
+            {activeLiveClasses.map((lc) => (
+              <div key={lc.id} className="glass-strong rounded-3xl p-5 border border-border/40">
+                <div className="flex items-center gap-2 mb-3">
+                  {lc.is_live ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-red-500">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                      Live Now
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      Upcoming
                     </span>
                   )}
                   <span className="text-[11px] text-muted-foreground">
                     {new Date(lc.scheduled_at).toLocaleString("en-IN")}
                   </span>
                 </div>
-                <h3 className="mt-2 font-semibold">{lc.title}</h3>
+                <h3 className="font-semibold">{lc.title}</h3>
                 {lc.description && (
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{lc.description}</p>
                 )}
-                {lc.youtube_url && (
+                {lc.is_live && lc.youtube_url && (
                   <button
                     onClick={() => {
                       setTheaterLive({ id: lc.id, src: lc.youtube_url!, poster: lc.thumbnail_url, title: lc.title });
                       setTheaterOpen(true);
                     }}
-                    className="group relative mt-3 block aspect-video w-full overflow-hidden rounded-2xl bg-black"
+                    className="group relative mt-4 block aspect-video w-full overflow-hidden rounded-2xl bg-black"
                   >
                     {lc.thumbnail_url ? (
                       <img src={lc.thumbnail_url} alt="" className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100" />
@@ -456,7 +499,12 @@ function BatchPortal() {
                     </div>
                   </button>
                 )}
-
+                {!lc.is_live && lc.youtube_url && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    Stream will appear here when class goes live
+                  </div>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {lc.zoom_url && (
                     <Button size="sm" variant="secondary" asChild>
@@ -489,7 +537,7 @@ function BatchPortal() {
               </div>
             )}
             {data.tests.map((t: any) => (
-              <div key={t.id} className="glass-strong rounded-2xl p-4">
+              <div key={t.id} className="glass-strong rounded-2xl p-4 border border-border/40">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-sm font-semibold">
@@ -500,7 +548,7 @@ function BatchPortal() {
                   </div>
                   {t.attempt?.status === "submitted" ? (
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-500">
                         <CheckCircle2 className="h-3 w-3" /> {t.attempt.score}/{t.attempt.max_score}
                       </span>
                       <Link to="/cbt/$testId/mistakes" params={{ testId: t.id }} search={{ attempt: t.attempt.id } as any}>
@@ -525,20 +573,22 @@ function BatchPortal() {
           <div className="space-y-3">
             {data.notifications.length === 0 && (
               <div className="glass-strong rounded-3xl p-8 text-center text-sm text-muted-foreground">
-                No updates.
+                No updates yet.
               </div>
             )}
             {data.notifications.map((n) => (
-              <div key={n.id} className="glass-strong rounded-2xl p-4">
+              <div key={n.id} className="glass-strong rounded-2xl p-4 border border-border/40">
                 <div className="flex items-start gap-3">
-                  <Bell className="mt-0.5 h-4 w-4 text-primary" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <Bell className="h-4 w-4 text-primary" />
+                  </div>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">{n.title}</div>
                     {n.body && (
                       <div className="mt-1 text-xs text-muted-foreground">{n.body}</div>
                     )}
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {new Date(n.created_at).toLocaleDateString("en-IN")}
+                    <div className="mt-1.5 text-[11px] text-muted-foreground">
+                      {new Date(n.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     </div>
                   </div>
                 </div>
@@ -579,9 +629,9 @@ function MaterialsList({ items, empty }: { items: any[]; empty: string }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {items.map((m) => (
-        <div key={m.id} className="glass-strong rounded-2xl p-4">
+        <div key={m.id} className="glass-strong rounded-2xl p-4 border border-border/40">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
               <FileText className="h-4 w-4 text-primary-foreground" />
             </div>
             <div className="min-w-0 flex-1">
