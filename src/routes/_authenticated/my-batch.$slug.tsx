@@ -137,7 +137,10 @@ function BatchPortal() {
   const now = Date.now();
   const todayLive = data.liveClasses.filter((l) => {
     const t = new Date(l.scheduled_at).getTime();
-    return l.is_live || (t > now - 2 * 3600_000 && t < now + 24 * 3600_000);
+    const end = l.end_at ? new Date(l.end_at).getTime() : t + (l.duration_minutes || 60) * 60000;
+    if (l.is_live) return true;
+    if (end < now) return false;
+    return t > now - 2 * 3600_000 && t < now + 24 * 3600_000;
   });
 
   const notes = data.materials.filter((m) => m.material_type === "notes" || m.material_type === "pdf");
