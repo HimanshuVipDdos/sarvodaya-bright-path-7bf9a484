@@ -18,22 +18,36 @@ import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+import { defaultDashboardConfig, type DashboardConfig } from "./admin.dashboard-settings";
+
 const dashboardQuery = queryOptions({
   queryKey: ["dashboard"],
   queryFn: async () => {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
-    if (!userId) return { profile: null, enrollments: [], roles: [], liveClasses: [] };
+    if (!userId) return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig };
 
-    const [profile, enrollments, roles] = await Promise.all([
+    const [profile, enrollments, roles, configRow] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase.from("enrollments").select("*, batch:batches(*)").eq("user_id", userId),
       supabase.from("user_roles").select("role").eq("user_id", userId),
+      supabase.from("notifications").select("body").eq("category", "dashboard_config").eq("title", "dashboard_settings").maybeSingle(),
     ]);
+
+    let config = defaultDashboardConfig;
+    if (configRow.data?.body) {
+      try {
+        config = { ...defaultDashboardConfig, ...JSON.parse(configRow.data.body) };
+      } catch {
+        // fallback
+      }
+    }
+
     return {
       profile: profile.data,
       enrollments: enrollments.data ?? [],
       roles: (roles.data ?? []).map((r) => r.role),
+      config,
     };
   },
 });
@@ -46,6 +60,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const { data } = useSuspenseQuery(dashboardQuery);
   const isAdmin = (data.roles as string[]).includes("admin");
+  const cfg = data.config ?? defaultDashboardConfig;
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -55,9 +70,19 @@ function Dashboard() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Optional Top Announcement */}
+      {cfg.announcement && (
+        <div className="mb-6 rounded-2xl bg-blue-50 border border-blue-100 p-4 text-sm font-medium text-blue-800 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+            <span>{cfg.announcement}</span>
+          </div>
+        </div>
+      )}
+
       {/* Top Header Area for XP/Coins */}
       <div className="flex justify-between items-center mb-8">
-         <h1 className="text-xl font-bold text-slate-800">Study</h1>
+         <h1 className="text-xl font-bold text-slate-800">{cfg.greeting || "Study"}</h1>
          <div className="flex items-center gap-3">
            <div className="flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1 text-sm font-semibold text-slate-600">
              <span className="text-yellow-500">🔥</span> 0
@@ -118,16 +143,16 @@ function Dashboard() {
             <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
                <Clock className="h-5 w-5 text-slate-700" />
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">Recent Learning</h3>
-            <p className="text-xs text-slate-500 leading-snug">View your past learning history</p>
+            <h3 className="font-semibold text-slate-800 mb-1">{cfg.recent_learning_title || "Recent Learning"}</h3>
+            <p className="text-xs text-slate-500 leading-snug">{cfg.recent_learning_desc || "View your past learning history"}</p>
           </Link>
 
           <Link to="/my-doubts" className="bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors rounded-xl p-5 border border-[#BBF7D0]/50 shadow-sm flex flex-col">
             <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
                <MessageCircle className="h-5 w-5 text-slate-700" />
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">My Doubts</h3>
-            <p className="text-xs text-slate-500 leading-snug">View the list of your asked doubts in the lectures</p>
+            <h3 className="font-semibold text-slate-800 mb-1">{cfg.my_doubts_title || "My Doubts"}</h3>
+            <p className="text-xs text-slate-500 leading-snug">{cfg.my_doubts_desc || "View the list of your asked doubts in the lectures"}</p>
           </Link>
         </div>
       </div>
@@ -139,37 +164,43 @@ function Dashboard() {
             <div className="bg-[#F8FAFC] w-10 h-10 rounded-lg flex items-center justify-center mb-3 border border-slate-100">
                <FileText className="h-5 w-5 text-blue-500" />
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">PDF Bank</h3>
-            <p className="text-xs text-slate-500 leading-snug">Download your Study PDFs from one place</p>
+            <h3 className="font-semibold text-slate-800 mb-1">{cfg.pdf_bank_title || "PDF Bank"}</h3>
+            <p className="text-xs text-slate-500 leading-snug">{cfg.pdf_bank_desc || "Download your Study PDFs from one place"}</p>
           </Link>
 
           <Link to="/dashboard" className="bg-white hover:bg-slate-50 transition-colors rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
             <div className="bg-[#F8FAFC] w-10 h-10 rounded-lg flex items-center justify-center mb-3 border border-slate-100">
                <BookOpen className="h-5 w-5 text-purple-500" />
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">Bookmarks</h3>
-            <p className="text-xs text-slate-500 leading-snug">View the list of your saved questions.</p>
+            <h3 className="font-semibold text-slate-800 mb-1">{cfg.bookmarks_title || "Bookmarks"}</h3>
+            <p className="text-xs text-slate-500 leading-snug">{cfg.bookmarks_desc || "View the list of your saved questions."}</p>
           </Link>
         </div>
       </div>
 
-      {/* Promotional Banner Area (Like VP-OP) */}
+      {/* Promotional Banner Area */}
       <div className="mb-10 w-full overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 to-red-800 relative shadow-sm text-white">
         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
         <div className="relative px-6 py-10 sm:px-12 flex flex-col items-center text-center">
            <div className="inline-block bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-widest shadow-sm">
-             Enroll Now
+             {cfg.banner_badge || "Enroll Now"}
            </div>
-           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-wider mb-2">Introducing</h2>
+           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-wider mb-2">
+             {cfg.banner_title_prefix || "Introducing"}
+           </h2>
            <h3 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-red-200 mb-4">
-             SARVODAYA PRIME
+             {cfg.banner_title_main || "SARVODAYA PRIME"}
            </h3>
-           <p className="text-red-100 font-semibold mb-6 max-w-lg">TEST SERIES • DOUBTS • PREMIUM LECTURES</p>
+           <p className="text-red-100 font-semibold mb-6 max-w-lg">
+             {cfg.banner_subtitle || "TEST SERIES • DOUBTS • PREMIUM LECTURES"}
+           </p>
            
            <div className="flex items-center gap-4">
-              <button className="bg-white text-red-700 px-6 py-2.5 rounded-full font-bold shadow-lg hover:scale-105 transition-transform">
-                Explore Plan
-              </button>
+              <Link to={cfg.banner_btn_link || "/batches"}>
+                <button className="bg-white text-red-700 px-6 py-2.5 rounded-full font-bold shadow-lg hover:scale-105 transition-transform">
+                  {cfg.banner_btn_text || "Explore Plan"}
+                </button>
+              </Link>
            </div>
         </div>
       </div>

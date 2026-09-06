@@ -1,9 +1,26 @@
 import { useEffect, useState } from "react";
-import { X, PlayCircle, Radio, Video, FileText, ClipboardList } from "lucide-react";
+import {
+  X,
+  PlayCircle,
+  Radio,
+  Video,
+  FileText,
+  ClipboardList,
+  ThumbsUp,
+  ThumbsDown,
+  Share2,
+  Bookmark,
+  CheckCircle2,
+  GraduationCap,
+  MessageCircle,
+  Layers,
+} from "lucide-react";
+import { toast } from "sonner";
 import { VideoPlayer } from "@/components/video-player";
-import { LiveClassPlayer } from "@/components/live-class-player";
+import { LiveChat } from "@/components/live-chat";
 import { DocumentViewer } from "@/components/document-viewer";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export type TheaterLecture = {
   id: string;
@@ -19,7 +36,7 @@ export type TheaterMaterial = {
   file_url: string | null;
 };
 
-type SidebarTab = "lectures" | "notes" | "dpp";
+type RightPanelTab = "chat" | "playlist" | "notes" | "dpp";
 
 type Props = {
   open: boolean;
@@ -29,13 +46,10 @@ type Props = {
   title: string;
   meta?: string;
   description?: string | null;
-  /** If set, renders LiveClassPlayer (video + live chat) instead of a plain VideoPlayer. */
   liveClassId?: string;
   lectures: TheaterLecture[];
   activeLectureId?: string;
   onSelectLecture: (id: string) => void;
-  /** Batch's notes / DPP materials, shown as sidebar tabs so a student never
-   *  has to leave the player screen to find them — PW-style. */
   notes?: TheaterMaterial[];
   dpp?: TheaterMaterial[];
 };
@@ -55,7 +69,13 @@ export function TheaterModal({
   notes = [],
   dpp = [],
 }: Props) {
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("lectures");
+  const [rightTab, setRightTab] = useState<RightPanelTab>(liveClassId ? "chat" : "playlist");
+  const [liked, setLiked] = useState(false);
+  const [disliked, setDisliked] = useState(false);
+  const [likeCount, setLikeCount] = useState(128);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -70,157 +90,362 @@ export function TheaterModal({
     };
   }, [open, onClose]);
 
-  // Land back on the Lectures tab each time the theater is (re)opened.
+  // Set default right tab based on liveClassId
   useEffect(() => {
-    if (open) setSidebarTab("lectures");
-  }, [open]);
+    if (open) {
+      setRightTab(liveClassId ? "chat" : "playlist");
+    }
+  }, [open, liveClassId]);
 
   if (!open) return null;
 
+  const handleLike = () => {
+    if (liked) {
+      setLiked(false);
+      setLikeCount((c) => c - 1);
+    } else {
+      setLiked(true);
+      setLikeCount((c) => c + 1);
+      if (disliked) setDisliked(false);
+      toast.success("Added to liked videos");
+    }
+  };
+
+  const handleDislike = () => {
+    setDisliked(!disliked);
+    if (liked) {
+      setLiked(false);
+      setLikeCount((c) => c - 1);
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Class link copied to clipboard!");
+    } else {
+      toast.info("Share this class with your classmates!");
+    }
+  };
+
+  const handleSave = () => {
+    setSaved(!saved);
+    toast.success(saved ? "Removed from saved" : "Saved to your study list");
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col overflow-x-hidden bg-background/95 backdrop-blur-md"
+      className="fixed inset-0 z-[200] flex flex-col overflow-hidden bg-[#0f0f0f] text-white"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      {/* Top bar */}
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-6">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold sm:text-base">{title}</h2>
-          {meta && <div className="truncate text-[11px] text-muted-foreground sm:text-xs">{meta}</div>}
+      {/* YouTube Style Top Bar with Crisp Cross (X) Close Button */}
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-[#121212] px-4 sm:px-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-600 text-white shadow-md shrink-0">
+            <GraduationCap className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-black text-sm tracking-tight text-white sm:text-base">
+                Sarvodaya Adhyeta
+              </span>
+              {liveClassId && (
+                <span className="inline-flex items-center gap-1 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  Live
+                </span>
+              )}
+            </div>
+            {meta && <div className="truncate text-xs text-slate-400">{meta}</div>}
+          </div>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Close theater"
-          className="shrink-0 rounded-full p-2 transition hover:bg-muted"
-        >
-          <X className="h-5 w-5" />
-        </button>
+
+        {/* Prominent Cross Button */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onClose}
+            aria-label="Close theater"
+            title="Close player (Esc)"
+            className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95"
+          >
+            <span className="hidden sm:inline">Close</span>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Body */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="grid min-w-0 gap-6 p-4 sm:p-6 lg:grid-cols-3">
-          <div className="min-w-0 lg:col-span-2">
-            {liveClassId ? (
-              <LiveClassPlayer
-                src={videoSrc}
-                title={title}
-                poster={poster ?? undefined}
-                liveClassId={liveClassId}
-              />
-            ) : (
-              <VideoPlayer src={videoSrc} title={title} poster={poster ?? undefined} />
-            )}
+      {/* Main YouTube Layout Grid */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="mx-auto max-w-[1780px] p-3 sm:p-5 lg:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-6 items-start">
+            
+            {/* LEFT COLUMN: Video + Info + Channel + Description + Batch Materials */}
+            <div className="min-w-0 space-y-4">
+              {/* 16:9 Video Player Container */}
+              <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 relative">
+                <VideoPlayer src={videoSrc} title={title} poster={poster ?? undefined} />
+              </div>
 
-            {description && (
-              <p className="mt-4 text-sm text-muted-foreground">{description}</p>
-            )}
-          </div>
+              {/* Video Title */}
+              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-snug">
+                {title}
+              </h1>
 
-          {/* Playlist / notes / DPP sidebar */}
-          <div className="glass-strong flex flex-col rounded-3xl p-3 lg:max-h-[calc(100vh-140px)]">
-            <div className="flex shrink-0 gap-1 rounded-2xl bg-muted/50 p-1">
-              <SidebarTabButton
-                active={sidebarTab === "lectures"} onClick={() => setSidebarTab("lectures")}
-                icon={Video} label="Lectures" count={lectures.length}
-              />
-              <SidebarTabButton
-                active={sidebarTab === "notes"} onClick={() => setSidebarTab("notes")}
-                icon={FileText} label="Notes" count={notes.length}
-              />
-              <SidebarTabButton
-                active={sidebarTab === "dpp"} onClick={() => setSidebarTab("dpp")}
-                icon={ClipboardList} label="DPP" count={dpp.length}
-              />
-            </div>
+              {/* YouTube Channel Row & Action Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+                {/* Channel / Institute Details */}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-rose-700 text-white font-bold shadow-md">
+                    SA
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-sm text-white">Sarvodaya Adhyeta</span>
+                      <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                    </div>
+                    <div className="text-[11px] text-slate-400">Kasganj, Uttar Pradesh</div>
+                  </div>
+                  <span className="ml-2 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/30">
+                    Enrolled
+                  </span>
+                </div>
 
-            {sidebarTab === "lectures" && (
-              <div className="mt-2 max-h-[420px] space-y-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-220px)]">
-                {lectures.length === 0 && (
-                  <div className="p-4 text-sm text-muted-foreground">No lectures yet.</div>
-                )}
-                {lectures.map((l, i) => (
+                {/* YouTube Style Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Like / Dislike Pill */}
+                  <div className="flex items-center rounded-full bg-[#272727] border border-white/5 divide-x divide-white/10 text-xs font-medium">
+                    <button
+                      onClick={handleLike}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3.5 py-2 rounded-l-full hover:bg-white/10 transition",
+                        liked ? "text-blue-400" : "text-slate-200"
+                      )}
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      <span>{likeCount}</span>
+                    </button>
+                    <button
+                      onClick={handleDislike}
+                      className={cn(
+                        "px-3 py-2 rounded-r-full hover:bg-white/10 transition",
+                        disliked ? "text-red-400" : "text-slate-200"
+                      )}
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Share */}
                   <button
-                    key={l.id}
-                    onClick={() => onSelectLecture(l.id)}
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 rounded-full bg-[#272727] border border-white/5 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-white/10 transition"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span>Share</span>
+                  </button>
+
+                  {/* Save */}
+                  <button
+                    onClick={handleSave}
                     className={cn(
-                      "flex w-full items-start gap-3 rounded-2xl p-3 text-left transition",
-                      activeLectureId === l.id ? "bg-primary/10" : "hover:bg-muted/60",
+                      "flex items-center gap-1.5 rounded-full bg-[#272727] border border-white/5 px-3.5 py-2 text-xs font-medium transition hover:bg-white/10",
+                      saved ? "text-amber-400" : "text-slate-200"
                     )}
                   >
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
-                      {l.isLive ? <Radio className="h-4 w-4" /> : <span className="text-xs font-bold">{i + 1}</span>}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{l.title}</div>
-                      {l.subtitle && (
-                        <div className="truncate text-[11px] text-muted-foreground">{l.subtitle}</div>
-                      )}
-                    </div>
+                    <Bookmark className="h-4 w-4" />
+                    <span>{saved ? "Saved" : "Save"}</span>
                   </button>
-                ))}
+                </div>
               </div>
-            )}
 
-            {sidebarTab === "notes" && (
-              <SidebarMaterialList items={notes} empty="No notes uploaded for this batch yet." icon={FileText} />
-            )}
-            {sidebarTab === "dpp" && (
-              <SidebarMaterialList items={dpp} empty="No DPP uploaded for this batch yet." icon={ClipboardList} />
-            )}
+              {/* YouTube Style Description Box */}
+              <div className="rounded-2xl bg-[#212121] p-4 text-xs sm:text-sm text-slate-200 border border-white/5 space-y-2">
+                <div className="flex flex-wrap items-center gap-2 font-bold text-white text-xs">
+                  {liveClassId ? (
+                    <span className="rounded bg-red-600 px-2 py-0.5 text-white">Live Stream</span>
+                  ) : (
+                    <span className="rounded bg-blue-600 px-2 py-0.5 text-white">Recorded Class</span>
+                  )}
+                  {meta && <span>{meta}</span>}
+                </div>
+
+                <p className={cn("text-slate-300 leading-relaxed", !descExpanded && "line-clamp-2")}>
+                  {description || "Join today's class by Sarvodaya Adhyeta. Keep your notebook and pen ready. Ask your doubts in the live chat."}
+                </p>
+
+                {description && description.length > 100 && (
+                  <button
+                    onClick={() => setDescExpanded(!descExpanded)}
+                    className="font-bold text-white hover:underline block text-xs"
+                  >
+                    {descExpanded ? "Show less" : "...more"}
+                  </button>
+                )}
+              </div>
+
+              {/* Batch Content Tabs below Video */}
+              <div className="rounded-2xl bg-[#181818] p-4 border border-white/5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-white/10 pb-3 overflow-x-auto">
+                  <button
+                    onClick={() => setRightTab("playlist")}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition",
+                      rightTab === "playlist" ? "bg-white text-black" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <Video className="h-4 w-4" /> Lectures ({lectures.length})
+                  </button>
+                  <button
+                    onClick={() => setRightTab("notes")}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition",
+                      rightTab === "notes" ? "bg-white text-black" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <FileText className="h-4 w-4" /> Notes ({notes.length})
+                  </button>
+                  <button
+                    onClick={() => setRightTab("dpp")}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition",
+                      rightTab === "dpp" ? "bg-white text-black" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <ClipboardList className="h-4 w-4" /> DPP ({dpp.length})
+                  </button>
+                  {liveClassId && (
+                    <button
+                      onClick={() => setRightTab("chat")}
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition ml-auto",
+                        rightTab === "chat" ? "bg-red-600 text-white" : "text-red-400 hover:text-red-300"
+                      )}
+                    >
+                      <MessageCircle className="h-4 w-4" /> View Chat
+                    </button>
+                  )}
+                </div>
+
+                {/* Tab Content */}
+                {rightTab === "playlist" && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {lectures.map((l, i) => (
+                      <button
+                        key={l.id}
+                        onClick={() => onSelectLecture(l.id)}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl p-3 text-left transition border",
+                          activeLectureId === l.id
+                            ? "bg-white/10 border-white/20 text-white"
+                            : "bg-[#212121] border-transparent hover:border-white/10 text-slate-300"
+                        )}
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-600/20 text-red-400 font-bold text-xs">
+                          {l.isLive ? <Radio className="h-4 w-4 text-red-500 animate-pulse" /> : i + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-bold text-xs text-white">{l.title}</div>
+                          {l.subtitle && <div className="truncate text-[10px] text-slate-400 mt-0.5">{l.subtitle}</div>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {rightTab === "notes" && (
+                  <div className="space-y-2">
+                    {notes.length === 0 && (
+                      <div className="text-xs text-slate-400 py-4 text-center">No notes uploaded yet.</div>
+                    )}
+                    {notes.map((n) => (
+                      <div key={n.id} className="flex items-center justify-between p-3 bg-[#212121] rounded-xl">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <FileText className="h-5 w-5 text-blue-400 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{n.title}</div>
+                            {n.subtitle && <div className="text-[10px] text-slate-400">{n.subtitle}</div>}
+                          </div>
+                        </div>
+                        {n.file_url && <DocumentViewer url={n.file_url} title={n.title} />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {rightTab === "dpp" && (
+                  <div className="space-y-2">
+                    {dpp.length === 0 && (
+                      <div className="text-xs text-slate-400 py-4 text-center">No DPP uploaded yet.</div>
+                    )}
+                    {dpp.map((d) => (
+                      <div key={d.id} className="flex items-center justify-between p-3 bg-[#212121] rounded-xl">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <ClipboardList className="h-5 w-5 text-amber-400 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{d.title}</div>
+                            {d.subtitle && <div className="text-[10px] text-slate-400">{d.subtitle}</div>}
+                          </div>
+                        </div>
+                        {d.file_url && <DocumentViewer url={d.file_url} title={d.title} />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: YouTube Style Dedicated Full Height Live Chat */}
+            <div className="w-full lg:sticky lg:top-4">
+              {liveClassId ? (
+                <div className="h-[560px] sm:h-[620px] lg:h-[calc(100vh-100px)]">
+                  <LiveChat
+                    liveClassId={liveClassId}
+                    canModerate={true}
+                    className="h-full"
+                  />
+                </div>
+              ) : (
+                /* For recorded classes without live chat, show the full playlist right here */
+                <div className="rounded-2xl border border-white/10 bg-[#181818] p-4 space-y-3 h-[560px] lg:h-[calc(100vh-100px)] flex flex-col">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-red-500" />
+                      <span className="font-bold text-sm text-white">Batch Lectures</span>
+                    </div>
+                    <span className="text-xs text-slate-400">{lectures.length} Videos</span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                    {lectures.map((l, i) => (
+                      <button
+                        key={l.id}
+                        onClick={() => onSelectLecture(l.id)}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-xl p-3 text-left transition border",
+                          activeLectureId === l.id
+                            ? "bg-white/10 border-white/20 text-white"
+                            : "bg-[#212121] border-transparent hover:border-white/10 text-slate-300"
+                        )}
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-red-600/20 text-red-400 font-bold text-xs mt-0.5">
+                          {l.isLive ? <Radio className="h-3.5 w-3.5 text-red-500 animate-pulse" /> : i + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-bold text-xs text-white">{l.title}</div>
+                          {l.subtitle && <div className="truncate text-[10px] text-slate-400 mt-0.5">{l.subtitle}</div>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SidebarTabButton({
-  active, onClick, icon: Icon, label, count,
-}: { active: boolean; onClick: () => void; icon: typeof Video; label: string; count: number }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-medium transition",
-        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" /> {label}
-      {count > 0 && (
-        <span className={cn(
-          "rounded-full px-1.5 text-[10px]",
-          active ? "bg-primary-foreground/20" : "bg-muted-foreground/10",
-        )}>{count}</span>
-      )}
-    </button>
-  );
-}
-
-function SidebarMaterialList({
-  items, empty, icon: Icon,
-}: { items: TheaterMaterial[]; empty: string; icon: typeof FileText }) {
-  return (
-    <div className="mt-2 max-h-[420px] space-y-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-220px)]">
-      {items.length === 0 && <div className="p-4 text-sm text-muted-foreground">{empty}</div>}
-      {items.map((m) => (
-        <div key={m.id} className="flex items-start gap-3 rounded-2xl p-3 hover:bg-muted/60">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{m.title}</div>
-            {m.subtitle && <div className="truncate text-[11px] text-muted-foreground">{m.subtitle}</div>}
-            {m.file_url && (
-              <div className="mt-1.5">
-                <DocumentViewer url={m.file_url} title={m.title} />
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

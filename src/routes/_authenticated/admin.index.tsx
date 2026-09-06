@@ -3,7 +3,7 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Shield, Users, BookOpen, Bell, FileText, Video, Image as ImageIcon,
-  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks,
+  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks, LayoutDashboard,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -92,6 +92,7 @@ function AdminPage() {
     { icon: Trophy, label: "Results", desc: "Selections and testimonials", to: "/admin/results" },
     { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles", to: "/admin/faculty" },
     { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars", to: "/admin/gallery" },
+    { icon: LayoutDashboard, label: "Dashboard Editor", desc: "Customize all texts, titles, banners & announcements", to: "/admin/dashboard-settings" },
     { icon: ImageIcon, label: "Homepage Slider", desc: "Promotional images with WhatsApp/link redirect", to: "/admin/hero-slides" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
   ];

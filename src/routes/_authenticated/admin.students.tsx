@@ -161,29 +161,8 @@ function StudentsAdmin() {
     },
   });
 
-  // Selected student for detailed bio data
-  
-  // Query to get extra student details (role and comments)
-  const { data: studentDetails } = useQuery({
-    queryKey: ["admin", "student-details", selectedStudentId],
-    queryFn: async () => {
-      if (!selectedStudentId) return null;
-      
-      const [roleRes, commentsRes] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", selectedStudentId).maybeSingle(),
-        supabase.from("live_chat_messages").select("id, message, created_at, live_classes(title)").eq("user_id", selectedStudentId).order("created_at", { ascending: false }).limit(10)
-      ]);
-      
-      return {
-        role: roleRes.data?.role || "user",
-        comments: commentsRes.data || []
-      };
-    },
-    enabled: !!selectedStudentId
-  });
-
   const toggleAdminMutation = useMutation({
-    mutationFn: async ({ userId, makeAdmin }: { userId: string, makeAdmin: boolean }) => {
+    mutationFn: async ({ userId, makeAdmin }: { userId: string; makeAdmin: boolean }) => {
       if (makeAdmin) {
         const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: "admin" });
         if (error) throw new Error(error.message);
@@ -196,19 +175,19 @@ function StudentsAdmin() {
       toast.success("Role updated successfully!");
       qc.invalidateQueries({ queryKey: ["admin", "student-details", selectedStudentId] });
     },
-    onError: (e) => toast.error(e.message)
+    onError: (e: any) => toast.error(e.message),
   });
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
 
-  // Fetch detailed test attempts and lectures for selected student
+  // Fetch detailed test attempts, lectures, role and comments for selected student
   const { data: studentDetails, isLoading: detailsLoading } = useQuery({
     queryKey: ["admin", "student-details", selectedStudentId],
     enabled: !!selectedStudentId && bioOpen,
     queryFn: async () => {
       if (!selectedStudentId) return null;
 
-      const [attemptsRes, lecturesCountRes] = await Promise.all([
+      const [attemptsRes, lecturesCountRes, roleRes, commentsRes] = await Promise.all([
         supabase
           .from("cbt_attempts")
           .select("id, test_id, status, score, max_score, submitted_at, test:cbt_tests(title, duration_minutes)")
@@ -217,6 +196,17 @@ function StudentsAdmin() {
         supabase
           .from("lectures")
           .select("id", { count: "exact", head: true }),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", selectedStudentId)
+          .maybeSingle(),
+        supabase
+          .from("live_chat_messages")
+          .select("id, message, created_at, live_classes(title)")
+          .eq("user_id", selectedStudentId)
+          .order("created_at", { ascending: false })
+          .limit(10),
       ]);
 
       const attempts = (attemptsRes.data ?? []).map((a) => {
@@ -238,6 +228,8 @@ function StudentsAdmin() {
       return {
         attempts,
         total_lectures_system: lecturesCountRes.count ?? 0,
+        role: roleRes.data?.role || "user",
+        comments: commentsRes.data || [],
       };
     },
   });

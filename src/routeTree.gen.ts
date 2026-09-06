@@ -45,6 +45,7 @@ import { Route as AuthenticatedAdminGalleryRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminFacultyRouteImport } from './routes/_authenticated/admin.faculty'
 import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin.enrollments'
 import { Route as AuthenticatedAdminDppsRouteImport } from './routes/_authenticated/admin.dpps'
+import { Route as AuthenticatedAdminDashboardSettingsRouteImport } from './routes/_authenticated/admin.dashboard-settings'
 import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
 import { Route as AuthenticatedAdminCbtRouteImport } from './routes/_authenticated/admin.cbt'
 import { Route as AuthenticatedAdminBatchesRouteImport } from './routes/_authenticated/admin.batches'
@@ -247,6 +248,12 @@ const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
   path: '/dpps',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminDashboardSettingsRoute =
+  AuthenticatedAdminDashboardSettingsRouteImport.update({
+    id: '/dashboard-settings',
+    path: '/dashboard-settings',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCurrentAffairsRoute =
   AuthenticatedAdminCurrentAffairsRouteImport.update({
     id: '/current-affairs',
@@ -337,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/admin/batches': typeof AuthenticatedAdminBatchesRouteWithChildren
   '/admin/cbt': typeof AuthenticatedAdminCbtRouteWithChildren
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
+  '/admin/dashboard-settings': typeof AuthenticatedAdminDashboardSettingsRoute
   '/admin/dpps': typeof AuthenticatedAdminDppsRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/faculty': typeof AuthenticatedAdminFacultyRoute
@@ -382,6 +390,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
+  '/admin/dashboard-settings': typeof AuthenticatedAdminDashboardSettingsRoute
   '/admin/dpps': typeof AuthenticatedAdminDppsRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/faculty': typeof AuthenticatedAdminFacultyRoute
@@ -432,6 +441,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/batches': typeof AuthenticatedAdminBatchesRouteWithChildren
   '/_authenticated/admin/cbt': typeof AuthenticatedAdminCbtRouteWithChildren
   '/_authenticated/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
+  '/_authenticated/admin/dashboard-settings': typeof AuthenticatedAdminDashboardSettingsRoute
   '/_authenticated/admin/dpps': typeof AuthenticatedAdminDppsRoute
   '/_authenticated/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/_authenticated/admin/faculty': typeof AuthenticatedAdminFacultyRoute
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/admin/batches'
     | '/admin/cbt'
     | '/admin/current-affairs'
+    | '/admin/dashboard-settings'
     | '/admin/dpps'
     | '/admin/enrollments'
     | '/admin/faculty'
@@ -527,6 +538,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/batches/$slug'
     | '/admin/current-affairs'
+    | '/admin/dashboard-settings'
     | '/admin/dpps'
     | '/admin/enrollments'
     | '/admin/faculty'
@@ -576,6 +588,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/batches'
     | '/_authenticated/admin/cbt'
     | '/_authenticated/admin/current-affairs'
+    | '/_authenticated/admin/dashboard-settings'
     | '/_authenticated/admin/dpps'
     | '/_authenticated/admin/enrollments'
     | '/_authenticated/admin/faculty'
@@ -873,6 +886,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminDppsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/dashboard-settings': {
+      id: '/_authenticated/admin/dashboard-settings'
+      path: '/dashboard-settings'
+      fullPath: '/admin/dashboard-settings'
+      preLoaderRoute: typeof AuthenticatedAdminDashboardSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/current-affairs': {
       id: '/_authenticated/admin/current-affairs'
       path: '/current-affairs'
@@ -993,6 +1013,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBatchesRoute: typeof AuthenticatedAdminBatchesRouteWithChildren
   AuthenticatedAdminCbtRoute: typeof AuthenticatedAdminCbtRouteWithChildren
   AuthenticatedAdminCurrentAffairsRoute: typeof AuthenticatedAdminCurrentAffairsRoute
+  AuthenticatedAdminDashboardSettingsRoute: typeof AuthenticatedAdminDashboardSettingsRoute
   AuthenticatedAdminDppsRoute: typeof AuthenticatedAdminDppsRoute
   AuthenticatedAdminEnrollmentsRoute: typeof AuthenticatedAdminEnrollmentsRoute
   AuthenticatedAdminFacultyRoute: typeof AuthenticatedAdminFacultyRoute
@@ -1012,6 +1033,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBatchesRoute: AuthenticatedAdminBatchesRouteWithChildren,
   AuthenticatedAdminCbtRoute: AuthenticatedAdminCbtRouteWithChildren,
   AuthenticatedAdminCurrentAffairsRoute: AuthenticatedAdminCurrentAffairsRoute,
+  AuthenticatedAdminDashboardSettingsRoute:
+    AuthenticatedAdminDashboardSettingsRoute,
   AuthenticatedAdminDppsRoute: AuthenticatedAdminDppsRoute,
   AuthenticatedAdminEnrollmentsRoute: AuthenticatedAdminEnrollmentsRoute,
   AuthenticatedAdminFacultyRoute: AuthenticatedAdminFacultyRoute,
