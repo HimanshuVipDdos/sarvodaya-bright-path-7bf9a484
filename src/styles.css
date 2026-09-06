@@ -57,6 +57,8 @@
 }
 
 :root {
+  --radius: 0.625rem; /* ~10px — gives gentle rounded corners in light mode */
+
   /* Retain a light mode fallback but we will default to dark */
   --background: oklch(0.99 0.006 240);
   --foreground: oklch(0.18 0.04 255);
