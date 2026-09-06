@@ -4,8 +4,10 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Video, FileText, ClipboardList, Radio, Clock, Calendar,
-  BookOpen, Bell, ExternalLink, PlayCircle, Award, CheckCircle2, Lock, AlertCircle, Sparkles
+  BookOpen, Bell, ExternalLink, PlayCircle, Award, CheckCircle2, Lock, AlertCircle, Sparkles,
+  ChevronRight, ChevronDown, Folder, FolderOpen,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -530,39 +532,14 @@ function BatchPortal() {
                   );
                 })}
 
-                {/* 2. Regular Lectures List */}
-                {combinedLectures.length === 0 && todayOrUpcomingLive.length === 0 && (
-                  <div className="p-4 text-sm text-muted-foreground">No lectures published yet.</div>
-                )}
-                {combinedLectures.map((l) => (
-                  <button
-                    key={l.id}
-                    onClick={() => { setActiveLecture(l.id); setTheaterLive(null); setTheaterOpen(true); }}
-                    className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition ${
-                      activeLecture === l.id ? "bg-primary/10" : "hover:bg-muted/60"
-                    }`}
-                  >
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
-                      <PlayCircle className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {l.lecture_number ? `#${l.lecture_number} · ` : ""}{l.title}
-                        {l._source === "live" && (
-                          <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-primary align-middle">
-                            Recording
-                          </span>
-                        )}
-                      </div>
-                      {l._source === "lecture" && (
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {[l.subject, l.chapter, l.duration_minutes ? `${l.duration_minutes} min` : null]
-                            .filter(Boolean).join(" • ")}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                {/* 2. Subject → Chapter → Lecture accordion */}
+                <LectureAccordion
+                  lectures={combinedLectures}
+                  materials={data.materials}
+                  activeLecture={activeLecture}
+                  onSelectLecture={(id) => { setActiveLecture(id); setTheaterLive(null); setTheaterOpen(true); }}
+                />
+
               </div>
             </div>
           </div>
@@ -776,6 +753,192 @@ function BatchPortal() {
     </>
   );
 }
+
+// ─── Lecture Accordion: Subject → Chapter → Lectures ────────────────────────
+type LectureItem = {
+  id: string; title: string; description?: string | null;
+  subject?: string | null; chapter?: string | null;
+  lecture_number?: number | null; duration_minutes?: number | null;
+  video_url?: string | null; thumbnail_url?: string | null;
+  _source: "lecture" | "live";
+};
+
+type Material = {
+  id: string; title: string; subject?: string | null; chapter?: string | null;
+  material_type: string; file_url?: string | null;
+};
+
+function LectureAccordion({
+  lectures, materials, activeLecture, onSelectLecture,
+}: {
+  lectures: LectureItem[];
+  materials: Material[];
+  activeLecture: string | null;
+  onSelectLecture: (id: string) => void;
+}) {
+  const [openSubjects, setOpenSubjects] = useState<Set<string>>(new Set(["__recordings__", "__uncategorized__"]));
+  const [openChapters, setOpenChapters] = useState<Set<string>>(new Set());
+
+  if (lectures.length === 0) {
+    return <div className="p-4 text-sm text-muted-foreground">No lectures published yet.</div>;
+  }
+
+  // Group lectures into: subject → chapter → lectures[]
+  type ChapterMap = Map<string, LectureItem[]>;
+  type SubjectMap = Map<string, ChapterMap>;
+  const grouped: SubjectMap = new Map();
+
+  for (const l of lectures) {
+    const subject = l._source === "live" ? "__recordings__" : (l.subject?.trim() || "__uncategorized__");
+    const chapter = l._source === "live" ? "__recordings__" : (l.chapter?.trim() || "__uncategorized__");
+    if (!grouped.has(subject)) grouped.set(subject, new Map());
+    const cm = grouped.get(subject)!;
+    if (!cm.has(chapter)) cm.set(chapter, []);
+    cm.get(chapter)!.push(l);
+  }
+
+  const toggleSubject = (s: string) => setOpenSubjects((prev) => {
+    const next = new Set(prev);
+    next.has(s) ? next.delete(s) : next.add(s);
+    return next;
+  });
+  const toggleChapter = (key: string) => setOpenChapters((prev) => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+
+  const subjectLabel = (s: string) => s === "__recordings__" ? "📹 Recordings" : s === "__uncategorized__" ? "All Lectures" : s;
+  const chapterLabel = (c: string) => c === "__recordings__" || c === "__uncategorized__" ? null : c;
+
+  return (
+    <div className="space-y-1">
+      {[...grouped.entries()].map(([subject, chapterMap]) => {
+        const isSubjectOpen = openSubjects.has(subject);
+        const totalLecs = [...chapterMap.values()].flat().length;
+        return (
+          <div key={subject}>
+            {/* Subject Row */}
+            <button
+              onClick={() => toggleSubject(subject)}
+              className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-muted/60"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                {isSubjectOpen ? <FolderOpen className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-primary" />}
+              </span>
+              <span className="flex-1 truncate text-sm font-semibold text-foreground">{subjectLabel(subject)}</span>
+              <span className="text-[10px] text-muted-foreground mr-1">{totalLecs}</span>
+              {isSubjectOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+            </button>
+
+            {isSubjectOpen && [...chapterMap.entries()].map(([chapter, lecs]) => {
+              const chapterKey = `${subject}::${chapter}`;
+              const isChapterOpen = openChapters.has(chapterKey);
+              const label = chapterLabel(chapter);
+
+              return (
+                <div key={chapter} className="ml-4">
+                  {label && (
+                    <button
+                      onClick={() => toggleChapter(chapterKey)}
+                      className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/60"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
+                        {isChapterOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                      </span>
+                      <span className="flex-1 truncate text-xs font-semibold text-muted-foreground">{label}</span>
+                      <span className="text-[10px] text-muted-foreground mr-1">{lecs.length}</span>
+                    </button>
+                  )}
+
+                  {/* If no chapter label (uncategorized/recordings), show directly; else show inside accordion */}
+                  {(!label || isChapterOpen) && (
+                    <div className={label ? "ml-3" : ""}>
+                      {lecs.map((l) => {
+                        const lecMaterials = materials.filter(
+                          (m) =>
+                            (m.subject?.trim() || "") === (l.subject?.trim() || "") &&
+                            (m.chapter?.trim() || "") === (l.chapter?.trim() || "")
+                        );
+                        const lecNotes = lecMaterials.filter((m) => m.material_type === "notes" || m.material_type === "pdf");
+                        const lecDpp = lecMaterials.filter((m) => m.material_type === "dpp");
+
+                        return (
+                          <div key={l.id} className="mb-0.5">
+                            <button
+                              onClick={() => onSelectLecture(l.id)}
+                              className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition ${
+                                activeLecture === l.id ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/60"
+                              }`}
+                            >
+                              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
+                                <PlayCircle className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-medium">
+                                  {l.lecture_number ? `Lec ${l.lecture_number} · ` : ""}{l.title}
+                                  {l._source === "live" && (
+                                    <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-primary align-middle">
+                                      Rec
+                                    </span>
+                                  )}
+                                </div>
+                                {l.duration_minutes && (
+                                  <div className="text-[11px] text-muted-foreground">{l.duration_minutes} min</div>
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Inline DPPs and Notes for this lecture */}
+                            {(lecNotes.length > 0 || lecDpp.length > 0) && (
+                              <div className="ml-11 mb-2 grid gap-1">
+                                {lecNotes.map((m) => (
+                                  <InlineMaterial key={m.id} item={m} badge="Notes" color="blue" />
+                                ))}
+                                {lecDpp.map((m) => (
+                                  <InlineMaterial key={m.id} item={m} badge="DPP" color="orange" />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function InlineMaterial({ item, badge, color }: { item: Material; badge: string; color: "blue" | "orange" }) {
+  const colorMap = {
+    blue: "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    orange: "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+  };
+  const badgeMap = {
+    blue: "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+    orange: "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+  };
+  if (!item.file_url) return null;
+  return (
+    <a
+      href={item.file_url}
+      target="_blank"
+      rel="noreferrer"
+      className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs transition hover:opacity-80 ${colorMap[color]}`}
+    >
+      <FileText className="h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{item.title}</span>
+      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${badgeMap[color]}`}>{badge}</span>
+    </a>
+  );
+}
+
 
 function MaterialsList({ items, empty }: { items: any[]; empty: string }) {
   if (items.length === 0) {

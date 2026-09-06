@@ -391,6 +391,13 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
             if (e.data === 1) {
               setPlaying(true);
               setStarted(true);
+              // Auto-enter fullscreen as soon as playback starts
+              try {
+                const fsEl = fsElRef.current;
+                if (fsEl && !document.fullscreenElement) {
+                  fsEl.requestFullscreen?.().catch(() => {});
+                }
+              } catch {}
               try {
                 const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
                 if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
@@ -632,7 +639,16 @@ function NativePlayer({ src, poster, title, className, fullscreenTargetRef }: Pr
     const v = ref.current;
     if (!v) return;
     if (v.paused) {
-      v.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      v.play().then(() => {
+        setPlaying(true);
+        // Auto-enter fullscreen as soon as playback starts
+        try {
+          const fsEl = fsElRef.current;
+          if (fsEl && !document.fullscreenElement) {
+            fsEl.requestFullscreen?.().catch(() => {});
+          }
+        } catch {}
+      }).catch(() => setPlaying(false));
     } else {
       v.pause();
       setPlaying(false);
