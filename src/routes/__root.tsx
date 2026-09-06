@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { FloatingActions } from "@/components/floating-actions";
+import { AppLayout } from "@/components/layout/app-layout";
 import { SITE } from "@/lib/site";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -209,15 +210,51 @@ function RootComponent() {
     };
   }, []);
 
+  // Khatarnak Anti-Tamper Layer: Blocks Right-Click, F12, and View Source in Production
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === "F12" ||
+        (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C" || e.key === "i" || e.key === "j" || e.key === "c")) ||
+        (e.ctrlKey && (e.key === "U" || e.key === "u"))
+      ) {
+        e.preventDefault();
+      }
+    };
+    
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
-        {!isTakingTest && <SiteHeader />}
-        <main className="flex-1">
-          <Outlet />
-        </main>
-        {!isTakingTest && <SiteFooter />}
-        {!isTakingTest && <FloatingActions />}
+        {isTakingTest ? (
+          <main className="flex-1">
+            <Outlet />
+          </main>
+        ) : pathname === "/" ? (
+          <>
+            <SiteHeader />
+            <main className="flex-1">
+              <Outlet />
+            </main>
+            <SiteFooter />
+            <FloatingActions />
+          </>
+        ) : (
+          <AppLayout>
+            <Outlet />
+          </AppLayout>
+        )}
         <Toaster position="top-center" richColors />
       </div>
     </QueryClientProvider>

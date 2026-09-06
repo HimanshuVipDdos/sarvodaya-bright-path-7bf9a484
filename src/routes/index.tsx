@@ -17,6 +17,7 @@ import {
   MapPin,
   Phone,
   MessageCircle,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -60,336 +61,246 @@ function Index() {
   const { data } = useSuspenseQuery(landingQuery);
 
   return (
-    <>
+    <div className="perspective-1000">
       {/* PROMOTIONAL SLIDER — sits just below the header, admin-managed at /admin/hero-slides */}
       <HeroSlider />
 
       {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 sm:pt-16">
-          <div className="grid items-center gap-10 lg:grid-cols-2">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
-            >
-              <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1.5 text-xs font-medium text-primary">
-                <Sparkles className="h-3.5 w-3.5" /> Premium coaching · Kasganj, UP
-              </div>
-              <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-                Crack India's toughest{" "}
-                <span className="text-gradient">competitive exams</span>{" "}
-                with confidence.
+      <section className="bg-white py-12 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+            <div className="flex-1">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-[1.15] tracking-tight">
+                Bharat's <span className="text-[#5B21B6]">Trusted &</span><br />
+                <span className="text-[#5B21B6]">Affordable</span><br />
+                Educational Platform
               </h1>
-              <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-                Live classes, recorded lectures, daily practice problems and mock tests —
-                taught with discipline by <strong>{SITE.owner}</strong> and a senior faculty team.
+              <p className="mt-6 text-slate-600 text-lg sm:text-xl max-w-lg">
+                Unlock your potential by signing up with {SITE.name} <br />
+                The most affordable learning solution
               </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Button asChild size="lg" className="rounded-full bg-gradient-to-br from-primary to-primary-glow px-6 shadow-elegant">
-                  <Link to="/batches">
-                    Explore Batches <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button asChild size="lg" variant="ghost" className="rounded-full glass">
-                  <a href={whatsappHref()} target="_blank" rel="noreferrer">
-                    <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp
-                  </a>
+              <div className="mt-8">
+                <Button asChild size="lg" className="rounded-md bg-[#5B21B6] hover:bg-[#4C1D95] text-white px-8 py-6 text-base shadow-md transition-all">
+                  <Link to="/batches">Get Started</Link>
                 </Button>
               </div>
-
-              <div className="mt-10 grid max-w-md grid-cols-3 gap-3">
-                {[
-                  { k: "1K+", v: "Aspirants" },
-                  { k: "500+", v: "Selections" },
-                  { k: "13+", v: "Batches" },
-                ].map((s) => (
-                  <div key={s.v} className="glass rounded-2xl px-4 py-3 text-center">
-                    <div className="text-xl font-bold text-gradient">{s.k}</div>
-                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{s.v}</div>
+            </div>
+            <div className="flex-1 relative flex justify-center lg:justify-end">
+               <div className="relative">
+                  <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-slate-100 absolute -top-8 -left-12 z-10 hidden sm:block">
+                     <div className="text-xs font-bold text-slate-700">Maths Se, WhatsApp Par!</div>
+                     <div className="text-[10px] text-slate-500 mt-1">PW is WhatsApp ENABLED NOW with <br/>live and on-the-go guidance</div>
                   </div>
-                ))}
-              </div>
-            </motion.div>
+                  <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full bg-slate-50 border-4 border-dashed border-[#5B21B6]/20 relative flex items-center justify-center overflow-hidden">
+                     <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop" alt="Teacher" className="object-cover w-full h-full opacity-90" />
+                  </div>
+               </div>
+            </div>
+          </div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
-              className="relative"
-            >
-              <div className="glass-tint relative aspect-square overflow-hidden rounded-[2.5rem] p-6 sm:p-10">
-                <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-gradient-to-br from-primary to-primary-glow opacity-30 blur-3xl" />
-                <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-primary-glow/30 blur-3xl" />
-
-                <div className="relative grid h-full grid-cols-2 gap-4">
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="glass-strong col-span-2 rounded-2xl p-4"
-                  >
-                    <div className="flex items-center gap-2 text-xs font-medium text-primary">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                      </span>
-                      Live Class · UP Police Constable
-                    </div>
-                    <div className="mt-1 text-sm font-semibold">Reasoning — Coding/Decoding</div>
-                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" /> Today · 7:00 PM
-                    </div>
-                  </motion.div>
-
-                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45 }} className="glass-strong rounded-2xl p-4">
-                    <Trophy className="h-5 w-5 text-primary" />
-                    <div className="mt-2 text-2xl font-bold">500+</div>
-                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Selections</div>
-                  </motion.div>
-                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.55 }} className="glass-strong rounded-2xl p-4">
-                    <Video className="h-5 w-5 text-primary" />
-                    <div className="mt-2 text-2xl font-bold">1000+</div>
-                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Lectures</div>
-                  </motion.div>
-                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.65 }} className="glass-strong col-span-2 flex items-center justify-between rounded-2xl p-4">
-                    <div>
-                      <div className="text-sm font-semibold">Daily DPP & Mock Tests</div>
-                      <div className="text-xs text-muted-foreground">Subject-wise practice + leaderboard</div>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
-                      <FileText className="h-5 w-5 text-primary-foreground" />
-                    </div>
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
+          {/* STATS ROW */}
+          <div className="mt-16 sm:mt-24 border-t border-b border-slate-100 py-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 divide-x divide-slate-100">
+               <div className="flex flex-col items-center text-center px-4">
+                  <Video className="w-8 h-8 text-red-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">Daily Live</div>
+                  <div className="text-xs text-slate-500 mt-1">Interactive classes</div>
+               </div>
+               <div className="flex flex-col items-center text-center px-4">
+                  <FileText className="w-8 h-8 text-blue-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">10 Million +</div>
+                  <div className="text-xs text-slate-500 mt-1">Tests, sample papers & notes</div>
+               </div>
+               <div className="flex flex-col items-center text-center px-4">
+                  <Clock className="w-8 h-8 text-purple-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">24 x 7</div>
+                  <div className="text-xs text-slate-500 mt-1">Doubt solving sessions</div>
+               </div>
+               <div className="flex flex-col items-center text-center px-4">
+                  <MapPin className="w-8 h-8 text-yellow-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">100 +</div>
+                  <div className="text-xs text-slate-500 mt-1">Offline centres</div>
+               </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* WHY CHOOSE */}
-      <Section
-        eyebrow="Why Sarvodaya Adhyeta"
-        title="Built for serious aspirants"
-        description="Disciplined teaching, structured practice and modern learning — everything that goes into a real selection."
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { icon: GraduationCap, title: "Expert Faculty", text: "Subject specialists with proven selection records." },
-            { icon: Video, title: "Live + Recorded", text: "Live classes plus full recorded library, anytime." },
-            { icon: FileText, title: "DPP & Mock Tests", text: "Daily Practice Problems and exam-level mock series." },
-            { icon: Trophy, title: "Result-driven", text: "Hundreds of selections across UP & central exams." },
-          ].map((f, i) => (
-            <motion.div
-              key={f.title}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
-              className="glass-strong hover-lift rounded-3xl p-6"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow">
-                <f.icon className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{f.text}</p>
-            </motion.div>
-          ))}
-        </div>
-      </Section>
+      {/* EXAM CATEGORIES */}
+      <section className="py-16 bg-[#F8FAFC]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Exam Categories</h2>
+          <p className="text-slate-500 text-sm mb-12 max-w-2xl mx-auto">
+            {SITE.name} is preparing students for all major competitive exams. Explore the categories below.
+          </p>
 
-      {/* POPULAR BATCHES */}
-      <Section eyebrow="Popular Batches" title="Featured competitive exam batches" description="Hand-picked batches with live classes, recorded lectures, PDFs, DPPs and mock tests.">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {data.batches.map((b, i) => (
-            <motion.div
-              key={b.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
-            >
-              <Link to="/batches/$slug" params={{ slug: b.slug }} className="block h-full">
-                <div className="glass-strong hover-lift group flex h-full flex-col overflow-hidden rounded-3xl">
-                  {b.thumbnail_url ? (
-                    <div className="relative aspect-[16/9] w-full overflow-hidden">
-                      <img
-                        src={b.thumbnail_url}
-                        alt={b.title}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
-                    </div>
-                  ) : (
-                    <div className="aspect-[16/9] w-full bg-gradient-to-br from-primary/15 via-primary/5 to-primary-glow/20" />
-                  )}
-                  <div className="flex flex-1 flex-col p-5">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary">{b.exam_category}</div>
-                    <h3 className="mt-2 text-lg font-semibold tracking-tight">{b.title}</h3>
-                    <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{b.description}</p>
-                    <div className="mt-4 flex items-end justify-between">
-                      <div>
-                        <div className="text-2xl font-bold text-gradient">₹{b.fees_inr.toLocaleString("en-IN")}</div>
-                        {b.original_fees_inr && b.original_fees_inr > b.fees_inr && (
-                          <div className="text-xs text-muted-foreground line-through">₹{b.original_fees_inr.toLocaleString("en-IN")}</div>
-                        )}
-                      </div>
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow">
-                        <ArrowRight className="h-4 w-4 text-primary-foreground" />
-                      </div>
-                    </div>
-                  </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+            {[
+              { name: "UP Police", tabs: ["Constable", "SI", "Radio Opr"], icon: "👮", bg: "bg-orange-50", color: "text-orange-600" },
+              { name: "SSC", tabs: ["CGL", "CHSL", "GD", "MTS"], icon: "🏢", bg: "bg-blue-50", color: "text-blue-600" },
+              { name: "Banking", tabs: ["PO", "Clerk", "RRB"], icon: "🏦", bg: "bg-green-50", color: "text-green-600" },
+              { name: "Teaching", tabs: ["TET", "CTET", "Super TET"], icon: "👩‍🏫", bg: "bg-yellow-50", color: "text-yellow-600" },
+              { name: "Railway", tabs: ["NTPC", "Group D", "ALP"], icon: "🚆", bg: "bg-purple-50", color: "text-purple-600" },
+              { name: "UPSC / UPPSC", tabs: ["Pre", "Mains"], icon: "🏛️", bg: "bg-pink-50", color: "text-pink-600" },
+            ].map((cat, i) => (
+              <div key={i} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-shadow relative overflow-hidden group">
+                <h3 className="text-xl font-bold text-slate-900 mb-4">{cat.name}</h3>
+                <div className="flex flex-wrap gap-2 mb-8 relative z-10">
+                   {cat.tabs.map(t => (
+                     <span key={t} className="px-3 py-1 rounded-full border border-slate-200 text-xs text-slate-600 bg-white">
+                       {t}
+                     </span>
+                   ))}
                 </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <Button asChild variant="ghost" className="rounded-full glass">
-            <Link to="/batches">View all 13+ batches <ArrowRight className="ml-2 h-4 w-4" /></Link>
-          </Button>
-        </div>
-      </Section>
-
-      {/* FACULTY */}
-      <Section eyebrow="Faculty" title="Learn from teachers who deliver results">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.faculty.map((f, i) => (
-            <motion.div
-              key={f.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
-              className="glass-strong rounded-3xl p-6"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-2xl font-bold text-primary-foreground shadow-elegant">
-                  {f.photo_url ? (
-                    <img src={f.photo_url} alt={f.name} className="h-full w-full object-cover" />
-                  ) : (
-                    f.name.split(" ").map((n) => n[0]).slice(0, 2).join("")
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-semibold leading-tight">{f.name}</h3>
-                  <div className="text-xs text-muted-foreground">{f.designation}</div>
-                  {f.subject && <div className="text-[11px] mt-0.5 text-primary">{f.subject}</div>}
+                <Link to="/batches" className="inline-flex items-center text-sm font-semibold text-[#5B21B6] group-hover:text-[#4C1D95] relative z-10">
+                  Explore Category <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+                
+                <div className={`absolute bottom-0 right-0 w-24 h-24 ${cat.bg} rounded-tl-full flex items-center justify-center transition-transform group-hover:scale-110`}>
+                  <span className={`text-4xl ${cat.color}`}>{cat.icon}</span>
                 </div>
               </div>
-              {f.bio && <p className="mt-4 text-sm text-muted-foreground">{f.bio}</p>}
-            </motion.div>
-          ))}
-        </div>
-      </Section>
-
-      {/* RESULTS / TESTIMONIALS */}
-      <Section eyebrow="Achievements" title="Our students. Their selections." description="Real students, real exams, real selections.">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {data.results.map((r, i) => (
-            <motion.div
-              key={r.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: i * 0.05 }}
-              className="glass-strong hover-lift rounded-3xl p-5"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow font-bold text-primary-foreground">
-                  {r.student_name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
-                </div>
-                <div className="flex gap-0.5">
-                  {[...Array(5)].map((_, j) => (
-                    <Star key={j} className="h-3.5 w-3.5 fill-primary text-primary" />
-                  ))}
-                </div>
-              </div>
-              <h3 className="mt-3 font-semibold leading-tight">{r.student_name}</h3>
-              <div className="text-xs text-primary">{r.exam_name}</div>
-              {r.rank_or_marks && <div className="text-[11px] text-muted-foreground">{r.rank_or_marks}</div>}
-              {r.testimonial && <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">"{r.testimonial}"</p>}
-            </motion.div>
-          ))}
-        </div>
-      </Section>
-
-      {/* NOTIFICATIONS + CURRENT AFFAIRS */}
-      <Section eyebrow="Stay updated" title="Notifications & Current Affairs">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="glass-strong rounded-3xl p-6">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
-                <Bell className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold">Latest Notifications</h3>
-            </div>
-            <ul className="mt-5 divide-y divide-border/60">
-              {data.notifications.map((n) => (
-                <li key={n.id} className="py-3">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary">{n.category}</div>
-                  <div className="text-sm font-medium">{n.title}</div>
-                  {n.body && <p className="text-xs text-muted-foreground">{n.body}</p>}
-                </li>
-              ))}
-            </ul>
-            <Link to="/notifications" className="mt-4 inline-flex items-center text-sm font-medium text-primary">View all <ArrowRight className="ml-1 h-4 w-4" /></Link>
+            ))}
           </div>
-
-          <div className="glass-strong rounded-3xl p-6">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow">
-                <BookOpen className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold">Current Affairs</h3>
-            </div>
-            <ul className="mt-5 space-y-3">
-              {data.currentAffairs.map((c) => (
-                <li key={c.id} className="rounded-2xl glass p-3">
-                  <div className="text-sm font-medium">{c.title}</div>
-                  {c.summary && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.summary}</p>}
-                </li>
-              ))}
-            </ul>
-            <Link to="/current-affairs" className="mt-4 inline-flex items-center text-sm font-medium text-primary">More updates <ArrowRight className="ml-1 h-4 w-4" /></Link>
+          
+          <div className="mt-10">
+            <Link to="/batches" className="inline-block border-b-2 border-dashed border-[#5B21B6] text-[#5B21B6] font-semibold text-sm pb-1">
+              View All Categories (12+)
+            </Link>
           </div>
         </div>
-      </Section>
+      </section>
 
-      {/* CONTACT */}
-      <Section id="contact" eyebrow="Get in touch" title="Talk to us about your preparation" description="Visit our centre in Kasganj, call us, or send a quick inquiry — we'll respond fast.">
-        <div className="grid gap-6 lg:grid-cols-5">
-          <div className="glass-strong space-y-4 rounded-3xl p-6 lg:col-span-2">
-            <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-5 w-5 text-primary" />
-              <div className="text-sm">{SITE.address}</div>
-            </div>
-            <a href={telHref()} className="flex items-center gap-3 text-sm hover:text-primary">
-              <Phone className="h-5 w-5 text-primary" /> {SITE.phone}
-            </a>
-            <a href={whatsappHref()} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm hover:text-primary">
-              <MessageCircle className="h-5 w-5 text-primary" /> WhatsApp Chat
-            </a>
-            <div className="overflow-hidden rounded-2xl border border-border/60">
-              <iframe
-                title="Sarvodaya Adhyeta location"
-                className="h-56 w-full"
-                loading="lazy"
-                src={`https://www.google.com/maps?q=${encodeURIComponent(SITE.mapsQuery)}&output=embed`}
-              />
-            </div>
-          </div>
-          <div className="glass-strong rounded-3xl p-6 lg:col-span-3">
-            <h3 className="text-lg font-semibold">Send an inquiry</h3>
-            <p className="text-sm text-muted-foreground">We typically reply within a few hours.</p>
-            <div className="mt-5">
-              <InquiryForm />
-            </div>
+      {/* OFFLINE CENTRES */}
+      <section className="py-20 bg-[#1E293B] relative overflow-hidden text-center text-white">
+        <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1200&auto=format&fit=crop')] bg-cover bg-center" />
+        
+        <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-3 tracking-tight">Explore Tech-Enabled Offline Centres</h2>
+          <p className="text-slate-300 text-sm mb-10">Creating new benchmarks in learning experiences</p>
+          
+          <div className="bg-white text-slate-900 rounded-[2rem] p-8 max-w-4xl mx-auto shadow-2xl text-left border border-white/20 backdrop-blur-sm">
+             <div className="text-center mb-8">
+               <h3 className="font-bold text-lg tracking-tight">Find Centre in your city</h3>
+               <p className="text-xs text-slate-500 mt-1 font-medium">Available in 1 city</p>
+             </div>
+             
+             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                <div className="flex items-center gap-3 border border-slate-200 p-3 rounded-xl cursor-pointer hover:border-[#5B21B6] transition-colors bg-slate-50">
+                   <div className="w-10 h-10 rounded-lg bg-[#FFF6ED] flex items-center justify-center text-lg shadow-sm border border-orange-100">📍</div>
+                   <div className="text-sm font-bold">Kasganj</div>
+                </div>
+                {/* Mock empty states for other cities just for UI look */}
+                <div className="flex items-center gap-3 border border-slate-100 p-3 rounded-xl opacity-40 grayscale pointer-events-none bg-slate-50">
+                   <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center text-lg">🏙️</div>
+                   <div className="text-sm font-bold">Agra</div>
+                </div>
+                <div className="flex items-center gap-3 border border-slate-100 p-3 rounded-xl opacity-40 grayscale pointer-events-none bg-slate-50">
+                   <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center text-lg">🏙️</div>
+                   <div className="text-sm font-bold">Aligarh</div>
+                </div>
+                <div className="flex items-center gap-3 border border-slate-100 p-3 rounded-xl opacity-40 grayscale pointer-events-none bg-slate-50">
+                   <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center text-lg">🏙️</div>
+                   <div className="text-sm font-bold">Bareilly</div>
+                </div>
+             </div>
+             
+             <div className="text-center">
+               <Button asChild className="bg-[#5B21B6] hover:bg-[#4C1D95] text-white px-10 py-5 rounded-md text-sm shadow-md transition-transform hover:scale-105">
+                 <Link to="/contact">View More</Link>
+               </Button>
+             </div>
           </div>
         </div>
-      </Section>
-    </>
+      </section>
+
+      {/* STATS BLOCKS */}
+      <section className="py-16 bg-white border-b border-slate-100">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">A Platform Trusted by Students Worldwide</h2>
+          <p className="text-slate-500 text-sm mb-12 font-medium">Don't Just Take Our Word For It. Delve Into The Numbers And Witness The Excellence For Yourself!</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-[#FFF6ED] rounded-xl p-8 flex flex-col justify-center items-center h-40 transition-transform hover:-translate-y-1 hover:shadow-md cursor-default">
+               <div className="text-3xl font-black text-slate-900">1K+</div>
+               <div className="text-xs font-bold text-slate-600 mt-2 uppercase tracking-wider">Aspirants</div>
+             </div>
+             <div className="bg-[#FDF4FF] rounded-xl p-8 flex flex-col justify-center items-center h-40 transition-transform hover:-translate-y-1 hover:shadow-md cursor-default">
+               <div className="text-3xl font-black text-slate-900">500+</div>
+               <div className="text-xs font-bold text-slate-600 mt-2 uppercase tracking-wider">Selections</div>
+             </div>
+             <div className="bg-[#F0FDF4] rounded-xl p-8 flex flex-col justify-center items-center h-40 transition-transform hover:-translate-y-1 hover:shadow-md cursor-default">
+               <div className="text-3xl font-black text-slate-900">13+</div>
+               <div className="text-xs font-bold text-slate-600 mt-2 uppercase tracking-wider">Batches</div>
+             </div>
+             <div className="bg-[#EEF2FF] rounded-xl p-8 flex flex-col justify-center items-center h-40 transition-transform hover:-translate-y-1 hover:shadow-md cursor-default">
+               <div className="text-3xl font-black text-slate-900">1000+</div>
+               <div className="text-xs font-bold text-slate-600 mt-2 uppercase tracking-wider">Lectures</div>
+             </div>
+          </div>
+          
+          <div className="mt-12">
+            <Button asChild className="bg-[#5B21B6] hover:bg-[#4C1D95] text-white px-10 py-6 rounded-md text-base shadow-md transition-transform hover:scale-105">
+              <Link to="/auth">Get Started</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* RESULTS SLIDER */}
+      <section className="py-20 bg-[#F8FAFC]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Academic Excellence : Results</h2>
+          <p className="text-slate-500 text-sm mb-12 font-medium">Giving wings to a millions dreams, a million more to go</p>
+          
+          {/* Tabs mock */}
+          <div className="flex flex-wrap justify-center gap-3 mb-10">
+            {["UP Police 2024", "SSC GD 2023", "Super TET", "Banking"].map((t, i) => (
+               <button key={t} className={`px-5 py-2 rounded-full text-[13px] font-bold transition-colors ${i === 0 ? 'bg-white shadow-sm border border-slate-200 text-[#5B21B6]' : 'text-slate-500 hover:text-slate-800'}`}>
+                 {t}
+               </button>
+            ))}
+          </div>
+
+          <div className="bg-gradient-to-br from-[#EFF6FF] via-[#DBEAFE] to-[#BFDBFE] rounded-[2rem] p-8 sm:p-12 relative overflow-hidden shadow-sm border border-blue-100">
+             {/* Background text decoration */}
+             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04]">
+                <span className="text-[10rem] md:text-[14rem] font-black leading-none whitespace-nowrap text-blue-900/50">RESULTS</span>
+             </div>
+             
+             <h3 className="text-3xl sm:text-5xl font-black text-[#1E3A8A] mb-12 relative z-10 drop-shadow-sm uppercase tracking-tighter">
+                TOP SELECTIONS 2024
+             </h3>
+             
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10 relative z-10">
+                {data.results.slice(0, 6).map((r) => (
+                   <div key={r.id} className="flex flex-col items-center group">
+                     <div className="w-[100px] h-[100px] rounded-full bg-white shadow-xl border-[5px] border-white overflow-hidden mb-4 relative transition-transform duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl">
+                       <div className="absolute bottom-0 w-full bg-[#1E3A8A] text-white text-[9px] font-black tracking-widest text-center py-1 z-10 uppercase">
+                         {r.rank_or_marks || 'SELECTED'}
+                       </div>
+                       {r.photo_url ? (
+                          <img src={r.photo_url} alt={r.student_name} className="w-full h-full object-cover" />
+                       ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-200 text-3xl font-black text-blue-900">
+                             {r.student_name.charAt(0)}
+                          </div>
+                       )}
+                     </div>
+                     <div className="text-[13px] font-bold text-slate-800 text-center leading-snug px-2">{r.student_name}</div>
+                     <div className="text-[10px] text-[#1E3A8A] font-bold mt-1 uppercase tracking-widest">{r.exam_name}</div>
+                   </div>
+                ))}
+             </div>
+             
+             {data.results.length > 6 && (
+                <div className="mt-12 text-sm font-bold text-[#1E3A8A] uppercase tracking-widest relative z-10">
+                   & many more...
+                </div>
+             )}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

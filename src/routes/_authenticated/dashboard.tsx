@@ -11,6 +11,7 @@ import {
   Clock,
   LogOut,
   Shield,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -53,124 +54,108 @@ function Dashboard() {
   }
 
   return (
-    <Section>
-      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Student Dashboard</div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
-            Hello, {data.profile?.full_name ?? "Student"} 👋
-          </h1>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Top Header Area for XP/Coins - Mocked for PW look */}
+      <div className="flex justify-between items-center mb-8">
+         <h1 className="text-xl font-bold text-slate-800">Study</h1>
+         <div className="flex items-center gap-3">
+           <div className="flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1 text-sm font-semibold text-slate-600">
+             <span className="text-yellow-500">🔥</span> 0
+           </div>
+           <div className="flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1 text-sm font-semibold text-slate-600">
+             <span className="text-blue-500">⚡</span> 0
+           </div>
+         </div>
+      </div>
+
+      <div className="mb-10">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">My Learning</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Link to="/batches" className="bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-colors rounded-xl p-5 border border-[#C7D2FE]/50 shadow-sm flex flex-col">
+            <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
+               <BookOpen className="h-5 w-5 text-slate-700" />
+            </div>
+            <h3 className="font-semibold text-slate-800 mb-1">My Batches</h3>
+            <p className="text-xs text-slate-500 leading-snug">View list of the batches in which you are enrolled</p>
+          </Link>
+
+          <Link to="/dashboard" className="bg-[#FFF7ED] hover:bg-[#FFEDD5] transition-colors rounded-xl p-5 border border-[#FED7AA]/50 shadow-sm flex flex-col">
+            <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
+               <Clock className="h-5 w-5 text-slate-700" />
+            </div>
+            <h3 className="font-semibold text-slate-800 mb-1">Recent Learning</h3>
+            <p className="text-xs text-slate-500 leading-snug">View your past learning history</p>
+          </Link>
+
+          <Link to="/dashboard" className="bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors rounded-xl p-5 border border-[#BBF7D0]/50 shadow-sm flex flex-col">
+            <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
+               <MessageCircle className="h-5 w-5 text-slate-700" />
+            </div>
+            <h3 className="font-semibold text-slate-800 mb-1">My Doubts</h3>
+            <p className="text-xs text-slate-500 leading-snug">View the list of your asked doubts in the lectures</p>
+          </Link>
         </div>
-        <div className="flex gap-2">
-          {isAdmin && (
-            <Button asChild variant="ghost" className="rounded-full glass">
-              <Link to="/admin"><Shield className="mr-1.5 h-4 w-4" /> Admin Panel</Link>
-            </Button>
-          )}
-          <Button variant="ghost" onClick={handleSignOut} className="rounded-full glass">
-            <LogOut className="mr-1.5 h-4 w-4" /> Sign out
+      </div>
+
+      <div className="mb-10">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Explore</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Link to="/free-study-material" className="bg-white hover:bg-slate-50 transition-colors rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
+            <div className="bg-[#F8FAFC] w-10 h-10 rounded-lg flex items-center justify-center mb-3 border border-slate-100">
+               <FileText className="h-5 w-5 text-blue-500" />
+            </div>
+            <h3 className="font-semibold text-slate-800 mb-1">PDF Bank</h3>
+            <p className="text-xs text-slate-500 leading-snug">Download your Study PDFs from one place</p>
+          </Link>
+
+          <Link to="/dashboard" className="bg-white hover:bg-slate-50 transition-colors rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
+            <div className="bg-[#F8FAFC] w-10 h-10 rounded-lg flex items-center justify-center mb-3 border border-slate-100">
+               <BookOpen className="h-5 w-5 text-purple-500" />
+            </div>
+            <h3 className="font-semibold text-slate-800 mb-1">Bookmarks</h3>
+            <p className="text-xs text-slate-500 leading-snug">View the list of your saved questions.</p>
+          </Link>
+        </div>
+      </div>
+
+      {/* Promotional Banner Area (Like VP-OP) */}
+      <div className="mb-10 w-full overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 to-red-800 relative shadow-sm text-white">
+        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+        <div className="relative px-6 py-10 sm:px-12 flex flex-col items-center text-center">
+           <div className="inline-block bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-widest shadow-sm">
+             Enroll Now
+           </div>
+           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-wider mb-2">Introducing</h2>
+           <h3 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-red-200 mb-4">
+             SARVODAYA PRIME
+           </h3>
+           <p className="text-red-100 font-semibold mb-6 max-w-lg">TEST SERIES • DOUBTS • PREMIUM LECTURES</p>
+           
+           <div className="flex items-center gap-4">
+              <button className="bg-white text-red-700 px-6 py-2.5 rounded-full font-bold shadow-lg hover:scale-105 transition-transform">
+                Explore Plan
+              </button>
+           </div>
+        </div>
+      </div>
+      
+      {isAdmin && (
+        <div className="mt-8">
+           <Button asChild variant="outline" className="w-full sm:w-auto">
+             <Link to="/admin"><Shield className="mr-2 h-4 w-4" /> Admin Panel</Link>
+           </Button>
+           <Button variant="ghost" onClick={handleSignOut} className="w-full sm:w-auto mt-2 sm:mt-0 sm:ml-2">
+             <LogOut className="mr-2 h-4 w-4" /> Sign out
+           </Button>
+        </div>
+      )}
+      {!isAdmin && (
+        <div className="mt-8 text-right">
+          <Button variant="ghost" onClick={handleSignOut} className="text-slate-500 hover:text-slate-700">
+            <LogOut className="mr-2 h-4 w-4" /> Sign out
           </Button>
         </div>
-      </motion.div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { icon: BookOpen, label: "Purchased Batches", value: data.enrollments.length },
-          { icon: Video, label: "Live Classes", value: 0 },
-          { icon: FileText, label: "PDF Notes", value: 0 },
-          { icon: Trophy, label: "Mock Tests", value: 0 },
-        ].map((s) => (
-          <div key={s.label} className="glass-strong rounded-3xl p-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow">
-              <s.icon className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="mt-3 text-2xl font-bold">{s.value}</div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-10 grid gap-6 lg:grid-cols-3">
-        <div className="glass-strong rounded-3xl p-6 lg:col-span-2">
-          <h2 className="text-lg font-semibold">My Batches</h2>
-          {data.enrollments.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center">
-              <BookOpen className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                You haven't enrolled in any batch yet.
-              </p>
-              <Button asChild className="mt-4 rounded-full bg-gradient-to-br from-primary to-primary-glow">
-                <Link to="/batches">Browse batches</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {data.enrollments.map((e: any) => (
-                <Link
-                  key={e.id}
-                  to="/my-batch/$slug"
-                  params={{ slug: e.batch?.slug ?? "" }}
-                  className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card transition hover:shadow-elegant"
-                >
-                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-primary to-primary-glow">
-                    {e.batch?.thumbnail_url && (
-                      <img
-                        src={e.batch.thumbnail_url}
-                        alt={e.batch?.title ?? ""}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-3">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/85">
-                        {e.batch?.exam_category}
-                      </div>
-                      <div className="mt-0.5 line-clamp-1 text-sm font-semibold text-white">
-                        {e.batch?.title}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-[11px] text-muted-foreground">
-                      {e.payment_status === "paid" ? "✓ Paid" : e.payment_status ?? "Enrolled"}
-                    </span>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                      Open →
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-
-        </div>
-
-        <div className="glass-strong rounded-3xl p-6">
-          <h2 className="text-lg font-semibold">Quick Links</h2>
-          <ul className="mt-4 space-y-2 text-sm">
-            {[
-              { icon: Video, label: "Live Classes", to: "/dashboard" },
-              { icon: BookOpen, label: "Recorded Lectures", to: "/dashboard" },
-              { icon: FileText, label: "PDF & DPP", to: "/free-study-material" },
-              { icon: Clock, label: "Mock Tests", to: "/mock-tests" },
-              { icon: Bell, label: "Announcements", to: "/notifications" },
-              { icon: User, label: "My Profile", to: "/profile" },
-            ].map((q) => (
-              <li key={q.label}>
-                <Link to={q.to} className="glass flex items-center gap-3 rounded-2xl p-3 hover:bg-primary/5">
-                  <q.icon className="h-4 w-4 text-primary" />
-                  <span>{q.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="mt-10 glass rounded-3xl p-6 text-center text-sm text-muted-foreground">
-        Live classes, recorded lectures, PDFs/DPPs and mock tests will appear here as your admin
-        publishes them. Payments and self-enrollment are coming soon.
-      </div>
-    </Section>
+      )}
+    </div>
   );
 }
