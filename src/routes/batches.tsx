@@ -77,21 +77,34 @@ function BatchesPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Popular Courses</h2>
         
-        <div className="flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={cn(
-                "rounded-full px-4 py-1.5 text-xs font-semibold transition-colors border",
-                cat === c 
-                  ? "bg-[#E0E7FF] text-[#4F46E5] border-[#C7D2FE]" 
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-              )}
-            >
-              {c}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input 
+              placeholder="Search batches..." 
+              value={q} 
+              onChange={(e) => setQ(e.target.value)} 
+              className="pl-9 h-10 w-full rounded-full border-slate-200 bg-white shadow-sm"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCat(c)}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-xs font-semibold transition-colors border flex items-center gap-2 shadow-sm",
+                  cat === c 
+                    ? "bg-[#EEF2FF] text-[#4F46E5] border-[#C7D2FE]" 
+                    : "bg-[#F8FAFC] text-slate-700 border-slate-200 hover:bg-slate-50"
+                )}
+              >
+                {cat === c && <div className="w-1.5 h-1.5 rounded-full bg-[#4F46E5]" />}
+                {cat !== c && <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />}
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

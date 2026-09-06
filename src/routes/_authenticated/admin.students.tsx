@@ -162,6 +162,43 @@ function StudentsAdmin() {
   });
 
   // Selected student for detailed bio data
+  
+  // Query to get extra student details (role and comments)
+  const { data: studentDetails } = useQuery({
+    queryKey: ["admin", "student-details", selectedStudentId],
+    queryFn: async () => {
+      if (!selectedStudentId) return null;
+      
+      const [roleRes, commentsRes] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", selectedStudentId).maybeSingle(),
+        supabase.from("live_chat_messages").select("id, message, created_at, live_classes(title)").eq("user_id", selectedStudentId).order("created_at", { ascending: false }).limit(10)
+      ]);
+      
+      return {
+        role: roleRes.data?.role || "user",
+        comments: commentsRes.data || []
+      };
+    },
+    enabled: !!selectedStudentId
+  });
+
+  const toggleAdminMutation = useMutation({
+    mutationFn: async ({ userId, makeAdmin }: { userId: string, makeAdmin: boolean }) => {
+      if (makeAdmin) {
+        const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: "admin" });
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
+        if (error) throw new Error(error.message);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Role updated successfully!");
+      qc.invalidateQueries({ queryKey: ["admin", "student-details", selectedStudentId] });
+    },
+    onError: (e) => toast.error(e.message)
+  });
+
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
 
   // Fetch detailed test attempts and lectures for selected student
@@ -845,43 +882,25 @@ function StudentsAdmin() {
 
                 {/* TAB 4: CLASS & LECTURE ACTIVITY */}
                 <TabsContent value="activity" className="space-y-4">
-                  <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900">Lecture Engagement & Activity</h4>
-                        <p className="text-xs text-slate-500">Live lecture and learning discipline</p>
+                  <div className="bg-white border border-slate-200 rounded-xl p-5">
+                    <h4 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                      <Activity className="h-4 w-4 text-blue-500" /> Recent Live Comments
+                    </h4>
+                    {!studentDetails?.comments?.length ? (
+                      <p className="text-sm text-slate-500">No recent comments found.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {studentDetails.comments.map((c: any) => (
+                          <div key={c.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-semibold text-blue-700 text-xs">{c.live_classes?.title || "Unknown Class"}</span>
+                              <span className="text-xs text-slate-400">{new Date(c.created_at).toLocaleString()}</span>
+                            </div>
+                            <p className="text-slate-700">{c.message}</p>
+                          </div>
+                        ))}
                       </div>
-                      <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold">
-                        {selectedStudent.enrollments.length > 0 ? "Active Student" : "Inactive"}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                        <span className="text-slate-500 block text-[11px] font-semibold uppercase">
-                          Enrolled Courses
-                        </span>
-                        <span className="text-xl font-bold text-slate-900 mt-1 block">
-                          {selectedStudent.enrollments.length}
-                        </span>
-                      </div>
-
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                        <span className="text-slate-500 block text-[11px] font-semibold uppercase">
-                          System Published Lectures
-                        </span>
-                        <span className="text-xl font-bold text-slate-900 mt-1 block">
-                          {studentDetails?.total_lectures_system ?? 0}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-slate-500 leading-relaxed bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
-                      💡 <strong>Student Activity Insight:</strong> Student is currently enrolled in{" "}
-                      <strong>{selectedStudent.enrollments.length}</strong> batch(es) with{" "}
-                      <strong>{selectedStudent.tests_count}</strong> test(s) submitted. To revoke access or remove
-                      this student, use the <strong>Batches</strong> tab above.
-                    </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

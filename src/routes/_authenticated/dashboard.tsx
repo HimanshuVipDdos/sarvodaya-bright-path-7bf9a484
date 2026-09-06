@@ -55,7 +55,7 @@ function Dashboard() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Top Header Area for XP/Coins - Mocked for PW look */}
+      {/* Top Header Area for XP/Coins */}
       <div className="flex justify-between items-center mb-8">
          <h1 className="text-xl font-bold text-slate-800">Study</h1>
          <div className="flex items-center gap-3">
@@ -69,16 +69,51 @@ function Dashboard() {
       </div>
 
       <div className="mb-10">
-        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">My Learning</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Link to="/batches" className="bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-colors rounded-xl p-5 border border-[#C7D2FE]/50 shadow-sm flex flex-col">
-            <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
-               <BookOpen className="h-5 w-5 text-slate-700" />
-            </div>
-            <h3 className="font-semibold text-slate-800 mb-1">My Batches</h3>
-            <p className="text-xs text-slate-500 leading-snug">View list of the batches in which you are enrolled</p>
-          </Link>
+        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">My Batches</h2>
+        {data.enrollments.length === 0 ? (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Link to="/batches" className="bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-colors rounded-xl p-5 border border-[#C7D2FE]/50 shadow-sm flex flex-col">
+              <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
+                 <BookOpen className="h-5 w-5 text-slate-700" />
+              </div>
+              <h3 className="font-semibold text-slate-800 mb-1">Explore Batches</h3>
+              <p className="text-xs text-slate-500 leading-snug">You haven't enrolled yet. Browse our premium batches!</p>
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {data.enrollments.map((e: any) => {
+              const b = Array.isArray(e.batch) ? e.batch[0] : e.batch;
+              if (!b) return null;
+              return (
+                <Link key={e.id} to="/my-batch/$slug" params={{ slug: b.slug }} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white hover:shadow-md transition-shadow flex flex-col">
+                  {b.thumbnail_url ? (
+                    <div className="aspect-[16/9] w-full overflow-hidden">
+                      <img src={b.thumbnail_url} alt={b.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    </div>
+                  ) : (
+                    <div className="aspect-[16/9] w-full bg-slate-100 flex items-center justify-center">
+                      <BookOpen className="h-8 w-8 text-slate-300" />
+                    </div>
+                  )}
+                  <div className="p-4 flex-1 flex flex-col">
+                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">{b.exam_category}</div>
+                    <h3 className="font-semibold text-slate-800 text-sm line-clamp-2">{b.title}</h3>
+                    <div className="mt-auto pt-3 flex items-center justify-between">
+                      <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium">Enrolled</span>
+                      <span className="text-xs font-semibold text-blue-600">Resume →</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
+      <div className="mb-10">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Quick Links</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link to="/dashboard" className="bg-[#FFF7ED] hover:bg-[#FFEDD5] transition-colors rounded-xl p-5 border border-[#FED7AA]/50 shadow-sm flex flex-col">
             <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
                <Clock className="h-5 w-5 text-slate-700" />
@@ -87,7 +122,7 @@ function Dashboard() {
             <p className="text-xs text-slate-500 leading-snug">View your past learning history</p>
           </Link>
 
-          <Link to="/dashboard" className="bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors rounded-xl p-5 border border-[#BBF7D0]/50 shadow-sm flex flex-col">
+          <Link to="/my-doubts" className="bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors rounded-xl p-5 border border-[#BBF7D0]/50 shadow-sm flex flex-col">
             <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
                <MessageCircle className="h-5 w-5 text-slate-700" />
             </div>

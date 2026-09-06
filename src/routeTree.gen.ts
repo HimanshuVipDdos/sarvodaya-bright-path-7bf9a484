@@ -26,11 +26,13 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedMyDoubtsRouteImport } from './routes/_authenticated/my-doubts'
 import { Route as AuthenticatedMockTestsRouteImport } from './routes/_authenticated/mock-tests'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedMyBatchSlugRouteImport } from './routes/_authenticated/my-batch.$slug'
+import { Route as AuthenticatedCbtTestIdRouteImport } from './routes/_authenticated/cbt.$testId'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedAdminResultsRouteImport } from './routes/_authenticated/admin.results'
 import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
@@ -139,6 +141,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMyDoubtsRoute = AuthenticatedMyDoubtsRouteImport.update({
+  id: '/my-doubts',
+  path: '/my-doubts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMockTestsRoute = AuthenticatedMockTestsRouteImport.update({
   id: '/mock-tests',
   path: '/mock-tests',
@@ -165,6 +172,11 @@ const AuthenticatedMyBatchSlugRoute =
     path: '/my-batch/$slug',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCbtTestIdRoute = AuthenticatedCbtTestIdRouteImport.update({
+  id: '/cbt/$testId',
+  path: '/cbt/$testId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminStudentsRoute =
   AuthenticatedAdminStudentsRouteImport.update({
     id: '/students',
@@ -266,21 +278,21 @@ const AuthenticatedAdminBatchesIndexRoute =
   } as any)
 const AuthenticatedCbtTestIdResultRoute =
   AuthenticatedCbtTestIdResultRouteImport.update({
-    id: '/cbt/$testId/result',
-    path: '/cbt/$testId/result',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/result',
+    path: '/result',
+    getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
 const AuthenticatedCbtTestIdMistakesRoute =
   AuthenticatedCbtTestIdMistakesRouteImport.update({
-    id: '/cbt/$testId/mistakes',
-    path: '/cbt/$testId/mistakes',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/mistakes',
+    path: '/mistakes',
+    getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
 const AuthenticatedCbtTestIdLeaderboardRoute =
   AuthenticatedCbtTestIdLeaderboardRouteImport.update({
-    id: '/cbt/$testId/leaderboard',
-    path: '/cbt/$testId/leaderboard',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/leaderboard',
+    path: '/leaderboard',
+    getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
 const AuthenticatedAdminBatchesBatchIdRoute =
   AuthenticatedAdminBatchesBatchIdRouteImport.update({
@@ -319,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/mock-tests': typeof AuthenticatedMockTestsRoute
+  '/my-doubts': typeof AuthenticatedMyDoubtsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/admin/batches': typeof AuthenticatedAdminBatchesRouteWithChildren
@@ -336,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
   '/admin/results': typeof AuthenticatedAdminResultsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/cbt/$testId': typeof AuthenticatedCbtTestIdRouteWithChildren
   '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/admin/batches/$batchId': typeof AuthenticatedAdminBatchesBatchIdRoute
@@ -364,6 +378,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/mock-tests': typeof AuthenticatedMockTestsRoute
+  '/my-doubts': typeof AuthenticatedMyDoubtsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/admin/current-affairs': typeof AuthenticatedAdminCurrentAffairsRoute
@@ -379,6 +394,7 @@ export interface FileRoutesByTo {
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
   '/admin/results': typeof AuthenticatedAdminResultsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/cbt/$testId': typeof AuthenticatedCbtTestIdRouteWithChildren
   '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/batches/$batchId': typeof AuthenticatedAdminBatchesBatchIdRoute
@@ -410,6 +426,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/mock-tests': typeof AuthenticatedMockTestsRoute
+  '/_authenticated/my-doubts': typeof AuthenticatedMyDoubtsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
   '/_authenticated/admin/batches': typeof AuthenticatedAdminBatchesRouteWithChildren
@@ -427,6 +444,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
   '/_authenticated/admin/results': typeof AuthenticatedAdminResultsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/_authenticated/cbt/$testId': typeof AuthenticatedCbtTestIdRouteWithChildren
   '/_authenticated/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/admin/batches/$batchId': typeof AuthenticatedAdminBatchesBatchIdRoute
@@ -458,6 +476,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/mock-tests'
+    | '/my-doubts'
     | '/profile'
     | '/batches/$slug'
     | '/admin/batches'
@@ -475,6 +494,7 @@ export interface FileRouteTypes {
     | '/admin/pdfs'
     | '/admin/results'
     | '/admin/students'
+    | '/cbt/$testId'
     | '/my-batch/$slug'
     | '/admin/'
     | '/admin/batches/$batchId'
@@ -503,6 +523,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/dashboard'
     | '/mock-tests'
+    | '/my-doubts'
     | '/profile'
     | '/batches/$slug'
     | '/admin/current-affairs'
@@ -518,6 +539,7 @@ export interface FileRouteTypes {
     | '/admin/pdfs'
     | '/admin/results'
     | '/admin/students'
+    | '/cbt/$testId'
     | '/my-batch/$slug'
     | '/admin'
     | '/admin/batches/$batchId'
@@ -548,6 +570,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/mock-tests'
+    | '/_authenticated/my-doubts'
     | '/_authenticated/profile'
     | '/batches/$slug'
     | '/_authenticated/admin/batches'
@@ -565,6 +588,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/pdfs'
     | '/_authenticated/admin/results'
     | '/_authenticated/admin/students'
+    | '/_authenticated/cbt/$testId'
     | '/_authenticated/my-batch/$slug'
     | '/_authenticated/admin/'
     | '/_authenticated/admin/batches/$batchId'
@@ -716,6 +740,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/my-doubts': {
+      id: '/_authenticated/my-doubts'
+      path: '/my-doubts'
+      fullPath: '/my-doubts'
+      preLoaderRoute: typeof AuthenticatedMyDoubtsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/mock-tests': {
       id: '/_authenticated/mock-tests'
       path: '/mock-tests'
@@ -749,6 +780,13 @@ declare module '@tanstack/react-router' {
       path: '/my-batch/$slug'
       fullPath: '/my-batch/$slug'
       preLoaderRoute: typeof AuthenticatedMyBatchSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cbt/$testId': {
+      id: '/_authenticated/cbt/$testId'
+      path: '/cbt/$testId'
+      fullPath: '/cbt/$testId'
+      preLoaderRoute: typeof AuthenticatedCbtTestIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/students': {
@@ -872,24 +910,24 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/cbt/$testId/result': {
       id: '/_authenticated/cbt/$testId/result'
-      path: '/cbt/$testId/result'
+      path: '/result'
       fullPath: '/cbt/$testId/result'
       preLoaderRoute: typeof AuthenticatedCbtTestIdResultRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
     '/_authenticated/cbt/$testId/mistakes': {
       id: '/_authenticated/cbt/$testId/mistakes'
-      path: '/cbt/$testId/mistakes'
+      path: '/mistakes'
       fullPath: '/cbt/$testId/mistakes'
       preLoaderRoute: typeof AuthenticatedCbtTestIdMistakesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
     '/_authenticated/cbt/$testId/leaderboard': {
       id: '/_authenticated/cbt/$testId/leaderboard'
-      path: '/cbt/$testId/leaderboard'
+      path: '/leaderboard'
       fullPath: '/cbt/$testId/leaderboard'
       preLoaderRoute: typeof AuthenticatedCbtTestIdLeaderboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
     '/_authenticated/admin/batches/$batchId': {
       id: '/_authenticated/admin/batches/$batchId'
@@ -992,27 +1030,43 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
+interface AuthenticatedCbtTestIdRouteChildren {
+  AuthenticatedCbtTestIdLeaderboardRoute: typeof AuthenticatedCbtTestIdLeaderboardRoute
+  AuthenticatedCbtTestIdMistakesRoute: typeof AuthenticatedCbtTestIdMistakesRoute
+  AuthenticatedCbtTestIdResultRoute: typeof AuthenticatedCbtTestIdResultRoute
+}
+
+const AuthenticatedCbtTestIdRouteChildren: AuthenticatedCbtTestIdRouteChildren =
+  {
+    AuthenticatedCbtTestIdLeaderboardRoute:
+      AuthenticatedCbtTestIdLeaderboardRoute,
+    AuthenticatedCbtTestIdMistakesRoute: AuthenticatedCbtTestIdMistakesRoute,
+    AuthenticatedCbtTestIdResultRoute: AuthenticatedCbtTestIdResultRoute,
+  }
+
+const AuthenticatedCbtTestIdRouteWithChildren =
+  AuthenticatedCbtTestIdRoute._addFileChildren(
+    AuthenticatedCbtTestIdRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMockTestsRoute: typeof AuthenticatedMockTestsRoute
+  AuthenticatedMyDoubtsRoute: typeof AuthenticatedMyDoubtsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedCbtTestIdRoute: typeof AuthenticatedCbtTestIdRouteWithChildren
   AuthenticatedMyBatchSlugRoute: typeof AuthenticatedMyBatchSlugRoute
-  AuthenticatedCbtTestIdLeaderboardRoute: typeof AuthenticatedCbtTestIdLeaderboardRoute
-  AuthenticatedCbtTestIdMistakesRoute: typeof AuthenticatedCbtTestIdMistakesRoute
-  AuthenticatedCbtTestIdResultRoute: typeof AuthenticatedCbtTestIdResultRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMockTestsRoute: AuthenticatedMockTestsRoute,
+  AuthenticatedMyDoubtsRoute: AuthenticatedMyDoubtsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedCbtTestIdRoute: AuthenticatedCbtTestIdRouteWithChildren,
   AuthenticatedMyBatchSlugRoute: AuthenticatedMyBatchSlugRoute,
-  AuthenticatedCbtTestIdLeaderboardRoute:
-    AuthenticatedCbtTestIdLeaderboardRoute,
-  AuthenticatedCbtTestIdMistakesRoute: AuthenticatedCbtTestIdMistakesRoute,
-  AuthenticatedCbtTestIdResultRoute: AuthenticatedCbtTestIdResultRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

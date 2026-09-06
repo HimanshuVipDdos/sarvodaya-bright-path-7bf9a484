@@ -31,7 +31,25 @@ const mockTestsQuery = queryOptions({
         .eq("user_id", userId),
     ]);
 
-    const attemptByTest = new Map((attempts ?? []).map((a) => [a.test_id, a]));
+    const testIds = (tests ?? []).map((t) => t.id);
+    const { data: allAttempts } = await supabase
+      .from("cbt_attempts")
+      .select("test_id, user_id, score")
+      .eq("status", "submitted")
+      .in("test_id", testIds);
+
+    const attemptByTest = new Map((attempts ?? []).map((a) => {
+       // calculate rank if submitted
+       let rank = 1;
+       if (a.status === "submitted" && allAttempts) {
+         const others = allAttempts.filter(x => x.test_id === a.test_id);
+         others.sort((x, y) => (y.score || 0) - (x.score || 0));
+         const myIdx = others.findIndex(x => x.user_id === userId);
+         if (myIdx >= 0) rank = myIdx + 1;
+       }
+       return [a.test_id, { ...a, rank }];
+    }));
+
     return {
       tests: (tests ?? []).map((t) => ({ ...t, attempt: attemptByTest.get(t.id) ?? null })),
     };
@@ -132,20 +150,31 @@ function MockTestsPage() {
 
                    <div className="flex items-center justify-between pt-2">
                       <div>
-                         <div className="flex items-end gap-2 mb-1">
-                            <span className="text-2xl font-black text-slate-900">Free</span>
-                            <span className="text-sm text-slate-400 line-through mb-1">₹499</span>
-                         </div>
-                         <div className="text-xs font-bold text-green-600">100% OFF</div>
+                         {t.attempt?.status === "submitted" ? (
+                           <div>
+                             <div className="flex items-end gap-2 mb-1">
+                                <span className="text-xl font-black text-slate-900">{t.attempt.score} <span className="text-sm font-semibold text-slate-500">/ {t.attempt.max_score}</span></span>
+                             </div>
+                             <div className="text-xs font-bold text-blue-600">Rank: #{t.attempt.rank}</div>
+                           </div>
+                         ) : (
+                           <div>
+                             <div className="flex items-end gap-2 mb-1">
+                                <span className="text-2xl font-black text-slate-900">Free</span>
+                                <span className="text-sm text-slate-400 line-through mb-1">₹1499</span>
+                             </div>
+                             <div className="text-xs font-bold text-green-600">100% OFF</div>
+                           </div>
+                         )}
                       </div>
                       
                       {t.attempt?.status === "submitted" ? (
                         <div className="flex items-center gap-2">
                           <Link to="/cbt/$testId/mistakes" params={{ testId: t.id }} search={{ attempt: t.attempt.id } as any}>
-                            <Button variant="outline" className="rounded-md">Mistakes</Button>
+                            <Button variant="outline" className="rounded-md h-10 px-4 text-sm font-semibold">Mistakes</Button>
                           </Link>
                           <Link to="/cbt/$testId/result" params={{ testId: t.id }} search={{ attempt: t.attempt.id } as any}>
-                            <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-md px-6">Result</Button>
+                            <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-md h-10 px-4 text-sm font-semibold">Result</Button>
                           </Link>
                         </div>
                       ) : (
