@@ -123,7 +123,7 @@ function Index() {
                </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* EXAM CATEGORIES */}

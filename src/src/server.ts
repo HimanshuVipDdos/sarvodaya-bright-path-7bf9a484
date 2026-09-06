@@ -1,0 +1,53 @@
+import "./lib/error-capture";
+
+import { consumeLastCapturedError } from "./lib/error-capture";
+import { renderErrorPage } from "./lib/error-page";
+
+async function getServerEntry() {
+  const m: any = await import("@tanstack/react-start/server-entry");
+  const candidate = m.default ?? m;
+  const entry =
+    typeof candidate?.fetch === "function"
+      ? candidate
+      : typeof candidate?.default?.fetch === "function"
+        ? candidate.default
+        : null;
+  if (!entry) {
+    console.error("Unexpected server-entry shape:", Object.keys(candidate ?? {}));
+    throw new Error("Could not resolve TanStack server entry fetch handler.");
+  }
+  return entry as { fetch: (request: Request) => Promise<Response> | Response };
+}
+
+async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
+  if (response.status < 500) return response;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) return response;
+
+  const body = await response.clone().text();
+  if (!body.includes('"unhandled":true') || !body.includes('"message":"HTTPError"')) {
+    return response;
+  }
+
+  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  return new Response(renderErrorPage(), {
+    status: 500,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
+export default {
+  async fetch(request: Request) {
+    try {
+      const entry = await getServerEntry();
+      const response = await entry.fetch(request);
+      return await normalizeCatastrophicSsrResponse(response);
+    } catch (error) {
+      console.error(error);
+      return new Response(renderErrorPage(), {
+        status: 500,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+  },
+};

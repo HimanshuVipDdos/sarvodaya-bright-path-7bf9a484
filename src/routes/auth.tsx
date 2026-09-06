@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Mail, Lock, User, Phone } from "lucide-react";
@@ -25,7 +25,6 @@ function isValidPhone(p: string) {
 }
 
 function AuthPage() {
-  const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -38,9 +37,15 @@ function AuthPage() {
     const password = String(fd.get("password"));
 
     if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) toast.error(error.message);
-      else navigate({ to: "/dashboard" });
+      else if (data.session) {
+        // Use one fresh document load after sign-in. This guarantees that the
+        // persisted Supabase session is available before the protected route
+        // loader runs, rather than racing an in-app navigation.
+        window.location.assign("/dashboard");
+        return;
+      } else toast.error("Login session could not be created. Please try again.");
     } else if (mode === "signup") {
       const fullName = String(fd.get("full_name") ?? "").trim();
       const phone = String(fd.get("phone") ?? "").trim();
