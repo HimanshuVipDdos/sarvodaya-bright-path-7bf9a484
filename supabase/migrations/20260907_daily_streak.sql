@@ -23,7 +23,7 @@ CREATE POLICY "user updates own streak" ON public.user_streaks
 
 -- Admins can see all streaks
 CREATE POLICY "admin reads all streaks" ON public.user_streaks
-  FOR SELECT USING (public.has_role(auth.uid(), ''admin''));
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- RPC: call this every time the student opens the app / dashboard
 -- It automatically tracks daily activity and updates streak
@@ -36,12 +36,12 @@ AS $func$
 DECLARE
   uid uuid := auth.uid();
   rec RECORD;
-  today date := (now() AT TIME ZONE ''Asia/Kolkata'')::date;
+  today date := (now() AT TIME ZONE 'Asia/Kolkata')::date;
   new_streak int;
   new_longest int;
 BEGIN
   IF uid IS NULL THEN
-    RAISE EXCEPTION ''Not authenticated'';
+    RAISE EXCEPTION 'Not authenticated';
   END IF;
 
   SELECT * INTO rec FROM public.user_streaks WHERE user_id = uid;
@@ -113,3 +113,4 @@ $func$;
 
 REVOKE ALL ON FUNCTION public.get_student_streak(uuid) FROM public;
 GRANT EXECUTE ON FUNCTION public.get_student_streak(uuid) TO authenticated;
+

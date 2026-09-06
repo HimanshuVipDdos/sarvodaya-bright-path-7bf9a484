@@ -1,4 +1,4 @@
--- ============================================================
+﻿-- ============================================================
 -- Migration: Add subject / chapter / lecture_number to live_classes
 -- Run this once in Supabase Dashboard -> SQL Editor
 -- ============================================================
@@ -19,13 +19,13 @@ DECLARE
   rec RECORD;
   new_lecture_id uuid;
 BEGIN
-  IF NOT public.has_role(auth.uid(), ''admin'') THEN
-    RAISE EXCEPTION ''Only admins can end a live class'';
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Only admins can end a live class';
   END IF;
 
   SELECT * INTO rec FROM public.live_classes WHERE id = p_class_id;
   IF rec IS NULL THEN
-    RAISE EXCEPTION ''Live class not found'';
+    RAISE EXCEPTION 'Live class not found';
   END IF;
 
   IF rec.recorded_lecture_id IS NOT NULL THEN
@@ -84,3 +84,4 @@ $func$;
 
 REVOKE ALL ON FUNCTION public.tick_live_classes() FROM public;
 GRANT EXECUTE ON FUNCTION public.tick_live_classes() TO service_role;
+

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -15,7 +15,9 @@ import {
   Search,
   Menu,
   X,
-  Shield
+  Shield,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SITE } from "@/lib/site";
@@ -24,6 +26,24 @@ import { cn } from "@/lib/utils";
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") === "dark";
+    }
+    return false;
+  });
+
+  // Apply / remove dark class on <html> whenever `dark` changes
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) {
+      root.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [dark]);
 
   // Check if current logged-in user is a registered admin
   const { data: isAdmin = false } = useQuery({
@@ -40,8 +60,27 @@ export function AppLayout({ children }: { children: ReactNode }) {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Fetch student's real name
+  const { data: studentName = "" } = useQuery({
+    queryKey: ["auth", "student-name-layout"],
+    queryFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return "";
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      return profile?.full_name || userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "Student";
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // First name only for display
+  const firstName = (studentName as string).split(" ")[0] || "Student";
+
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
+    <div className="flex min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
       {/* MOBILE OVERLAY */}
       {sidebarOpen && (
         <div 
@@ -52,10 +91,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       {/* SIDEBAR */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 flex-col bg-white border-r border-border/50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 md:flex md:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-64 flex-col bg-white dark:bg-slate-900 border-r border-border/50 dark:border-slate-800 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 md:flex md:translate-x-0",
         sidebarOpen ? "flex translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex h-[72px] shrink-0 items-center justify-between px-6 border-b border-border/40">
+        <div className="flex h-[72px] shrink-0 items-center justify-between px-6 border-b border-border/40 dark:border-slate-800">
           <Link to="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 shadow-md shadow-slate-900/20">
               <GraduationCap className="h-5 w-5 text-white" />
@@ -126,7 +165,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* MAIN WRAPPER */}
       <div className="flex flex-1 flex-col md:pl-64 min-w-0">
         {/* HEADER */}
-        <header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center gap-x-4 border-b border-border/40 bg-white/90 px-4 backdrop-blur-xl sm:gap-x-6 sm:px-8 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center gap-x-4 border-b border-border/40 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 px-4 backdrop-blur-xl sm:gap-x-6 sm:px-8 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           <button 
             type="button" 
             className="-m-2.5 p-2.5 text-slate-600 md:hidden"
@@ -157,8 +196,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
 
             {/* Right Header Area */}
-            <div className="flex items-center gap-x-4 lg:gap-x-6">
-              <div className="relative hidden w-full max-w-[320px] lg:block">
+            <div className="flex items-center gap-x-3 lg:gap-x-4">
+              <div className="relative hidden w-full max-w-[280px] lg:block">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
@@ -167,14 +206,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 />
               </div>
 
-              <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity pl-4 lg:border-l lg:border-slate-200">
-                <span className="hidden sm:flex sm:items-center">
-                  <span className="text-[13px] font-bold text-slate-700" aria-hidden="true">
-                    Hi, Student
-                  </span>
-                </span>
-                <div className="h-[34px] w-[34px] rounded-full bg-[#fbbc04] flex items-center justify-center text-slate-900 font-bold text-sm shadow-sm border border-black/5 overflow-hidden">
-                   <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=fbbc04" alt="avatar" className="w-full h-full object-cover" />
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={() => setDark((d) => !d)}
+                aria-label="Toggle dark mode"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 shadow-sm transition-all hover:bg-slate-100 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+
+              {/* Student Avatar + Name */}
+              <Link to="/profile" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity pl-3 lg:border-l lg:border-slate-200">
+                {/* Cartoon student avatar using DiceBear adventurer style */}
+                <div className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden border-2 border-white shadow-md bg-gradient-to-br from-amber-300 to-orange-400">
+                  <img
+                    src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(firstName)}&backgroundColor=ffd700,ffb300,ff8c00&backgroundType=gradientLinear&radius=50`}
+                    alt={firstName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="hidden sm:flex flex-col leading-tight">
+                  <span className="text-[11px] text-slate-400 font-medium">Hi,</span>
+                  <span className="text-[13px] font-bold text-slate-800 truncate max-w-[80px]">{firstName}</span>
                 </div>
               </Link>
             </div>
