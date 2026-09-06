@@ -26,13 +26,15 @@ const dashboardQuery = queryOptions({
   queryFn: async () => {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
-    if (!userId) return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig };
+    if (!userId) return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig, streak: { current_streak: 0, longest_streak: 0 } };
 
-    const [profile, enrollments, roles, configRow] = await Promise.all([
+    const [profile, enrollments, roles, configRow, streakResult] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase.from("enrollments").select("*, batch:batches(*)").eq("user_id", userId),
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("notifications").select("body").eq("category", "dashboard_config").eq("title", "dashboard_settings").maybeSingle(),
+      // Record today's activity and get streak count
+      supabase.rpc("record_daily_activity").then((res) => res.data ?? { current_streak: 0, longest_streak: 0 }),
     ]);
 
     let config = defaultDashboardConfig;
@@ -49,6 +51,7 @@ const dashboardQuery = queryOptions({
       enrollments: enrollments.data ?? [],
       roles: (roles.data ?? []).map((r) => r.role),
       config,
+      streak: streakResult as { current_streak: number; longest_streak: number; is_new_day?: boolean; streak_broken?: boolean },
     };
   },
 });
@@ -62,6 +65,7 @@ function Dashboard() {
   const { data } = useSuspenseQuery(dashboardQuery);
   const isAdmin = (data.roles as string[]).includes("admin");
   const cfg = data.config ?? defaultDashboardConfig;
+  const streak = data.streak ?? { current_streak: 0, longest_streak: 0 };
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -81,13 +85,26 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Top Header Area for XP/Coins */}
+      {/* Top Header Area for Streak/XP */}
       <div className="flex justify-between items-center mb-8">
          <h1 className="text-xl font-bold text-slate-800">{cfg.greeting || "Study"}</h1>
          <div className="flex items-center gap-3">
-           <div className="flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1 text-sm font-semibold text-slate-600">
-             <span className="text-yellow-500">🔥</span> 0
+           {/* Daily Streak */}
+           <div
+             title={`Best streak: ${streak.longest_streak} days`}
+             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-all ${
+               streak.current_streak > 0
+                 ? "bg-orange-50 border border-orange-200 text-orange-700"
+                 : "bg-slate-100 text-slate-500"
+             }`}
+           >
+             <span className={streak.current_streak > 0 ? "animate-pulse" : ""}>🔥</span>
+             {streak.current_streak}
+             {streak.current_streak > 0 && (
+               <span className="text-[10px] font-bold text-orange-400 hidden sm:inline">day{streak.current_streak !== 1 ? "s" : ""}</span>
+             )}
            </div>
+           {/* XP placeholder */}
            <div className="flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1 text-sm font-semibold text-slate-600">
              <span className="text-blue-500">⚡</span> 0
            </div>
