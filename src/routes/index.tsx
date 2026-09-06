@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { InquiryForm } from "@/components/inquiry-form";
 import { HeroSlider } from "@/components/hero-slider";
+import { Hero3DModel } from "@/components/hero-3d-model";
 import { Button } from "@/components/ui/button";
 import { SITE, whatsappHref, telHref } from "@/lib/site";
 
@@ -86,15 +87,7 @@ function Index() {
               </div>
             </div>
             <div className="flex-1 relative flex justify-center lg:justify-end">
-               <div className="relative">
-                  <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-slate-100 absolute -top-8 -left-12 z-10 hidden sm:block">
-                     <div className="text-xs font-bold text-slate-700">Maths Se, WhatsApp Par!</div>
-                     <div className="text-[10px] text-slate-500 mt-1">WhatsApp ENABLED NOW with <br/>live and on-the-go guidance</div>
-                  </div>
-                  <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full bg-slate-50 border-4 border-dashed border-[#5B21B6]/20 relative flex items-center justify-center overflow-hidden">
-                     <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop" alt="Teacher" className="object-cover w-full h-full opacity-90" />
-                  </div>
-               </div>
+               <Hero3DModel />
             </div>
           </div>
 
