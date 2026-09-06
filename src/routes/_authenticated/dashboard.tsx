@@ -12,6 +12,7 @@ import {
   LogOut,
   Shield,
   MessageCircle,
+  Bookmark,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -93,16 +94,16 @@ function Dashboard() {
          </div>
       </div>
 
-      <div className="mb-10">
-        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">My Batches</h2>
+      <div className="mb-10" id="my-batches">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Enrolled Batches</h2>
         {data.enrollments.length === 0 ? (
           <div className="grid gap-4 sm:grid-cols-3">
-            <Link to="/batches" className="bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-colors rounded-xl p-5 border border-[#C7D2FE]/50 shadow-sm flex flex-col">
-              <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
-                 <BookOpen className="h-5 w-5 text-slate-700" />
+            <Link to="/batches" className="bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-all rounded-2xl p-5 border border-[#C7D2FE]/60 shadow-xs flex flex-col">
+              <div className="bg-white w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-xs border border-slate-100">
+                 <BookOpen className="h-5 w-5 text-indigo-600" />
               </div>
-              <h3 className="font-semibold text-slate-800 mb-1">Explore Batches</h3>
-              <p className="text-xs text-slate-500 leading-snug">You haven't enrolled yet. Browse our premium batches!</p>
+              <h3 className="font-bold text-slate-900 mb-1">Explore Batches</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">You haven't enrolled yet. Browse our batches to start learning!</p>
             </Link>
           </div>
         ) : (
@@ -111,22 +112,22 @@ function Dashboard() {
               const b = Array.isArray(e.batch) ? e.batch[0] : e.batch;
               if (!b) return null;
               return (
-                <Link key={e.id} to="/my-batch/$slug" params={{ slug: b.slug }} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white hover:shadow-md transition-shadow flex flex-col">
+                <Link key={e.id} to="/my-batch/$slug" params={{ slug: b.slug }} className="group overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:shadow-md transition-all flex flex-col">
                   {b.thumbnail_url ? (
-                    <div className="aspect-[16/9] w-full overflow-hidden">
+                    <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
                       <img src={b.thumbnail_url} alt={b.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                     </div>
                   ) : (
-                    <div className="aspect-[16/9] w-full bg-slate-100 flex items-center justify-center">
-                      <BookOpen className="h-8 w-8 text-slate-300" />
+                    <div className="aspect-[16/9] w-full bg-gradient-to-br from-indigo-50/50 to-slate-100 flex items-center justify-center border-b border-slate-100">
+                      <BookOpen className="h-9 w-9 text-indigo-300" />
                     </div>
                   )}
                   <div className="p-4 flex-1 flex flex-col">
-                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">{b.exam_category}</div>
-                    <h3 className="font-semibold text-slate-800 text-sm line-clamp-2">{b.title}</h3>
-                    <div className="mt-auto pt-3 flex items-center justify-between">
-                      <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium">Enrolled</span>
-                      <span className="text-xs font-semibold text-blue-600">Resume →</span>
+                    <div className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider mb-1">{b.exam_category}</div>
+                    <h3 className="font-bold text-slate-900 text-sm line-clamp-2">{b.title}</h3>
+                    <div className="mt-auto pt-3 flex items-center justify-between border-t border-slate-100/80">
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-2.5 py-0.5 rounded-full font-bold">Enrolled</span>
+                      <span className="text-xs font-bold text-indigo-600 group-hover:text-indigo-700">Resume →</span>
                     </div>
                   </div>
                 </Link>
@@ -136,44 +137,104 @@ function Dashboard() {
         )}
       </div>
 
+      {/* SECTION: My Learning (PW UI 3 Rounded Pastel Cards matching Image 4) */}
       <div className="mb-10">
-        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Quick Links</h2>
+        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">My Learning</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Link to="/dashboard" className="bg-[#FFF7ED] hover:bg-[#FFEDD5] transition-colors rounded-xl p-5 border border-[#FED7AA]/50 shadow-sm flex flex-col">
-            <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
-               <Clock className="h-5 w-5 text-slate-700" />
+          {/* Card 1: My Batches (Light Lavender) */}
+          <Link
+            to="/batches"
+            className="bg-[#F5F3FF] hover:bg-[#EDE9FE] transition-all rounded-2xl p-5 border border-[#DDD6FE]/70 shadow-xs flex flex-col justify-between group"
+          >
+            <div>
+              <div className="bg-white w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 shadow-xs border border-indigo-100">
+                <BookOpen className="h-6 w-6 text-indigo-600" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">
+                {(cfg as any).my_batches_title || "My Batches"}
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {(cfg as any).my_batches_desc || "View list of the batches in which you are enrolled"}
+              </p>
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">{cfg.recent_learning_title || "Recent Learning"}</h3>
-            <p className="text-xs text-slate-500 leading-snug">{cfg.recent_learning_desc || "View your past learning history"}</p>
           </Link>
 
-          <Link to="/my-doubts" className="bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors rounded-xl p-5 border border-[#BBF7D0]/50 shadow-sm flex flex-col">
-            <div className="bg-white w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-sm border border-slate-100">
-               <MessageCircle className="h-5 w-5 text-slate-700" />
+          {/* Card 2: Recent Learning (Warm Peach) */}
+          <Link
+            to="/dashboard"
+            className="bg-[#FFF7ED] hover:bg-[#FFEDD5] transition-all rounded-2xl p-5 border border-[#FED7AA]/70 shadow-xs flex flex-col justify-between group"
+          >
+            <div>
+              <div className="bg-white w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 shadow-xs border border-orange-100">
+                <Clock className="h-6 w-6 text-orange-500" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">
+                {cfg.recent_learning_title || "Recent Learning"}
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {cfg.recent_learning_desc || "View your past learning history"}
+              </p>
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">{cfg.my_doubts_title || "My Doubts"}</h3>
-            <p className="text-xs text-slate-500 leading-snug">{cfg.my_doubts_desc || "View the list of your asked doubts in the lectures"}</p>
+          </Link>
+
+          {/* Card 3: My Doubts (Soft Mint Green) */}
+          <Link
+            to="/my-doubts"
+            className="bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-all rounded-2xl p-5 border border-[#BBF7D0]/70 shadow-xs flex flex-col justify-between group"
+          >
+            <div>
+              <div className="bg-white w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 shadow-xs border border-emerald-100">
+                <MessageCircle className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">
+                {cfg.my_doubts_title || "My Doubts"}
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {cfg.my_doubts_desc || "View the list of your asked doubts in the lectures"}
+              </p>
+            </div>
           </Link>
         </div>
       </div>
 
+      {/* SECTION: Explore (PW UI Rounded Cards matching Image 4) */}
       <div className="mb-10">
         <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Explore</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Link to="/free-study-material" className="bg-white hover:bg-slate-50 transition-colors rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
-            <div className="bg-[#F8FAFC] w-10 h-10 rounded-lg flex items-center justify-center mb-3 border border-slate-100">
-               <FileText className="h-5 w-5 text-blue-500" />
+          {/* Card 1: PDF Bank */}
+          <Link
+            to="/free-study-material"
+            className="bg-white hover:bg-slate-50/90 transition-all rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between group"
+          >
+            <div>
+              <div className="bg-blue-50/90 w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 border border-blue-100">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">
+                {cfg.pdf_bank_title || "PDF Bank"}
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {cfg.pdf_bank_desc || "Download your Study PDFs from one place"}
+              </p>
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">{cfg.pdf_bank_title || "PDF Bank"}</h3>
-            <p className="text-xs text-slate-500 leading-snug">{cfg.pdf_bank_desc || "Download your Study PDFs from one place"}</p>
           </Link>
 
-          <Link to="/dashboard" className="bg-white hover:bg-slate-50 transition-colors rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
-            <div className="bg-[#F8FAFC] w-10 h-10 rounded-lg flex items-center justify-center mb-3 border border-slate-100">
-               <BookOpen className="h-5 w-5 text-purple-500" />
+          {/* Card 2: Bookmarks */}
+          <Link
+            to="/dashboard"
+            className="bg-white hover:bg-slate-50/90 transition-all rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between group"
+          >
+            <div>
+              <div className="bg-purple-50/90 w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 border border-purple-100">
+                <Bookmark className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base mb-1">
+                {cfg.bookmarks_title || "Bookmarks"}
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {cfg.bookmarks_desc || "View the list of your saved questions."}
+              </p>
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">{cfg.bookmarks_title || "Bookmarks"}</h3>
-            <p className="text-xs text-slate-500 leading-snug">{cfg.bookmarks_desc || "View the list of your saved questions."}</p>
           </Link>
         </div>
       </div>

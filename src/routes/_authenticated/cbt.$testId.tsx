@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Clock, Loader2, Send, ChevronLeft, ChevronRight, 
-  Maximize2, Minimize2, Flag, Eye 
+  Maximize2, Minimize2, Flag, Eye, Trophy 
 } from "lucide-react";
 import { toast } from "sonner";
 import { startCbtAttempt, submitCbtAttempt } from "@/lib/cbt.functions";
@@ -120,6 +120,7 @@ function useAutoSubmitOnLeave(onLeave: () => void, enabled: boolean) {
 /* ============ OUTER: loads the attempt, then mounts the runner ============ */
 function TestTakingPage() {
   const { testId } = Route.useParams();
+  const navigate = useNavigate();
   const start = useServerFn(startCbtAttempt);
 
   const { data, isLoading, error } = useQuery({
@@ -129,8 +130,23 @@ function TestTakingPage() {
     retry: false,
   });
 
+  useEffect(() => {
+    if (data && (data as any).already_submitted && (data as any).attempt_id) {
+      navigate({
+        to: "/cbt/$testId/result",
+        params: { testId },
+        search: { attempt: (data as any).attempt_id } as any,
+      });
+    }
+  }, [data, testId, navigate]);
+
   if (isLoading) return <FullscreenLoader text="Loading your test..." />;
-  if (error || !data) return <ErrorScreen error={error} />;
+
+  if (data && (data as any).already_submitted) {
+    return <FullscreenLoader text="Test already submitted. Redirecting to your marks & scorecard..." />;
+  }
+
+  if (error || !data) return <ErrorScreen error={error} testId={testId} />;
 
   // key={data.attempt_id} guarantees a fresh mount (fresh timer, fresh
   // state) per attempt, and guarantees duration_minutes is real by the
@@ -475,15 +491,64 @@ function FullscreenLoader({ text }: { text: string }) {
   );
 }
 
-function ErrorScreen({ error }: { error: any }) {
+function ErrorScreen({ error, testId }: { error: any; testId: string }) {
+  const navigate = useNavigate();
+  const msg = (error as Error)?.message ?? "Something went wrong.";
+  const isAlreadySubmitted = msg.toLowerCase().includes("already submitted");
+
+  useEffect(() => {
+    if (isAlreadySubmitted) {
+      const timer = setTimeout(() => {
+        navigate({
+          to: "/cbt/$testId/result",
+          params: { testId },
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAlreadySubmitted, navigate, testId]);
+
+  if (isAlreadySubmitted) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full glass-strong rounded-3xl p-8 text-center border border-emerald-500/30 shadow-2xl">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+            <Trophy className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Test Completed!</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            You have already submitted this test. Your marks, scorecard, and rank are ready.
+          </p>
+          <div className="mt-6 flex flex-col gap-2.5">
+            <Button asChild size="lg" className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md">
+              <Link to="/cbt/$testId/result" params={{ testId }}>
+                View Your Score & Marks →
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link to="/cbt/$testId/leaderboard" params={{ testId }}>
+                View Leaderboard
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="rounded-xl text-slate-500">
+              <Link to="/dashboard">Back to Dashboard</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center">
-      <div className="max-w-md text-center p-6">
+    <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-4">
+      <div className="max-w-md w-full text-center p-6 glass-strong rounded-3xl border border-rose-200 shadow-xl">
         <h1 className="text-xl font-bold text-destructive">Can't start this test</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{(error as Error)?.message ?? "Something went wrong."}</p>
-        <Link to="/dashboard" className="mt-4 inline-block text-primary font-medium">
-          ← Back to Dashboard
-        </Link>
+        <p className="mt-2 text-sm text-muted-foreground">{msg}</p>
+        <div className="mt-5 flex justify-center">
+          <Button asChild variant="default" className="rounded-xl">
+            <Link to="/dashboard">← Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     </div>
   );
