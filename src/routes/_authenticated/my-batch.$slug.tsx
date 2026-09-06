@@ -166,7 +166,15 @@ function BatchPortal() {
   const combinedLectures = [
     ...data.lectures.map((l) => ({ ...l, _source: "lecture" as const })),
     ...endedLiveAsLectures,
-  ].sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+  ].sort((a, b) => {
+    // Numbered lectures play in sequence (1, 2, 3…) like a proper course;
+    // anything without a lecture number (e.g. replayed live classes) falls
+    // in afterwards, oldest first, so newly-ended classes land at the end.
+    if (a.lecture_number != null && b.lecture_number != null) return a.lecture_number - b.lecture_number;
+    if (a.lecture_number != null) return -1;
+    if (b.lecture_number != null) return 1;
+    return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+  });
 
   const tabs: { key: Tab; label: string; icon: typeof Video; count?: number }[] = [
     { key: "classes", label: "Classes", icon: Video, count: combinedLectures.length },
@@ -341,7 +349,7 @@ function BatchPortal() {
                       </div>
                     )}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/25 transition group-hover:bg-black/35">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-primary shadow-elegant transition group-hover:scale-105">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant transition group-hover:scale-105">
                         <PlayCircle className="h-8 w-8" />
                       </div>
                     </div>
@@ -450,7 +458,7 @@ function BatchPortal() {
                       </div>
                     )}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/25 transition group-hover:bg-black/35">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-primary shadow-elegant">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
                         <PlayCircle className="h-6 w-6" />
                       </div>
                     </div>
@@ -562,6 +570,16 @@ function BatchPortal() {
         lectures={theaterLectures}
         activeLectureId={theaterLive ? undefined : activeLecture ?? undefined}
         onSelectLecture={(id) => { setTheaterLive(null); setActiveLecture(id); }}
+        notes={notes.map((m) => ({
+          id: m.id, title: m.title,
+          subtitle: [m.subject, m.chapter].filter(Boolean).join(" • "),
+          file_url: m.file_url,
+        }))}
+        dpp={dpp.map((m) => ({
+          id: m.id, title: m.title,
+          subtitle: [m.subject, m.chapter].filter(Boolean).join(" • "),
+          file_url: m.file_url,
+        }))}
       />
     )}
     </>

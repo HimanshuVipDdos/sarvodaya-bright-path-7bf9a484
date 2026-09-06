@@ -1,7 +1,8 @@
-import { useEffect } from "react";
-import { X, PlayCircle, Radio } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, PlayCircle, Radio, Video, FileText, ClipboardList } from "lucide-react";
 import { VideoPlayer } from "@/components/video-player";
 import { LiveClassPlayer } from "@/components/live-class-player";
+import { DocumentViewer } from "@/components/document-viewer";
 import { cn } from "@/lib/utils";
 
 export type TheaterLecture = {
@@ -10,6 +11,15 @@ export type TheaterLecture = {
   subtitle: string;
   isLive: boolean;
 };
+
+export type TheaterMaterial = {
+  id: string;
+  title: string;
+  subtitle: string;
+  file_url: string | null;
+};
+
+type SidebarTab = "lectures" | "notes" | "dpp";
 
 type Props = {
   open: boolean;
@@ -24,6 +34,10 @@ type Props = {
   lectures: TheaterLecture[];
   activeLectureId?: string;
   onSelectLecture: (id: string) => void;
+  /** Batch's notes / DPP materials, shown as sidebar tabs so a student never
+   *  has to leave the player screen to find them — PW-style. */
+  notes?: TheaterMaterial[];
+  dpp?: TheaterMaterial[];
 };
 
 export function TheaterModal({
@@ -38,7 +52,10 @@ export function TheaterModal({
   lectures,
   activeLectureId,
   onSelectLecture,
+  notes = [],
+  dpp = [],
 }: Props) {
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("lectures");
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -52,6 +69,11 @@ export function TheaterModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [open, onClose]);
+
+  // Land back on the Lectures tab each time the theater is (re)opened.
+  useEffect(() => {
+    if (open) setSidebarTab("lectures");
+  }, [open]);
 
   if (!open) return null;
 
@@ -97,39 +119,108 @@ export function TheaterModal({
             )}
           </div>
 
-          {/* Playlist sidebar */}
-          <div className="glass-strong rounded-3xl p-3 lg:max-h-[calc(100vh-140px)]">
-            <div className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Lectures ({lectures.length})
+          {/* Playlist / notes / DPP sidebar */}
+          <div className="glass-strong flex flex-col rounded-3xl p-3 lg:max-h-[calc(100vh-140px)]">
+            <div className="flex shrink-0 gap-1 rounded-2xl bg-muted/50 p-1">
+              <SidebarTabButton
+                active={sidebarTab === "lectures"} onClick={() => setSidebarTab("lectures")}
+                icon={Video} label="Lectures" count={lectures.length}
+              />
+              <SidebarTabButton
+                active={sidebarTab === "notes"} onClick={() => setSidebarTab("notes")}
+                icon={FileText} label="Notes" count={notes.length}
+              />
+              <SidebarTabButton
+                active={sidebarTab === "dpp"} onClick={() => setSidebarTab("dpp")}
+                icon={ClipboardList} label="DPP" count={dpp.length}
+              />
             </div>
-            <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-200px)]">
-              {lectures.length === 0 && (
-                <div className="p-4 text-sm text-muted-foreground">No lectures yet.</div>
-              )}
-              {lectures.map((l) => (
-                <button
-                  key={l.id}
-                  onClick={() => onSelectLecture(l.id)}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-2xl p-3 text-left transition",
-                    activeLectureId === l.id ? "bg-primary/10" : "hover:bg-muted/60",
-                  )}
-                >
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
-                    {l.isLive ? <Radio className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{l.title}</div>
-                    {l.subtitle && (
-                      <div className="truncate text-[11px] text-muted-foreground">{l.subtitle}</div>
+
+            {sidebarTab === "lectures" && (
+              <div className="mt-2 max-h-[420px] space-y-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-220px)]">
+                {lectures.length === 0 && (
+                  <div className="p-4 text-sm text-muted-foreground">No lectures yet.</div>
+                )}
+                {lectures.map((l, i) => (
+                  <button
+                    key={l.id}
+                    onClick={() => onSelectLecture(l.id)}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-2xl p-3 text-left transition",
+                      activeLectureId === l.id ? "bg-primary/10" : "hover:bg-muted/60",
                     )}
-                  </div>
-                </button>
-              ))}
-            </div>
+                  >
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
+                      {l.isLive ? <Radio className="h-4 w-4" /> : <span className="text-xs font-bold">{i + 1}</span>}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{l.title}</div>
+                      {l.subtitle && (
+                        <div className="truncate text-[11px] text-muted-foreground">{l.subtitle}</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {sidebarTab === "notes" && (
+              <SidebarMaterialList items={notes} empty="No notes uploaded for this batch yet." icon={FileText} />
+            )}
+            {sidebarTab === "dpp" && (
+              <SidebarMaterialList items={dpp} empty="No DPP uploaded for this batch yet." icon={ClipboardList} />
+            )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SidebarTabButton({
+  active, onClick, icon: Icon, label, count,
+}: { active: boolean; onClick: () => void; icon: typeof Video; label: string; count: number }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-medium transition",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" /> {label}
+      {count > 0 && (
+        <span className={cn(
+          "rounded-full px-1.5 text-[10px]",
+          active ? "bg-primary-foreground/20" : "bg-muted-foreground/10",
+        )}>{count}</span>
+      )}
+    </button>
+  );
+}
+
+function SidebarMaterialList({
+  items, empty, icon: Icon,
+}: { items: TheaterMaterial[]; empty: string; icon: typeof FileText }) {
+  return (
+    <div className="mt-2 max-h-[420px] space-y-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-220px)]">
+      {items.length === 0 && <div className="p-4 text-sm text-muted-foreground">{empty}</div>}
+      {items.map((m) => (
+        <div key={m.id} className="flex items-start gap-3 rounded-2xl p-3 hover:bg-muted/60">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground">
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium">{m.title}</div>
+            {m.subtitle && <div className="truncate text-[11px] text-muted-foreground">{m.subtitle}</div>}
+            {m.file_url && (
+              <div className="mt-1.5">
+                <DocumentViewer url={m.file_url} title={m.title} />
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
