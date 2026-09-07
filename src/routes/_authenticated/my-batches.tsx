@@ -1,19 +1,29 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getStorageUrl } from "@/lib/utils";
 
 const myBatchesQuery = queryOptions({
   queryKey: ["my-batches"],
   queryFn: async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) return { enrollments: [] };
-    const { data } = await supabase
-      .from("enrollments")
-      .select("*, batch:batches(*)")
-      .eq("user_id", userId);
-    return { enrollments: data ?? [] };
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return { enrollments: [] };
+      const { data, error } = await supabase
+        .from("enrollments")
+        .select("*, batch:batches(*)")
+        .eq("user_id", userId);
+      if (error) {
+        console.error("myBatches error:", error);
+        return { enrollments: [] };
+      }
+      return { enrollments: data ?? [] };
+    } catch (e) {
+      console.error("myBatches catch:", e);
+      return { enrollments: [] };
+    }
   },
 });
 
@@ -78,7 +88,7 @@ function MyBatches() {
                 {b.thumbnail_url ? (
                   <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
                     <img
-                      src={b.thumbnail_url}
+                      src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url}
                       alt={b.title}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />

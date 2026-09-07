@@ -62,6 +62,11 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong. Try again or head back home.
         </p>
+        {error?.message && (
+          <p className="mt-3 text-xs text-rose-600 font-mono bg-rose-50 border border-rose-200 p-2.5 rounded-xl break-words text-left">
+            {error.message}
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => { router.invalidate(); reset(); }}

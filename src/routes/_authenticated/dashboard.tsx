@@ -12,6 +12,7 @@ import {
   Shield,
   MessageCircle,
   Bookmark,
+  BookOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -23,35 +24,43 @@ import { defaultDashboardConfig, type DashboardConfig } from "./admin.dashboard-
 const dashboardQuery = queryOptions({
   queryKey: ["dashboard"],
   queryFn: async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig, streak: { current_streak: 0, longest_streak: 0 } };
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig, streak: { current_streak: 0, longest_streak: 0 } };
 
-    const [profile, enrollments, roles, configRow, streakResult] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("enrollments").select("*, batch:batches(*)").eq("user_id", userId),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("notifications").select("body").eq("category", "dashboard_config").eq("title", "dashboard_settings").maybeSingle(),
-      // Record today's activity and get streak count
-      supabase.rpc("record_daily_activity").then((res) => res.data ?? { current_streak: 0, longest_streak: 0 }),
-    ]);
+      const [profile, enrollments, roles, configRow, streakResult] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle().catch(() => ({ data: null })),
+        supabase.from("enrollments").select("*, batch:batches(*)").eq("user_id", userId).catch(() => ({ data: [] })),
+        supabase.from("user_roles").select("role").eq("user_id", userId).catch(() => ({ data: [] })),
+        supabase.from("notifications").select("body").eq("category", "dashboard_config").eq("title", "dashboard_settings").maybeSingle().catch(() => ({ data: null })),
+        // Record today's activity and get streak count
+        supabase
+          .rpc("record_daily_activity")
+          .then((res) => res.data ?? { current_streak: 0, longest_streak: 0 })
+          .catch(() => ({ current_streak: 0, longest_streak: 0 })),
+      ]);
 
-    let config = defaultDashboardConfig;
-    if (configRow.data?.body) {
-      try {
-        config = { ...defaultDashboardConfig, ...JSON.parse(configRow.data.body) };
-      } catch {
-        // fallback
+      let config = defaultDashboardConfig;
+      if (configRow?.data?.body) {
+        try {
+          config = { ...defaultDashboardConfig, ...JSON.parse(configRow.data.body) };
+        } catch {
+          // fallback
+        }
       }
-    }
 
-    return {
-      profile: profile.data,
-      enrollments: enrollments.data ?? [],
-      roles: (roles.data ?? []).map((r) => r.role),
-      config,
-      streak: streakResult as { current_streak: number; longest_streak: number; is_new_day?: boolean; streak_broken?: boolean },
-    };
+      return {
+        profile: profile?.data ?? null,
+        enrollments: enrollments?.data ?? [],
+        roles: (roles?.data ?? []).map((r: any) => r.role),
+        config,
+        streak: (streakResult ?? { current_streak: 0, longest_streak: 0 }) as { current_streak: number; longest_streak: number; is_new_day?: boolean; streak_broken?: boolean },
+      };
+    } catch (e) {
+      console.error("Dashboard query error:", e);
+      return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig, streak: { current_streak: 0, longest_streak: 0 } };
+    }
   },
 });
 
@@ -62,7 +71,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function Dashboard() {
   const { data } = useSuspenseQuery(dashboardQuery);
-  const isAdmin = (data.roles as string[]).includes("admin");
+  const isAdmin = ((data?.roles as string[]) ?? []).includes("admin");
   const cfg = data.config ?? defaultDashboardConfig;
   const streak = data.streak ?? { current_streak: 0, longest_streak: 0 };
 
