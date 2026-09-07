@@ -54,6 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   parseFromDelimited,
   parseFromLabeledFormat,
+  parseFromJSON,
   validateQuestions,
   toSupabaseFormat,
   type ParsedQuestion,
@@ -87,6 +88,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   const [jsonText, setJsonText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -143,22 +145,53 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
     return result;
   }
 
-  // --- JSON Parser ---
+  // --- JSON Parser (Unlimited Questions, cleans markdown fences, repairs trailing commas) ---
   function parseJSONQuestions(raw: string): ParsedQuestion[] {
-    let parsed: any;
-    try { parsed = JSON.parse(raw.trim()); } catch { throw new Error("Invalid JSON — check your syntax"); }
-    const arr: any[] = Array.isArray(parsed) ? parsed : parsed.questions ?? [];
-    return arr.map((q: any, i: number) => ({
-      question_text: q.question_text ?? q.question ?? q.q ?? "",
-      option_a: q.option_a ?? q.a ?? q.options?.[0] ?? "",
-      option_b: q.option_b ?? q.b ?? q.options?.[1] ?? "",
-      option_c: q.option_c ?? q.c ?? q.options?.[2] ?? "",
-      option_d: q.option_d ?? q.d ?? q.options?.[3] ?? "",
-      correct_option: (q.correct_option ?? q.correct ?? q.answer ?? "a").toLowerCase().replace(/^option_?/, "") as "a" | "b" | "c" | "d",
-      topic: q.topic ?? q.subject ?? defaultTopic ?? null,
-      marks: Number(q.marks ?? q.mark ?? defaultMarks ?? 1),
-      sort_order: i,
-    }));
+    return parseFromJSON(raw, {
+      defaultTopic: defaultTopic || null,
+      defaultMarks,
+    });
+  }
+
+  // --- Download JSON Template ---
+  function downloadJSONTemplate() {
+    const example = [
+      {
+        question_text: "What is the capital of India?",
+        option_a: "Mumbai",
+        option_b: "New Delhi",
+        option_c: "Kolkata",
+        option_d: "Chennai",
+        correct_option: "b",
+        topic: "General Knowledge",
+        marks: 1,
+      },
+      {
+        question_text: "What is 2 + 2?",
+        option_a: "3",
+        option_b: "4",
+        option_c: "5",
+        option_d: "6",
+        correct_option: "b",
+        topic: "Mathematics",
+        marks: 1,
+      },
+      {
+        question_text: "Who wrote Ramcharitmanas?",
+        option_a: "Tulsidas",
+        option_b: "Surdas",
+        option_c: "Kabirdas",
+        option_d: "Mirabai",
+        correct_option: "a",
+        topic: "Hindi Literature",
+        marks: 1,
+      },
+    ];
+    const blob = new Blob([JSON.stringify(example, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "questions_template.json";
+    a.click();
   }
 
   // --- Download CSV Template ---
@@ -363,6 +396,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
       // Insert in batches of 50 (Supabase limit)
       const batchSize = 50;
       for (let i = 0; i < toInsert.length; i += batchSize) {
+        setProcessingStep(`Saving ${Math.min(i + batchSize, toInsert.length)} of ${toInsert.length} questions...`);
         const batch = toInsert.slice(i, i + batchSize);
         const { error } = await supabase.from("cbt_questions").insert(batch);
         if (error) throw error;
@@ -567,26 +601,70 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
               </div>
             )}
 
-            {/* ─── JSON Paste Mode ─── */}
+            {/* ─── JSON Paste Mode (Unlimited Questions) ─── */}
             {inputMode === "json" && (
               <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-semibold">JSON Import</p>
-                  <p className="text-xs text-muted-foreground">
-                    Paste an array of question objects — or use ChatGPT/Gemini to generate them.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">JSON File Upload or Paste (Unlimited)</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a .json file or paste question objects. Markdown code fences (```json) and trailing commas are auto-cleaned.
+                    </p>
+                  </div>
+                  <button
+                    onClick={downloadJSONTemplate}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Template
+                  </button>
+                </div>
+
+                {/* File upload zone for JSON */}
+                <div
+                  onClick={() => jsonFileInputRef.current?.click()}
+                  className="border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <input
+                    ref={jsonFileInputRef}
+                    type="file"
+                    accept=".json,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const content = (ev.target?.result as string) ?? "";
+                        setJsonText(content);
+                        try {
+                          const qs = parseJSONQuestions(content);
+                          if (qs.length > 0) {
+                            setParsedQuestions(qs);
+                            setShowValidation(true);
+                            toast.success(`Imported ${qs.length} questions from ${file.name}!`);
+                          }
+                        } catch (err: any) {
+                          toast.error(err.message || "Failed to parse JSON file");
+                        }
+                      };
+                      reader.readAsText(file, "UTF-8");
+                    }}
+                  />
+                  <FileJson className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <p className="text-sm font-medium">Click to upload .json file (Recommended for 100+ questions)</p>
+                  <p className="text-xs text-muted-foreground">Direct file upload has no browser clipboard limits</p>
                 </div>
 
                 {/* AI prompt helper */}
                 <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 space-y-1">
-                  <p className="text-[11px] font-semibold text-primary">💡 ChatGPT / Gemini se generate karein</p>
-                  <p className="text-[10px] text-muted-foreground">Ye prompt copy karein aur AI mein paste karein:</p>
-                  <div className="bg-background rounded-lg p-2 text-[10px] font-mono text-slate-700 select-all">
-                    {`Generate 20 MCQ questions about [your topic] in this exact JSON format:\n[\n  {\n    "question_text": "...",\n    "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...",\n    "correct_option": "a",\n    "topic": "[topic]",\n    "marks": 1\n  }\n]`}
+                  <p className="text-[11px] font-semibold text-primary">💡 ChatGPT / Gemini se 100+ Questions generate karein</p>
+                  <p className="text-[10px] text-muted-foreground">Prompt copy karein aur AI ko dein:</p>
+                  <div className="bg-background rounded-lg p-2 text-[10px] font-mono text-slate-700 select-all overflow-x-auto">
+                    {`Generate [number] MCQ questions for [topic] in valid JSON array format:\n[\n  {\n    "question_text": "...",\n    "option_a": "...",\n    "option_b": "...",\n    "option_c": "...",\n    "option_d": "...",\n    "correct_option": "a",\n    "topic": "[topic]",\n    "marks": 1\n  }\n]`}
                   </div>
                   <button
                     onClick={() => {
-                      const prompt = `Generate 20 MCQ questions about [your topic] in this exact JSON format:\n[\n  {\n    "question_text": "...",\n    "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...",\n    "correct_option": "a",\n    "topic": "[topic]",\n    "marks": 1\n  }\n]`;
+                      const prompt = `Generate [number] MCQ questions for [topic] in valid JSON array format:\n[\n  {\n    "question_text": "...",\n    "option_a": "...",\n    "option_b": "...",\n    "option_c": "...",\n    "option_d": "...",\n    "correct_option": "a",\n    "topic": "[topic]",\n    "marks": 1\n  }\n]`;
                       navigator.clipboard?.writeText(prompt);
                       toast.success("Prompt copied to clipboard!");
                     }}
@@ -596,10 +674,23 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                   </button>
                 </div>
 
-                <Textarea
-                  value={jsonText}
-                  onChange={(e) => setJsonText(e.target.value)}
-                  placeholder={`[
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Or Paste JSON Questions</Label>
+                    {jsonText.trim() && (
+                      <span className="text-[11px] font-medium text-primary">
+                        {(jsonText.match(/"question(?:_text)?"/g) || []).length} questions detected
+                      </span>
+                    )}
+                  </div>
+                  <Textarea
+                    value={jsonText}
+                    onChange={(e) => setJsonText(e.target.value)}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    placeholder={`[
   {
     "question_text": "What is 2+2?",
     "option_a": "3",
@@ -611,8 +702,9 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
     "marks": 1
   }
 ]`}
-                  className="min-h-[200px] text-xs font-mono"
-                />
+                    className="min-h-[220px] text-xs font-mono"
+                  />
+                </div>
 
                 <div className="flex gap-2">
                   <Button
