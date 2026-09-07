@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useState, useRef, type RefObject } from "react";
+import { ExternalLink, AlertTriangle } from "lucide-react";
 import { cn, getStorageUrl } from "@/lib/utils";
 
 export function extractYouTubeId(url: string): string | null {
@@ -17,12 +17,56 @@ export function extractYouTubeId(url: string): string | null {
   return null;
 }
 
-export function getYouTubeEmbedUrl(url: string): string | null {
-  const videoId = extractYouTubeId(url);
-  if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
+export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "video"; embedUrl: string; rawUrl: string } | null {
+  if (!url || !url.trim()) return null;
+  let target = url.trim();
+
+  // Extract src if iframe string
+  const iframeMatch = target.match(/src=["']([^"']+)["']/i);
+  if (iframeMatch && iframeMatch[1]) {
+    target = iframeMatch[1];
   }
-  return null;
+
+  // Google Drive
+  const driveMatch = target.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/i);
+  if (driveMatch && driveMatch[1]) {
+    return {
+      type: "drive",
+      embedUrl: `https://drive.google.com/file/d/${driveMatch[1]}/preview`,
+      rawUrl: target,
+    };
+  }
+
+  // YouTube
+  const ytId = extractYouTubeId(target);
+  if (ytId) {
+    return {
+      type: "youtube",
+      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`,
+      rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
+    };
+  }
+
+  if (target.includes("youtube.com") || target.includes("youtu.be")) {
+    return {
+      type: "youtube",
+      embedUrl: target.includes("?") ? `${target}&autoplay=1` : `${target}?autoplay=1`,
+      rawUrl: target,
+    };
+  }
+
+  // Direct video file
+  const resolved = getStorageUrl(target) || target;
+  return {
+    type: "video",
+    embedUrl: resolved,
+    rawUrl: resolved,
+  };
+}
+
+export function getYouTubeEmbedUrl(url: string): string | null {
+  const info = getEmbedableSource(url);
+  return info?.type === "youtube" ? info.embedUrl : null;
 }
 
 type Props = {
@@ -42,7 +86,6 @@ export function VideoPlayer({
   poster,
   title,
   className,
-  fullscreenTargetRef,
   chatComponent,
   isLive = false,
   chatVisible: externalChatVisible,
@@ -58,8 +101,11 @@ export function VideoPlayer({
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
 
-  const youtubeEmbedUrl = getYouTubeEmbedUrl(src);
-  const resolvedVideoSrc = getStorageUrl(src) || src;
+  const embedInfo = getEmbedableSource(src);
+
+  if (!embedInfo) {
+    return <VideoUnavailable message="Invalid video URL format." className={className} />;
+  }
 
   return (
     <div
@@ -70,17 +116,29 @@ export function VideoPlayer({
       )}
     >
       <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-black overflow-hidden">
-        {youtubeEmbedUrl ? (
-          <iframe
-            src={youtubeEmbedUrl}
-            title={title || "Video Lecture"}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="w-full h-full border-0"
-          />
+        {embedInfo.type === "youtube" || embedInfo.type === "drive" ? (
+          <div className="relative w-full h-full">
+            <iframe
+              src={embedInfo.embedUrl}
+              title={title || "Video Lecture"}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+              className="w-full h-full border-0"
+            />
+            <a
+              href={embedInfo.rawUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open video in new tab if playback is restricted"
+              className="absolute top-2 right-2 z-30 flex items-center gap-1 rounded-md bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white/90 hover:bg-black hover:text-white backdrop-blur transition shadow-md opacity-75 hover:opacity-100"
+            >
+              <ExternalLink className="h-3 w-3" /> Open Link
+            </a>
+          </div>
         ) : (
           <video
-            src={resolvedVideoSrc}
+            src={embedInfo.embedUrl}
             poster={poster}
             controls
             autoPlay
