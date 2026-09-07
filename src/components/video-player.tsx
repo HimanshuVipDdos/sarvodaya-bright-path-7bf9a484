@@ -358,7 +358,6 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         videoId: id,
         width: "100%",
         height: "100%",
-        host: "https://www.youtube-nocookie.com",
         playerVars: {
           controls: 0,
           enablejsapi: 1,
@@ -549,11 +548,10 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
         onContextMenu={(e) => e.preventDefault()}
       />
       <div
-        className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 flex items-center justify-center rounded-md bg-black/70 shadow-sm backdrop-blur-sm"
-        style={{ width: "10%", height: "8%", maxWidth: 96, maxHeight: 32 }}
+        className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 flex items-center justify-center rounded px-1.5 py-0.5"
         aria-hidden
       >
-        <span className="select-none truncate px-1 text-[9px] font-semibold uppercase tracking-wider text-white/70">
+        <span className="select-none text-[8px] font-semibold uppercase tracking-wider text-white/30">
           Adhyeta
         </span>
       </div>

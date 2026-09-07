@@ -181,7 +181,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
               Learn Online
             </div>
             <nav className="space-y-0.5">
-              <NavItem to="/dashboard" icon={BookOpen} label="Study" active={pathname.startsWith("/dashboard")} onClick={() => setSidebarOpen(false)} />
+              <NavItem to="/dashboard" icon={BookOpen} label="Study" active={pathname === "/dashboard"} onClick={() => setSidebarOpen(false)} />
+              <NavItem to="/my-batches" icon={Layers} label="My Batches" active={pathname.startsWith("/my-batches") || pathname.startsWith("/my-batch")} onClick={() => setSidebarOpen(false)} />
               <NavItem to="/free-study-material" icon={Library} label="Library" active={pathname.startsWith("/free-study-material")} onClick={() => setSidebarOpen(false)} />
               <NavItem to="/current-affairs" icon={Bell} label="Current Affairs" active={pathname.startsWith("/current-affairs")} onClick={() => setSidebarOpen(false)} />
             </nav>

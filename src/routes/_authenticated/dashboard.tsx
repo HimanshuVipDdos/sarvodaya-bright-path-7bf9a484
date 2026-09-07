@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
-  BookOpen,
   Video,
   FileText,
   Bell,
@@ -111,56 +110,13 @@ function Dashboard() {
          </div>
       </div>
 
-      <div className="mb-10" id="my-batches">
-        <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Enrolled Batches</h2>
-        {data.enrollments.length === 0 ? (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Link to="/batches" className="bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-all rounded-2xl p-5 border border-[#C7D2FE]/60 shadow-xs flex flex-col">
-              <div className="bg-white w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-xs border border-slate-100">
-                 <BookOpen className="h-5 w-5 text-indigo-600" />
-              </div>
-              <h3 className="font-bold text-slate-900 mb-1">Explore Batches</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">You haven't enrolled yet. Browse our batches to start learning!</p>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.enrollments.map((e: any) => {
-              const b = Array.isArray(e.batch) ? e.batch[0] : e.batch;
-              if (!b) return null;
-              return (
-                <Link key={e.id} to="/my-batch/$slug" params={{ slug: b.slug }} className="group overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:shadow-md transition-all flex flex-col">
-                  {b.thumbnail_url ? (
-                    <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
-                      <img src={b.thumbnail_url} alt={b.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                    </div>
-                  ) : (
-                    <div className="aspect-[16/9] w-full bg-gradient-to-br from-indigo-50/50 to-slate-100 flex items-center justify-center border-b border-slate-100">
-                      <BookOpen className="h-9 w-9 text-indigo-300" />
-                    </div>
-                  )}
-                  <div className="p-4 flex-1 flex flex-col">
-                    <div className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider mb-1">{b.exam_category}</div>
-                    <h3 className="font-bold text-slate-900 text-sm line-clamp-2">{b.title}</h3>
-                    <div className="mt-auto pt-3 flex items-center justify-between border-t border-slate-100/80">
-                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-2.5 py-0.5 rounded-full font-bold">Enrolled</span>
-                      <span className="text-xs font-bold text-indigo-600 group-hover:text-indigo-700">Resume →</span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* SECTION: My Learning (PW UI 3 Rounded Pastel Cards matching Image 4) */}
       <div className="mb-10">
         <h2 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">My Learning</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/* Card 1: My Batches (Light Lavender) */}
           <Link
-            to="/batches"
+            to="/my-batches"
             className="bg-[#F5F3FF] hover:bg-[#EDE9FE] transition-all rounded-2xl p-5 border border-[#DDD6FE]/70 shadow-xs flex flex-col justify-between group"
           >
             <div>
