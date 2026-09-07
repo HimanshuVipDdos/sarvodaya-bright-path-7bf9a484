@@ -68,28 +68,6 @@ function fmt(t: number) {
   return `${m}:${s}`;
 }
 
-// Load YouTube IFrame API once
-let ytApiPromise: Promise<any> | null = null;
-function loadYouTubeApi(): Promise<any> {
-  if (typeof window === "undefined") return Promise.reject();
-  const w = window as any;
-  if (w.YT && w.YT.Player) return Promise.resolve(w.YT);
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve) => {
-    const prev = w.onYouTubeIframeAPIReady;
-    w.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      resolve(w.YT);
-    };
-    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
-      const s = document.createElement("script");
-      s.src = "https://www.youtube.com/iframe_api";
-      s.async = true;
-      document.head.appendChild(s);
-    }
-  });
-  return ytApiPromise;
-}
 
 /** Tracks whether `ref.current` is the element currently in native fullscreen.
  *  Also locks the screen to landscape on entering fullscreen (and unlocks on
@@ -329,265 +307,109 @@ function ControlBar({
   );
 }
 
-/* ---------------- YouTube Player with fully custom UI (branding hidden) ---------------- */
+/* ---------------- YouTube Player — native controls, barely-visible YT branding ---------------- */
 function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { id: string; title?: string; poster?: string; className?: string; fullscreenTargetRef?: RefObject<HTMLElement | null> }) {
-  const hostRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<any>(null);
-  const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [time, setTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [speed, setSpeed] = useState(1);
-  const [showSpeed, setShowSpeed] = useState(false);
   const [started, setStarted] = useState(false);
-  const [qualities, setQualities] = useState<string[]>([]);
-  const [quality, setQuality] = useState<string>("auto");
   const [embedError, setEmbedError] = useState(false);
 
   const fsElRef = fullscreenTargetRef ?? wrapRef;
   const isFs = useIsFullscreen(fsElRef);
-  const { visible: controlsVisible, show: revealControls } = useControlsReveal(playing);
 
-  useEffect(() => {
-    let cancelled = false;
-    loadYouTubeApi().then((YT) => {
-      if (cancelled || !hostRef.current) return;
-      playerRef.current = new YT.Player(hostRef.current, {
-        videoId: id,
-        width: "100%",
-        height: "100%",
-        playerVars: {
-          controls: 0,
-          enablejsapi: 1,
-          rel: 0,
-          modestbranding: 1,
-          playsinline: 1,
-          iv_load_policy: 3,
-          fs: 0,
-          disablekb: 1,
-          origin: typeof window !== "undefined" ? window.location.origin : undefined,
-        },
-        events: {
-          onReady: (e: any) => {
-            try {
-              e.target.unMute?.();
-              e.target.setVolume?.(100);
-              setDuration(e.target.getDuration?.() ?? 0);
-              const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
-              if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
-              // YouTube's IFrame API can fall back to a fixed pixel size
-              // (e.g. 640x360) instead of honoring width/height:"100%",
-              // which overflows narrow mobile screens. Force it to match
-              // the actual container right away.
-              const box = wrapRef.current?.getBoundingClientRect();
-              if (box) e.target.setSize?.(box.width, box.height);
-            } catch {}
-            setReady(true);
-          },
-          onStateChange: (e: any) => {
-            if (e.data === 1) {
-              setPlaying(true);
-              setStarted(true);
-              // Auto-enter fullscreen as soon as playback starts
-              try {
-                const fsEl = fsElRef.current;
-                if (fsEl && !document.fullscreenElement) {
-                  fsEl.requestFullscreen?.().catch(() => {});
-                }
-              } catch {}
-              try {
-                const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
-                if (lv.length) e.target.setPlaybackQuality?.(lv[0]);
-              } catch {}
-              let ticks = 0;
-              const reassert = setInterval(() => {
-                ticks += 1;
-                try {
-                  const lv2: string[] = e.target.getAvailableQualityLevels?.() ?? [];
-                  if (lv2.length) e.target.setPlaybackQuality?.(lv2[0]);
-                } catch {}
-                if (ticks >= 5) clearInterval(reassert);
-              }, 3000);
-            }
-            else if (e.data === 2 || e.data === 0) setPlaying(false);
-            try {
-              setDuration(e.target.getDuration?.() ?? 0);
-              const lv: string[] = e.target.getAvailableQualityLevels?.() ?? [];
-              if (lv.length) setQualities(["auto", ...lv]);
-              setQuality(e.target.getPlaybackQuality?.() ?? "auto");
-            } catch {}
-          },
-          onPlaybackQualityChange: (e: any) => {
-            try { setQuality(e.target.getPlaybackQuality?.() ?? "auto"); } catch {}
-          },
-          onError: () => setEmbedError(true),
-        },
-      });
-    });
-    return () => {
-      cancelled = true;
-      try { playerRef.current?.destroy?.(); } catch {}
-      playerRef.current = null;
-    };
-  }, [id]);
+  // Native embed URL — controls=1 gives the thin native bar (exactly like the reference image)
+  // modestbranding=1 removes the YouTube logo from the control bar (only keeps the tiny watermark)
+  const embedSrc =
+    `https://www.youtube.com/embed/${id}` +
+    `?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=1&enablejsapi=1`;
+
+  function handlePlay() {
+    setStarted(true);
+    // Auto fullscreen on first click
+    try {
+      const el = fsElRef.current;
+      if (el && !document.fullscreenElement) {
+        el.requestFullscreen?.().catch(() => {});
+      }
+    } catch {}
+  }
 
   if (embedError) {
-    return <VideoUnavailable
-      className={className}
-      message="This YouTube video cannot be played inside the website. Open it in YouTube instead."
-      openUrl={`https://www.youtube.com/watch?v=${id}`}
-    />;
-  }
-
-  // Keep the YouTube iframe's real pixel size locked to its container at
-  // all times — not just on load. This is what actually fixes the mobile
-  // overflow/letterbox bug: whenever the container resizes (entering/
-  // exiting fullscreen, rotating the phone, opening the chat drawer), we
-  // re-call setSize so the iframe can never end up wider than the screen.
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const box = entries[0]?.contentRect;
-      if (!box || !playerRef.current?.setSize) return;
-      try { playerRef.current.setSize(box.width, box.height); } catch {}
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!playing) return;
-    const t = setInterval(() => {
-      try {
-        const p = playerRef.current;
-        if (!p) return;
-        setTime(p.getCurrentTime?.() ?? 0);
-      } catch {}
-    }, 500);
-    return () => clearInterval(t);
-  }, [playing]);
-
-  useEffect(() => {
-    if (ready && playerRef.current?.setPlaybackRate) {
-      try { playerRef.current.setPlaybackRate(speed); } catch {}
-    }
-  }, [speed, ready]);
-
-  function toggle() {
-    const p = playerRef.current; if (!p) return;
-    try {
-      if (playing) p.pauseVideo?.();
-      else p.playVideo?.();
-    } catch {}
-  }
-  function seek(delta: number) {
-    const p = playerRef.current; if (!p) return;
-    try {
-      const cur = p.getCurrentTime?.() ?? 0;
-      const dur = p.getDuration?.() ?? 0;
-      p.seekTo?.(Math.min(Math.max(0, cur + delta), dur), true);
-      setTime(Math.min(Math.max(0, cur + delta), dur));
-    } catch {}
-  }
-  function scrubTo(t: number) {
-    const p = playerRef.current; if (!p) return;
-    try { p.seekTo?.(t, true); setTime(t); } catch {}
-  }
-  function toggleMute() {
-    const p = playerRef.current; if (!p) return;
-    try {
-      if (p.isMuted?.()) { p.unMute?.(); setMuted(false); }
-      else { p.mute?.(); setMuted(true); }
-    } catch {}
-  }
-  function fullscreen() {
-    const el = fsElRef.current; if (!el) return;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else el.requestFullscreen?.();
-  }
-  function pickQuality(q: string) {
-    const p = playerRef.current; if (!p) return;
-    try {
-      if (q === "auto") p.setPlaybackQuality?.("default");
-      else p.setPlaybackQuality?.(q);
-      setQuality(q);
-    } catch {}
-  }
-
-  function handleVideoTap() {
-    // First tap only reveals controls (mobile-safe); a tap while controls
-    // are already visible toggles play/pause, same as before.
-    if (!controlsVisible) { revealControls(); return; }
-    revealControls();
-    toggle();
+    return (
+      <VideoUnavailable
+        className={className}
+        message="This YouTube video cannot be played here. Open it in YouTube instead."
+        openUrl={`https://www.youtube.com/watch?v=${id}`}
+      />
+    );
   }
 
   return (
     <div
       ref={wrapRef}
       className={cn(
-        "group relative overflow-hidden bg-black shadow-elegant",
+        "group relative overflow-hidden bg-black",
         isFs
           ? "!aspect-auto h-full w-full !rounded-none"
-          : cn("rounded-3xl", !className?.includes("h-full") && "aspect-video"),
+          : cn("rounded-2xl", !className?.includes("h-full") && "aspect-video"),
         className,
       )}
     >
-      <div
-        ref={hostRef}
-        title={title}
-        className="pointer-events-none absolute inset-0 h-full w-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"
-      />
-      <div
-        className="absolute inset-0"
-        onClick={handleVideoTap}
-        onPointerMove={revealControls}
-        onContextMenu={(e) => e.preventDefault()}
-      />
-      <div
-        className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 flex items-center justify-center rounded px-1.5 py-0.5"
-        aria-hidden
-      >
-        <span className="select-none text-[8px] font-semibold uppercase tracking-wider text-white/30">
-          Adhyeta
-        </span>
-      </div>
-      {!started && (
+      {!started ? (
         <>
-          {poster && (
-            <img src={poster} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-contain bg-black" />
+          {/* Poster / thumbnail */}
+          {poster ? (
+            <img
+              src={poster}
+              alt={title ?? ""}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(https://i.ytimg.com/vi/${id}/maxresdefault.jpg), url(https://i.ytimg.com/vi/${id}/hqdefault.jpg)`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            />
           )}
+          {/* Gradient scrim for readability */}
+          <div className="pointer-events-none absolute inset-0 bg-black/30" />
+          {/* Title at top */}
+          {title && (
+            <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
+              <p className="line-clamp-1 text-sm font-semibold text-white drop-shadow">{title}</p>
+            </div>
+          )}
+          {/* Big red play button — exactly like YouTube */}
           <button
-            onClick={(e) => { e.stopPropagation(); toggle(); revealControls(); }}
-            aria-label="Play"
-            className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant backdrop-blur transition hover:scale-105"
+            onClick={handlePlay}
+            aria-label="Play video"
+            className="absolute"
+            style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
           >
-            <Play className="h-7 w-7 translate-x-0.5" />
+            <div className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-red-600 shadow-2xl transition-all hover:scale-110 hover:bg-red-700 active:scale-95">
+              <Play className="h-8 w-8 translate-x-0.5 text-white" />
+            </div>
           </button>
         </>
+      ) : (
+        /* Native YouTube iframe — fills container completely */
+        <iframe
+          src={embedSrc}
+          title={title ?? "Video"}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full border-0"
+          onError={() => setEmbedError(true)}
+        />
       )}
-
-      <ControlBar
-        playing={playing} muted={muted} time={time} duration={duration}
-        speed={speed} showSpeed={showSpeed} visible={controlsVisible}
-        onPlayToggle={toggle}
-        onSeek={seek}
-        onScrub={scrubTo}
-        onMuteToggle={toggleMute}
-        onSpeedToggle={() => setShowSpeed((s) => !s)}
-        onSpeedPick={(s) => { setSpeed(s); setShowSpeed(false); }}
-        onFullscreen={fullscreen}
-        onInteract={revealControls}
-        qualities={qualities}
-        currentQuality={quality}
-        onQualityPick={pickQuality}
-      />
     </div>
   );
 }
+
+
+
 
 /* ---------------- Vimeo player (custom controls via postMessage) ---------------- */
 function VimeoPlayer({ id, title, className }: { id: string; title?: string; className?: string }) {
