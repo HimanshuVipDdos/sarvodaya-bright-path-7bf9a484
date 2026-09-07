@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, Search, Loader2, Save, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, Save, X, FolderPlus, FolderOpen } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
@@ -22,6 +22,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { BatchFolderManager, getStoredPremadeFolders } from "@/components/admin/batch-folder-manager";
 
 export type Field = {
   name: string;
@@ -78,6 +79,7 @@ export function ResourceManager<T extends Record<string, unknown>>({
   const [editing, setEditing] = useState<T | null>(null);
   const [deleting, setDeleting] = useState<T | null>(null);
   const [form, setForm] = useState<FormState>({});
+  const [folderManagerOpen, setFolderManagerOpen] = useState(false);
 
   const queryKey = ["admin", table, presetFilter?.value ?? "all"] as const;
 
@@ -362,6 +364,16 @@ function FieldsForm({
       (lecturesRes.data ?? []).forEach((l: any) => addPair(l.subject, l.chapter));
       (materialsRes.data ?? []).forEach((m: any) => addPair(m.subject, m.chapter));
       (liveRes.data ?? []).forEach((lc: any) => addPair(lc.subject, lc.chapter));
+
+      // Merge premade custom batch folders
+      if (form.batch_id) {
+        const storedMap = getStoredPremadeFolders()[form.batch_id as string] ?? {};
+        Object.entries(storedMap).forEach(([sub, chs]) => {
+          subjectsSet.add(sub);
+          if (!subjectToChapters.has(sub)) subjectToChapters.set(sub, new Set());
+          chs.forEach((ch) => subjectToChapters.get(sub)!.add(ch));
+        });
+      }
 
       return {
         subjects: Array.from(subjectsSet).sort(),
