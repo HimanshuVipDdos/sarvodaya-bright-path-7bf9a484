@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -18,6 +18,8 @@ import {
   Shield,
   Moon,
   Sun,
+  ChevronDown,
+  Target,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SITE } from "@/lib/site";
@@ -78,6 +80,68 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   // First name only for display
   const firstName = (studentName as string).split(" ")[0] || "Student";
+
+  // Goal/exam selection - stored in profile
+  const GOALS = [
+    "UP Police",
+    "SSC CGL",
+    "SSC CHSL",
+    "SSC MTS",
+    "Railway NTPC",
+    "Railway Group D",
+    "UPSC CSE",
+    "UP PCS",
+    "Defence (NDA/CDS)",
+    "Banking (IBPS/SBI)",
+    "UP Lekhpal",
+    "Other",
+  ];
+
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [studentGoal, setStudentGoal] = useState<string | null>(null);
+  const goalRef = useRef<HTMLDivElement>(null);
+
+  // Load goal from profile
+  const { data: profileGoal } = useQuery({
+    queryKey: ["auth", "student-goal-layout"],
+    queryFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return null;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("exam_goal")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      return (profile as { exam_goal?: string } | null)?.exam_goal || null;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (profileGoal !== undefined) setStudentGoal(profileGoal);
+  }, [profileGoal]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (goalRef.current && !goalRef.current.contains(e.target as Node)) {
+        setGoalOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const saveGoal = useCallback(async (goal: string) => {
+    setStudentGoal(goal);
+    setGoalOpen(false);
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return;
+    await supabase
+      .from("profiles")
+      .update({ exam_goal: goal } as Record<string, string>)
+      .eq("id", userData.user.id);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
@@ -178,9 +242,46 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex flex-1 items-center justify-between gap-x-4 lg:gap-x-6">
             {/* Left Header Area */}
             <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-2 rounded-full bg-slate-100/80 border border-slate-200/50 px-4 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors">
-                <span className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span>
-                Dropper - UP Police / SSC
+              {/* Goal selector - shows "Select Goal" until student picks */}
+              <div ref={goalRef} className="relative hidden md:block">
+                <button
+                  type="button"
+                  onClick={() => setGoalOpen((o) => !o)}
+                  className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-4 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  {studentGoal ? (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                      {studentGoal}
+                    </>
+                  ) : (
+                    <>
+                      <Target className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-slate-400">Select Goal</span>
+                    </>
+                  )}
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-slate-400 transition-transform", goalOpen && "rotate-180")} />
+                </button>
+
+                {goalOpen && (
+                  <div className="absolute left-0 top-full mt-2 z-50 w-52 rounded-2xl border border-slate-200 bg-white py-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Select Your Exam Goal</p>
+                    {GOALS.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => saveGoal(g)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+                          studentGoal === g ? "text-amber-600 font-bold" : "text-slate-700 dark:text-slate-300"
+                        )}
+                      >
+                        {studentGoal === g && <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Admin Badge button if admin */}

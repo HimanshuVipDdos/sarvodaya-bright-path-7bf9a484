@@ -26,7 +26,7 @@ import {
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image";
+  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image" | "file";
   options?: { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
@@ -407,12 +407,17 @@ function FieldsForm({
                 value={(v as string) ?? ""}
                 bucket={f.bucket ?? "batch-covers"}
                 aspect={f.aspect ?? 4 / 3}
-                onChange={(url: string) => set(f.name, url)}
+                onChange={(url) => setForm({ ...form, [f.name]: url })}
               />
             )}
-
-
-            {f.helper && <p className="mt-1 text-[11px] text-muted-foreground">{f.helper}</p>}
+            {f.type === "file" && (
+              <FileUploadField
+                value={(v as string) ?? ""}
+                bucket={f.bucket ?? "materials"}
+                onChange={(url) => setForm({ ...form, [f.name]: url })}
+              />
+            )}
+            {f.helper && <p className="mt-1 text-xs text-muted-foreground">{f.helper}</p>}
           </div>
         );
       })}
@@ -639,6 +644,92 @@ function ImageUploadField({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function FileUploadField({
+  value, bucket = "materials", onChange,
+}: {
+  value: string;
+  bucket?: string;
+  onChange: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileSelect(file: File) {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("File must be under 25 MB");
+      return;
+    }
+    
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error } = await supabase.storage.from(bucket).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (error) throw error;
+
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      if (data?.publicUrl) {
+        onChange(data.publicUrl);
+        toast.success("File uploaded successfully");
+      } else {
+        throw new Error("Failed to get public URL");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {value ? (
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+          <a href={value} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">
+            {value.split('/').pop()}
+          </a>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onChange("")}
+            className="ml-2 h-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm hover:bg-muted shrink-0">
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {uploading ? "Uploading…" : value ? "Replace file" : "Upload file"}
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx,.ppt,.pptx"
+            className="sr-only"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFileSelect(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <Input
+          value={value}
+          placeholder="…or paste a file URL"
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1"
+        />
+      </div>
     </div>
   );
 }
