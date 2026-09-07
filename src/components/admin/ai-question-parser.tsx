@@ -678,14 +678,13 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                   <div className="flex items-center justify-between">
                     <Label className="text-xs">Or Paste JSON Questions</Label>
                     {jsonText.trim() && (
-                      <span className="text-[11px] font-medium text-primary">
+                      <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                         {(() => {
                           try {
                             const qs = parseJSONQuestions(jsonText);
                             return `${qs.length} questions detected`;
                           } catch {
-                            const count = (jsonText.match(/"question_text"\s*:/g) || jsonText.match(/"question"\s*:/g) || []).length;
-                            return `${count} questions detected`;
+                            return "0 questions detected (Checking JSON...)";
                           }
                         })()}
                       </span>
