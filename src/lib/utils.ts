@@ -14,16 +14,20 @@ export function formatScore(score: number | null | undefined): string {
 }
 
 // Convert a raw storage path into a full public URL if it isn't already one.
-export function getStorageUrl(path: string | null | undefined): string | null {
+export function getStorageUrl(path: string | null | undefined, defaultBucket: string = "batch-thumbnails"): string | null {
   if (!path) return null;
-  if (path.startsWith("http")) return path;
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;
   
-  // Replace with actual Supabase project URL dynamically from env
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://uivnjfxyoacrmjocxryd.supabase.co";
-  
-  // Clean up leading slashes in path
   const cleanPath = path.replace(/^\/+/, "");
   
-  return `${supabaseUrl}/storage/v1/object/public/public/${cleanPath}`;
+  const knownBuckets = ["batch-thumbnails", "study-materials", "public", "avatars", "lectures", "cbt-images"];
+  const firstSegment = cleanPath.split("/")[0];
+  
+  if (knownBuckets.includes(firstSegment)) {
+    return `${supabaseUrl}/storage/v1/object/public/${cleanPath}`;
+  }
+  
+  return `${supabaseUrl}/storage/v1/object/public/${defaultBucket}/${cleanPath}`;
 }
 

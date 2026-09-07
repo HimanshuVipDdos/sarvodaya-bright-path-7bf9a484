@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getStorageUrl } from "@/lib/utils";
 
 const batchesQuery = queryOptions({
   queryKey: ["batches", "all"],
@@ -128,7 +128,7 @@ function BatchesPage() {
                 {/* Image Section */}
                 <div className="relative w-full pt-[60%] overflow-hidden bg-slate-100">
                   {b.thumbnail_url ? (
-                    <img src={b.thumbnail_url} alt={b.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <img src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url} alt={b.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-[#E0E7FF] to-[#DBEAFE] flex items-center justify-center">
                        <span className="text-xl font-black text-[#4F46E5] opacity-20 uppercase tracking-widest px-4 text-center">{b.exam_category}</span>

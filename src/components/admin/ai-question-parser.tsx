@@ -679,7 +679,15 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
                     <Label className="text-xs">Or Paste JSON Questions</Label>
                     {jsonText.trim() && (
                       <span className="text-[11px] font-medium text-primary">
-                        {(jsonText.match(/"question(?:_text)?"/g) || []).length} questions detected
+                        {(() => {
+                          try {
+                            const qs = parseJSONQuestions(jsonText);
+                            return `${qs.length} questions detected`;
+                          } catch {
+                            const count = (jsonText.match(/"question_text"\s*:/g) || jsonText.match(/"question"\s*:/g) || []).length;
+                            return `${count} questions detected`;
+                          }
+                        })()}
                       </span>
                     )}
                   </div>
