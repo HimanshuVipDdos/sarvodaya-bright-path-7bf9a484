@@ -82,7 +82,7 @@ function useFullscreen() {
  * Fix: previously this hook was mounted (via useTimer(...)) BEFORE the
  * `isLoading` early-return, so on the very first render `durationMinutes`
  * fell back to the hardcoded default (since `data` wasn't loaded yet) and
- * useState() locked that in forever — the real admin-configured duration
+ * useState() locked that in forever â€” the real admin-configured duration
  * was silently ignored. Now the parent only mounts this once `data` is
  * guaranteed loaded, and the interval logic itself is rewritten to use a
  * single setInterval (not a chained setTimeout re-created on every render)
@@ -243,7 +243,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
     const msg = answered < total 
       ? `Only ${answered}/${total} answered. Submit anyway?` 
       : "Submit the test? You can't change answers after this.";
-    // NOTE: intentionally not using window.confirm() here — a native
+    // NOTE: intentionally not using window.confirm() here â€” a native
     // confirm() dialog blurs the window, which used to fire the
     // anti-cheat auto-submit-on-leave at the same moment and race with
     // this submit, leaving the test stuck without opening the result page.
@@ -253,7 +253,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
 
   const autoSubmit = useCallback(() => {
     if (hasSubmittedRef.current) return;
-    toast.info("Test auto-submitted — you left the test screen.");
+    toast.info("Test auto-submitted â€” you left the test screen.");
     doSubmit();
   }, [doSubmit]);
 
@@ -294,8 +294,8 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
               <span className="hidden sm:inline text-[9px] text-primary-foreground/50">Made by Extreme OG</span>
             </div>
             <div className="text-[11px] text-primary-foreground/75">
-              Candidate: <span className="font-medium text-primary-foreground">{candidateName ?? "…"}</span>
-              <span className="mx-1.5">•</span>
+              Candidate: <span className="font-medium text-primary-foreground">{candidateName ?? "â€¦"}</span>
+              <span className="mx-1.5">â€¢</span>
               Q{currentQIndex + 1} of {totalQuestions}
             </div>
           </div>
@@ -544,7 +544,7 @@ function ErrorScreen({ error, testId }: { error: any; testId: string }) {
           <div className="mt-6 flex flex-col gap-2.5">
             <Button asChild size="lg" className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md">
               <Link to="/cbt/$testId/result" params={{ testId }}>
-                View Your Score & Marks →
+                View Your Score & Marks â†’
               </Link>
             </Button>
             <Button asChild variant="outline" className="rounded-xl">
@@ -568,7 +568,7 @@ function ErrorScreen({ error, testId }: { error: any; testId: string }) {
         <p className="mt-2 text-sm text-muted-foreground">{msg}</p>
         <div className="mt-5 flex justify-center">
           <Button asChild variant="default" className="rounded-xl">
-            <Link to="/dashboard">← Back to Dashboard</Link>
+            <Link to="/dashboard">â† Back to Dashboard</Link>
           </Button>
         </div>
       </div>
@@ -622,3 +622,4 @@ function MobilePalette({ questions, currentQIndex, answers, flagged, onSelect, a
     </>
   );
 }
+

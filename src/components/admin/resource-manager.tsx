@@ -336,8 +336,41 @@ function FieldsForm({
   setForm: (f: FormState) => void;
   batchOptions: { value: string; label: string }[];
 }) {
-  useEffect(() => { /* keep stable */ }, []);
   const set = (name: string, value: unknown) => setForm({ ...form, [name]: value });
+
+  // Fetch existing subjects & chapters for the selected batch
+  const { data: folderOptions } = useQuery({
+    queryKey: ["admin-batch-folders", form.batch_id],
+    enabled: Boolean(form.batch_id),
+    queryFn: async () => {
+      const [lecturesRes, materialsRes, liveRes] = await Promise.all([
+        supabase.from("lectures").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("study_materials").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("live_classes").select("subject,chapter").eq("batch_id", form.batch_id as string),
+      ]);
+      const subjectsSet = new Set<string>();
+      const subjectToChapters = new Map<string, Set<string>>();
+
+      const addPair = (sub: string | null, ch: string | null) => {
+        if (!sub?.trim()) return;
+        const s = sub.trim();
+        subjectsSet.add(s);
+        if (!subjectToChapters.has(s)) subjectToChapters.set(s, new Set());
+        if (ch?.trim()) subjectToChapters.get(s)!.add(ch.trim());
+      };
+
+      (lecturesRes.data ?? []).forEach((l: any) => addPair(l.subject, l.chapter));
+      (materialsRes.data ?? []).forEach((m: any) => addPair(m.subject, m.chapter));
+      (liveRes.data ?? []).forEach((lc: any) => addPair(lc.subject, lc.chapter));
+
+      return {
+        subjects: Array.from(subjectsSet).sort(),
+        subjectToChapters: Object.fromEntries(
+          Array.from(subjectToChapters.entries()).map(([k, v]) => [k, Array.from(v).sort()])
+        ),
+      };
+    },
+  });
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -362,12 +395,71 @@ function FieldsForm({
               </div>
             )}
             {(f.type === "text" || f.type === "url" || f.type === "array") && (
-              <Input
-                value={(v as string) ?? ""}
-                placeholder={f.placeholder ?? (f.type === "array" ? "comma, separated, values" : "")}
-                onChange={(e) => set(f.name, e.target.value)}
-              />
+              <>
+                <Input
+                  value={(v as string) ?? ""}
+                  placeholder={f.placeholder ?? (f.type === "array" ? "comma, separated, values" : "")}
+                  onChange={(e) => set(f.name, e.target.value)}
+                />
+                {/* Subject Folder Quick Pills */}
+                {f.name === "subject" && folderOptions?.subjects && folderOptions.subjects.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-muted/40 p-2 rounded-xl border border-border/50">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                      Folders in this batch:
+                    </span>
+                    {folderOptions.subjects.map((sub: string) => (
+                      <button
+                        key={sub}
+                        type="button"
+                        onClick={() => set("subject", sub)}
+                        className={cn(
+                          "rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition",
+                          form.subject === sub
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "bg-background hover:bg-muted text-foreground border-border/60"
+                        )}
+                      >
+                        📁 {sub}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Chapter Folder Quick Pills */}
+                {f.name === "chapter" && folderOptions && (
+                  (() => {
+                    const activeSub = (form.subject as string)?.trim();
+                    const chaptersList = activeSub && folderOptions.subjectToChapters?.[activeSub]
+                      ? folderOptions.subjectToChapters[activeSub]
+                      : Array.from(new Set(Object.values(folderOptions.subjectToChapters ?? {}).flat())).sort();
+                    
+                    if (!chaptersList || chaptersList.length === 0) return null;
+                    return (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-muted/40 p-2 rounded-xl border border-border/50">
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                          {activeSub ? `Chapters in ${activeSub}:` : "Existing Chapters:"}
+                        </span>
+                        {chaptersList.map((ch: string) => (
+                          <button
+                            key={ch}
+                            type="button"
+                            onClick={() => set("chapter", ch)}
+                            className={cn(
+                              "rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition",
+                              form.chapter === ch
+                                ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                : "bg-background hover:bg-muted text-foreground border-border/60"
+                            )}
+                          >
+                            📖 {ch}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()
+                )}
+              </>
             )}
+
             {f.type === "number" && (
               <Input
                 type="number"

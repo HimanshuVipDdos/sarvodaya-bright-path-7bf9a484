@@ -20,7 +20,7 @@ type LiveClass = {
   zoom_url: string | null; meet_url: string | null;
   subject: string | null; chapter: string | null; lecture_number: number | null;
 };
-type Batch = { id: string; title: string; subjects?: string[] | null };
+type Batch = { id: string; title: string };
 type Form = Omit<LiveClass, "id" | "scheduled_at" | "end_at" | "duration_minutes" | "recorded_lecture_id"> & {
   date: string; startTime: string; startPeriod: "AM" | "PM"; endTime: string; endPeriod: "AM" | "PM";
   subject: string; chapter: string; lecture_number: string;
@@ -31,7 +31,7 @@ const emptyForm = (): Form => ({
   startTime: "04:00", startPeriod: "PM", endTime: "05:00", endPeriod: "PM",
   is_live: false, auto_start: true, auto_end: true,
   thumbnail_url: "", youtube_url: "", zoom_url: "", meet_url: "",
-  subject: "", chapter: "", lecture_number: "1",
+  subject: "", chapter: "", lecture_number: "",
 });
 
 function to24Hour(time: string, period: "AM" | "PM") {
@@ -66,19 +66,10 @@ function LiveClassesAdmin() {
       return (data ?? []) as LiveClass[];
     },
   });
-
-  const { data: lectures = [] } = useQuery({
-    queryKey: ["admin", "lectures-for-tracking"],
-    queryFn: async () => {
-      const { data } = await supabase.from("lectures").select("batch_id, subject, chapter, lecture_number, created_at");
-      return (data ?? []) as { batch_id: string | null; subject: string | null; chapter: string | null; lecture_number: number | null }[];
-    },
-  });
-
   const { data: batches = [] } = useQuery({
     queryKey: ["admin", "batch-options"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("batches").select("id,title,subjects").order("title");
+      const { data, error } = await supabase.from("batches").select("id,title").order("title");
       if (error) throw error;
       return (data ?? []) as Batch[];
     },
@@ -101,11 +92,6 @@ function LiveClassesAdmin() {
         subject: form.subject.trim() || null, chapter: form.chapter.trim() || null,
         lecture_number: (lecNum !== null && !isNaN(lecNum)) ? lecNum : null,
       };
-
-      if (form.subject.trim()) localStorage.setItem("last_live_subject", form.subject.trim());
-      if (form.chapter.trim()) localStorage.setItem("last_live_chapter", form.chapter.trim());
-      if (form.batch_id) localStorage.setItem("last_live_batch", form.batch_id);
-
       const client = supabase as unknown as { from: (table: string) => any };
       const result = editing
         ? await client.from("live_classes").update(payload).eq("id", editing.id)
@@ -153,7 +139,7 @@ function LiveClassesAdmin() {
       const { error } = await (supabase as any).from("live_classes").update({ duration_minutes: newDuration }).eq("id", row.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "live_classes"] }); toast.success("Class extended by 15 mins"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "live_classes"] }); toast.success("15 minutes added."); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -167,41 +153,7 @@ function LiveClassesAdmin() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const openCreate = () => {
-    setEditing(null);
-    const lastSubject = localStorage.getItem("last_live_subject") || classes[0]?.subject || "";
-    const lastChapter = localStorage.getItem("last_live_chapter") || classes[0]?.chapter || "";
-    const lastBatchId = localStorage.getItem("last_live_batch") || classes[0]?.batch_id || null;
-
-    let nextLec = "1";
-    if (lastSubject && lastChapter) {
-      const matchClasses = classes.filter(
-        (c) =>
-          c.subject?.trim().toLowerCase() === lastSubject.trim().toLowerCase() &&
-          c.chapter?.trim().toLowerCase() === lastChapter.trim().toLowerCase()
-      );
-      const matchLectures = lectures.filter(
-        (l) =>
-          l.subject?.trim().toLowerCase() === lastSubject.trim().toLowerCase() &&
-          l.chapter?.trim().toLowerCase() === lastChapter.trim().toLowerCase()
-      );
-      const maxNum = Math.max(
-        0,
-        ...matchClasses.map((c) => c.lecture_number || 0),
-        ...matchLectures.map((l) => l.lecture_number || 0)
-      );
-      nextLec = String(maxNum + 1);
-    }
-
-    setForm({
-      ...emptyForm(),
-      batch_id: lastBatchId,
-      subject: lastSubject,
-      chapter: lastChapter,
-      lecture_number: nextLec,
-    });
-    setOpen(true);
-  };
+  const openCreate = () => { setEditing(null); setForm(emptyForm()); setOpen(true); };
   const openEdit = (row: LiveClass) => {
     const start = toLocalParts(row.scheduled_at);
     const end = toLocalParts(row.end_at ?? new Date(new Date(row.scheduled_at).getTime() + (row.duration_minutes ?? 60) * 60000).toISOString());
@@ -275,65 +227,57 @@ function LiveClassesAdmin() {
                     <Button size="sm" variant="ghost" onClick={() => openEdit(row)} aria-label="Edit">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    {row.is_live && (
-                      <>
-                        <Button size="sm" variant="ghost" onClick={() => extend.mutate(row)} disabled={extend.isPending} title="Add 15 minutes">
-                          <TimerReset className="h-4 w-4 text-primary" />
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost"
-                          onClick={() => { if (window.confirm(`End "${row.title}" and archive as recording?`)) endNow.mutate(row.id); }}
-                          disabled={endNow.isPending}
-                          title="End Live Class — archives to Lectures"
-                          className="text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
-                        >
-                          <Radio className="h-4 w-4" />
-                          <span className="ml-1 text-[11px] font-semibold hidden sm:inline">End</span>
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost"
-                          onClick={() => { if (window.confirm(`Cancel "${row.title}"? No recording will be saved.`)) cancelClass.mutate(row.id); }}
-                          disabled={cancelClass.isPending}
-                          title="Cancel — delete without archiving"
-                          className="text-orange-500 hover:bg-orange-500/10 hover:text-orange-600"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          <span className="ml-1 text-[11px] font-semibold hidden sm:inline">Cancel</span>
-                        </Button>
-                      </>
-                    )}
-                    {!row.is_live && (
+                    {!row.recorded_lecture_id && (
                       <Button
-                        size="sm" variant="ghost"
-                        onClick={() => { if (window.confirm(`Delete "${row.title}"?`)) deleteClass.mutate(row.id); }}
-                        disabled={deleteClass.isPending}
-                        aria-label="Delete"
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { if (window.confirm(`End "${row.title}" and archive to recorded lectures?`)) endNow.mutate(row.id); }}
+                        disabled={endNow.isPending}
+                        title="End Live Class — archives to Lectures"
+                        className={cn(
+                          "gap-1 font-semibold",
+                          row.is_live ? "bg-red-500/10 text-red-600 hover:bg-red-500/20" : "text-emerald-600 hover:bg-emerald-500/10"
+                        )}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Radio className="h-3.5 w-3.5" />
+                        <span className="text-[11px]">{row.is_live ? "End Live" : "End & Archive"}</span>
                       </Button>
                     )}
+                    {row.is_live && (
+                      <Button size="sm" variant="ghost" onClick={() => extend.mutate(row)} disabled={extend.isPending} title="Add 15 minutes">
+                        <TimerReset className="h-4 w-4 text-primary" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm" variant="ghost"
+                      onClick={() => { if (window.confirm(`Cancel "${row.title}"? No recording will be saved.`)) cancelClass.mutate(row.id); }}
+                      disabled={cancelClass.isPending}
+                      title="Cancel — delete without archiving"
+                      className="text-orange-500 hover:bg-orange-500/10 hover:text-orange-600"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      <span className="ml-1 text-[11px] font-semibold hidden sm:inline">Cancel</span>
+                    </Button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!isLoading && !classes.length && <p className="py-10 text-center text-sm text-muted-foreground">No live classes scheduled yet.</p>}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editing ? "Update class timing" : "Schedule a live class"}</DialogTitle>
-            <DialogDescription>All times use India Standard Time (IST).</DialogDescription>
+            <DialogTitle>{editing ? "Edit live class schedule" : "Schedule new live class"}</DialogTitle>
+            <DialogDescription>Timing is in Indian Standard Time (IST).</DialogDescription>
           </DialogHeader>
-          <ClassForm form={form} setForm={setForm} batches={batches} classes={classes} lectures={lectures} />
+          <ClassForm form={form} setForm={setForm} batches={batches} />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editing ? "Save timing" : "Schedule class"}
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending} className="gap-2">
+              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {editing ? "Save changes" : "Schedule class"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -342,19 +286,7 @@ function LiveClassesAdmin() {
   );
 }
 
-function ClassForm({
-  form,
-  setForm,
-  batches,
-  classes,
-  lectures,
-}: {
-  form: Form;
-  setForm: (value: Form) => void;
-  batches: Batch[];
-  classes: LiveClass[];
-  lectures: { batch_id: string | null; subject: string | null; chapter: string | null; lecture_number: number | null }[];
-}) {
+function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Form) => void; batches: Batch[] }) {
   const duration = useMemo(() => {
     const start = new Date(makeIndiaIso(form.date, form.startTime, form.startPeriod));
     const end = new Date(makeIndiaIso(form.date, form.endTime, form.endPeriod));
@@ -370,74 +302,38 @@ function ClassForm({
     </Select>
   );
 
-  // 1. Available subjects
-  const availableSubjects = useMemo(() => {
-    const sSet = new Set<string>();
-    const b = batches.find((item) => item.id === form.batch_id);
-    if (b?.subjects && Array.isArray(b.subjects)) {
-      b.subjects.forEach((s) => s && sSet.add(s.trim()));
-    }
-    classes.forEach((c) => {
-      if (c.subject && (!form.batch_id || c.batch_id === form.batch_id)) sSet.add(c.subject.trim());
-    });
-    lectures.forEach((l) => {
-      if (l.subject && (!form.batch_id || l.batch_id === form.batch_id)) sSet.add(l.subject.trim());
-    });
-    return Array.from(sSet);
-  }, [batches, classes, lectures, form.batch_id]);
+  const { data: batchFolders } = useQuery({
+    queryKey: ["admin-live-batch-folders", form.batch_id],
+    enabled: Boolean(form.batch_id && form.batch_id !== "none"),
+    queryFn: async () => {
+      const [lecturesRes, materialsRes, liveRes] = await Promise.all([
+        supabase.from("lectures").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("study_materials").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("live_classes").select("subject,chapter").eq("batch_id", form.batch_id as string),
+      ]);
+      const subjectsSet = new Set<string>();
+      const subjectToChapters = new Map<string, Set<string>>();
 
-  // 2. Available chapters for current subject
-  const availableChapters = useMemo(() => {
-    if (!form.subject.trim()) return [];
-    const cSet = new Set<string>();
-    const lowerS = form.subject.trim().toLowerCase();
-    classes.forEach((c) => {
-      if (c.subject?.trim().toLowerCase() === lowerS && c.chapter) cSet.add(c.chapter.trim());
-    });
-    lectures.forEach((l) => {
-      if (l.subject?.trim().toLowerCase() === lowerS && l.chapter) cSet.add(l.chapter.trim());
-    });
-    return Array.from(cSet);
-  }, [classes, lectures, form.subject]);
+      const addPair = (sub: string | null, ch: string | null) => {
+        if (!sub?.trim()) return;
+        const s = sub.trim();
+        subjectsSet.add(s);
+        if (!subjectToChapters.has(s)) subjectToChapters.set(s, new Set());
+        if (ch?.trim()) subjectToChapters.get(s)!.add(ch.trim());
+      };
 
-  // 3. Helper to compute next lecture number
-  const getNextLectureNumber = (subj: string, ch: string) => {
-    if (!subj.trim() || !ch.trim()) return 1;
-    const s = subj.trim().toLowerCase();
-    const c = ch.trim().toLowerCase();
-    const matchC = classes.filter((cl) => cl.subject?.trim().toLowerCase() === s && cl.chapter?.trim().toLowerCase() === c);
-    const matchL = lectures.filter((le) => le.subject?.trim().toLowerCase() === s && le.chapter?.trim().toLowerCase() === c);
-    const maxNum = Math.max(0, ...matchC.map((cl) => cl.lecture_number || 0), ...matchL.map((le) => le.lecture_number || 0));
-    return maxNum + 1;
-  };
+      (lecturesRes.data ?? []).forEach((l: any) => addPair(l.subject, l.chapter));
+      (materialsRes.data ?? []).forEach((m: any) => addPair(m.subject, m.chapter));
+      (liveRes.data ?? []).forEach((lc: any) => addPair(lc.subject, lc.chapter));
 
-  const handleSelectSubject = (s: string) => {
-    const lowerS = s.trim().toLowerCase();
-    const chaps: string[] = [];
-    classes.forEach((c) => {
-      if (c.subject?.trim().toLowerCase() === lowerS && c.chapter && !chaps.includes(c.chapter.trim())) chaps.push(c.chapter.trim());
-    });
-    lectures.forEach((l) => {
-      if (l.subject?.trim().toLowerCase() === lowerS && l.chapter && !chaps.includes(l.chapter.trim())) chaps.push(l.chapter.trim());
-    });
-    const chosenChapter = chaps[0] || form.chapter;
-    const nextLec = getNextLectureNumber(s, chosenChapter);
-    setForm({
-      ...form,
-      subject: s,
-      chapter: chosenChapter,
-      lecture_number: String(nextLec),
-    });
-  };
-
-  const handleSelectChapter = (c: string) => {
-    const nextLec = getNextLectureNumber(form.subject, c);
-    setForm({
-      ...form,
-      chapter: c,
-      lecture_number: String(nextLec),
-    });
-  };
+      return {
+        subjects: Array.from(subjectsSet).sort(),
+        subjectToChapters: Object.fromEntries(
+          Array.from(subjectToChapters.entries()).map(([k, v]) => [k, Array.from(v).sort()])
+        ),
+      };
+    },
+  });
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -446,37 +342,38 @@ function ClassForm({
         <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Maths – Algebra" />
       </div>
 
+      <div className="sm:col-span-2">
+        <Label>Batch</Label>
+        <Select value={form.batch_id ?? "none"} onValueChange={(v) => set("batch_id", v === "none" ? null : v)}>
+          <SelectTrigger><SelectValue placeholder="Select target batch" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No batch</SelectItem>
+            {batches.map((b) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/30 p-4">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <BookOpen className="h-3.5 w-3.5" /> Chapter & Lecture Info (Smart Tracked)
+          <BookOpen className="h-3.5 w-3.5" /> Target Chapter & Folder
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <Label>Subject</Label>
-            <Input
-              value={form.subject}
-              onChange={(e) => {
-                const s = e.target.value;
-                const nextLec = getNextLectureNumber(s, form.chapter);
-                setForm({ ...form, subject: s, lecture_number: String(nextLec) });
-              }}
-              placeholder="e.g. OC, Maths, Physics"
-            />
-            {availableSubjects.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                <span className="text-[10px] text-muted-foreground font-semibold">Suggestions:</span>
-                {availableSubjects.map((s) => (
+            <Input value={form.subject} onChange={(e) => set("subject", e.target.value)} placeholder="e.g. Mathematics" />
+            {batchFolders?.subjects && batchFolders.subjects.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {batchFolders.subjects.map((sub: string) => (
                   <button
-                    key={s}
+                    key={sub}
                     type="button"
-                    onClick={() => handleSelectSubject(s)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
-                      form.subject.toLowerCase() === s.toLowerCase()
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-foreground/80 hover:bg-muted border-border"
-                    }`}
+                    onClick={() => set("subject", sub)}
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-medium border transition",
+                      form.subject === sub ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted text-foreground border-border/60"
+                    )}
                   >
-                    {s}
+                    📁 {sub}
                   </button>
                 ))}
               </div>
@@ -485,88 +382,43 @@ function ClassForm({
 
           <div>
             <Label>Chapter</Label>
-            <Input
-              value={form.chapter}
-              onChange={(e) => {
-                const c = e.target.value;
-                const nextLec = getNextLectureNumber(form.subject, c);
-                setForm({ ...form, chapter: c, lecture_number: String(nextLec) });
-              }}
-              placeholder="e.g. GOC ONE SHOT, Algebra"
-            />
-            {availableChapters.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                <span className="text-[10px] text-muted-foreground font-semibold">Chapters:</span>
-                {availableChapters.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => handleSelectChapter(c)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
-                      form.chapter.toLowerCase() === c.toLowerCase()
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-foreground/80 hover:bg-muted border-border"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            )}
+            <Input value={form.chapter} onChange={(e) => set("chapter", e.target.value)} placeholder="e.g. Algebra" />
+            {batchFolders && (() => {
+              const activeSub = form.subject?.trim();
+              const list = activeSub && batchFolders.subjectToChapters?.[activeSub]
+                ? batchFolders.subjectToChapters[activeSub]
+                : Array.from(new Set(Object.values(batchFolders.subjectToChapters ?? {}).flat())).sort();
+              if (!list || list.length === 0) return null;
+              return (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {list.map((ch: string) => (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => set("chapter", ch)}
+                      className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-medium border transition",
+                        form.chapter === ch ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted text-foreground border-border/60"
+                      )}
+                    >
+                      📖 {ch}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <div>
             <Label className="flex items-center gap-1"><Hash className="h-3 w-3" /> Lecture #</Label>
-            <div className="flex items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0 font-bold"
-                onClick={() => {
-                  const curr = parseInt(form.lecture_number, 10) || 1;
-                  set("lecture_number", String(Math.max(1, curr - 1)));
-                }}
-              >
-                -
-              </Button>
-              <Input
-                type="number"
-                min={1}
-                value={form.lecture_number}
-                onChange={(e) => set("lecture_number", e.target.value)}
-                placeholder="e.g. 1"
-                className="text-center font-bold"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0 font-bold"
-                onClick={() => {
-                  const curr = parseInt(form.lecture_number, 10) || 0;
-                  set("lecture_number", String(curr + 1));
-                }}
-              >
-                +
-              </Button>
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">Auto-increments by chapter history</p>
+            <Input type="number" min={1} value={form.lecture_number} onChange={(e) => set("lecture_number", e.target.value)} placeholder="e.g. 12" />
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Automatically groups this class into students' PW subject & chapter portals.</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          When this live class ends, it will automatically land in this exact subject & chapter folder!
+        </p>
       </div>
 
-      <div>
-        <Label>Batch</Label>
-        <Select value={form.batch_id ?? "none"} onValueChange={(v) => set("batch_id", v === "none" ? null : v)}>
-          <SelectTrigger><SelectValue placeholder="Optional batch" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No batch</SelectItem>
-            {batches.map((b) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
       <div>
         <Label className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Class date</Label>
         <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />

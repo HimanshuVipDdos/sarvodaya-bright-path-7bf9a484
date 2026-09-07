@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import ReactPlayer from "react-player";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Gauge, RotateCcw, RotateCw, Settings, MessageCircle,
@@ -62,42 +62,62 @@ type Props = {
   className?: string;
   fullscreenTargetRef?: RefObject<HTMLElement | null>;
   chatComponent?: React.ReactNode;
+  isLive?: boolean;
+  chatVisible?: boolean;
+  onChatToggle?: () => void;
 };
 
-export function VideoPlayer({ src, poster, title, className, fullscreenTargetRef, chatComponent }: Props) {
+export function VideoPlayer({
+  src,
+  poster,
+  title,
+  className,
+  fullscreenTargetRef,
+  chatComponent,
+  isLive = false,
+  chatVisible: externalChatVisible,
+  onChatToggle: externalOnChatToggle,
+}: Props) {
   const outerWrapRef = useRef<HTMLDivElement>(null);
   const actualFsRef = fullscreenTargetRef ?? outerWrapRef;
   const isFs = useIsFullscreen(actualFsRef);
   
-  const [chatVisible, setChatVisible] = useState(true);
+  const [internalChatVisible, setInternalChatVisible] = useState(true);
+  const chatVisible = externalChatVisible !== undefined ? externalChatVisible : internalChatVisible;
+  const onChatToggle = externalOnChatToggle ?? (() => setInternalChatVisible(!internalChatVisible));
   
+  // Show chat button ONLY if it's a live class (not recorded)
+  const canShowChat = Boolean(isLive && (chatComponent || externalOnChatToggle));
+
   if (!src?.trim()) return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
 
   return (
     <div
       ref={outerWrapRef}
       className={cn(
-        "group relative flex bg-black shadow-elegant overflow-hidden",
+        "group relative flex bg-black shadow-elegant overflow-hidden transition-all duration-300",
         isFs
           ? "!aspect-auto h-full w-full !rounded-none"
           : cn("rounded-3xl", !className?.includes("h-full") && "aspect-video"),
         className,
       )}
     >
-      <div className="flex-1 relative min-w-0">
+      <div className="flex-1 relative min-w-0 h-full flex items-center justify-center bg-black overflow-hidden">
         <UnifiedPlayer 
           src={src} 
           poster={poster} 
           title={title} 
           fsElRef={actualFsRef}
-          showChatButton={!!chatComponent}
+          showChatButton={canShowChat}
           chatVisible={chatVisible}
-          onChatToggle={() => setChatVisible(!chatVisible)}
+          onChatToggle={onChatToggle}
+          isLive={isLive}
         />
       </div>
       
-      {chatComponent && chatVisible && (
-        <div className="w-[300px] sm:w-[350px] lg:w-[380px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f]">
+      {/* Inline docked chat if chatComponent is provided and chat is visible */}
+      {chatComponent && chatVisible && canShowChat && (
+        <div className="w-[300px] sm:w-[350px] lg:w-[380px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200">
           {chatComponent}
         </div>
       )}
@@ -105,9 +125,19 @@ export function VideoPlayer({ src, poster, title, className, fullscreenTargetRef
   );
 }
 
-function UnifiedPlayer({ src, poster, title, fsElRef, showChatButton, chatVisible, onChatToggle }: any) {
+function UnifiedPlayer({
+  src,
+  poster,
+  title,
+  fsElRef,
+  showChatButton,
+  chatVisible,
+  onChatToggle,
+  isLive,
+}: any) {
   const playerRef = useRef<ReactPlayer>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+
   
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -209,9 +239,29 @@ function UnifiedPlayer({ src, poster, title, fsElRef, showChatButton, chatVisibl
         onContextMenu={(e) => e.preventDefault()}
       />
 
+      {/* Floating Chat Toggle Badge for Live Stream in top right */}
+      {showChatButton && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onChatToggle(); }}
+          className={cn(
+            "absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shadow-lg transition-all duration-200 backdrop-blur active:scale-95",
+            controlsVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none",
+            chatVisible
+              ? "bg-red-600/90 text-white hover:bg-red-600"
+              : "bg-black/70 text-white/90 border border-white/20 hover:bg-black/90"
+          )}
+          title={chatVisible ? "Hide Live Chat" : "Show Live Chat"}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          <span>{chatVisible ? "Hide Chat" : "Live Chat"}</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
+        </button>
+      )}
+
       <div className="pointer-events-none absolute bottom-[3%] right-[1%] z-10 flex items-center justify-center rounded px-1.5 py-0.5" aria-hidden>
         <span className="select-none text-[8px] font-semibold uppercase tracking-wider text-white/30">Adhyeta</span>
       </div>
+
 
       {!started && (
         <>
@@ -373,10 +423,19 @@ function ControlBar({
             </div>
             
             {showChatButton && (
-              <button onClick={onChatToggle} title="Toggle Live Chat" className={cn("rounded-full p-2 transition hover:bg-white/15", chatVisible && "text-primary")}>
-                <MessageCircle className="h-4 w-4" />
+              <button
+                onClick={onChatToggle}
+                title={chatVisible ? "Hide Live Chat" : "Open Live Chat"}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold transition hover:bg-white/15",
+                  chatVisible ? "bg-red-600/90 text-white" : "text-white/80 hover:text-white"
+                )}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">{chatVisible ? "Hide Chat" : "Live Chat"}</span>
               </button>
             )}
+
 
             <button onClick={onFullscreen} aria-label="Fullscreen" className="rounded-full p-2 transition hover:bg-white/15">
               <Maximize className="h-4 w-4" />
