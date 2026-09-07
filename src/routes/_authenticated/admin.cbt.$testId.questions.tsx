@@ -1,9 +1,9 @@
-﻿import { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Plus, Trash2, Pencil, CheckCircle2, Loader2,
-  ChevronLeft, ChevronRight, Save, RotateCcw, Upload, ListChecks,
+  ChevronLeft, ChevronRight, Save, RotateCcw, Upload, ListChecks, ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,57 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+function ImageUploader({ onUpload, minimal }: { onUpload: (url: string) => void; minimal?: boolean }) {
+  const [uploading, setUploading] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const ext = file.name.split('.').pop();
+      const path = `${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
+      
+      const { error, data } = await supabase.storage.from("public").upload(path, file, { cacheControl: "3600", upsert: true });
+      
+      if (error) {
+        // Fallback to base64 if storage fails
+        const reader = new FileReader();
+        reader.onload = (ev) => onUpload(ev.target?.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from("public").getPublicUrl(path);
+        onUpload(publicUrl);
+      }
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setUploading(false);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input type="file" accept="image/*" className="hidden" ref={ref} onChange={handleUpload} />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        disabled={uploading}
+        className={cn(
+          "flex items-center justify-center transition-colors text-muted-foreground hover:text-primary",
+          minimal ? "h-7 w-7 rounded hover:bg-slate-100" : "text-[10px] font-semibold gap-1 rounded bg-slate-100 px-2 py-1 hover:bg-slate-200"
+        )}
+        title="Upload Image"
+      >
+        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImageIcon className={minimal ? "h-3.5 w-3.5" : "h-3 w-3"} />}
+        {!minimal && "Image"}
+      </button>
+    </>
+  );
+}
 
 type QuestionRow = {
   id: string; test_id: string; question_text: string;
@@ -238,13 +289,16 @@ function QuestionsAdmin() {
 
             {/* Question Text */}
             <div className="mb-3">
-              <label className="mb-1.5 block text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                Question *
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  Question *
+                </label>
+                <ImageUploader onUpload={(url) => setDraft((d) => ({ ...d, question_text: d.question_text + (d.question_text ? "\n" : "") + `![image](${url})` }))} />
+              </div>
               <Textarea
                 value={draft.question_text}
                 onChange={(e) => setDraft((d) => ({ ...d, question_text: e.target.value }))}
-                placeholder="Type the question here..."
+                placeholder="Type the question here or upload an image..."
                 className="min-h-[80px] text-sm resize-none rounded-xl"
                 autoFocus
               />
@@ -253,7 +307,7 @@ function QuestionsAdmin() {
             {/* Options — Mathango style: click to mark correct */}
             <div className="mb-3 space-y-2">
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                Options — <span className="text-emerald-600 normal-case font-normal">Click an option to mark it correct ✓</span>
+                Options — <span className="text-emerald-600 normal-case font-normal">Click a circle to mark it correct ✓</span>
               </label>
               {(["a", "b", "c", "d"] as const).map((opt) => (
                 <div key={opt} className="flex items-center gap-2">
@@ -270,20 +324,26 @@ function QuestionsAdmin() {
                   >
                     {draft.correct_option === opt ? <CheckCircle2 className="h-4 w-4" /> : opt.toUpperCase()}
                   </button>
-                  <Input
-                    value={draft[`option_${opt}`]}
-                    onChange={(e) => setDraft((d) => ({ ...d, [`option_${opt}`]: e.target.value }))}
-                    placeholder={`Option ${opt.toUpperCase()}`}
-                    className={cn(
-                      "flex-1 h-9 text-sm rounded-xl transition-all",
-                      draft.correct_option === opt && "border-emerald-400 bg-emerald-50/50 font-medium",
-                    )}
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      value={draft[`option_${opt}`]}
+                      onChange={(e) => setDraft((d) => ({ ...d, [`option_${opt}`]: e.target.value }))}
+                      placeholder={`Option ${opt.toUpperCase()}`}
+                      className={cn(
+                        "h-9 text-sm rounded-xl transition-all pr-8",
+                        draft.correct_option === opt && "border-emerald-400 bg-emerald-50/50 font-medium",
+                      )}
+                    />
+                    <div className="absolute right-1 top-1">
+                       <ImageUploader onUpload={(url) => setDraft((d) => ({ ...d, [`option_${opt}`]: url }))} minimal />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Topic + Marks */}
+
             <div className="mb-4 grid grid-cols-2 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600 uppercase tracking-wide">Topic</label>

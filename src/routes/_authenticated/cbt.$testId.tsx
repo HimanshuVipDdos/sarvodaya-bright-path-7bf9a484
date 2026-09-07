@@ -24,6 +24,28 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
+// -- Markdown / Mathongo Image Renderer --
+function renderContent(text: string) {
+  if (!text) return null;
+  // If it's literally just a raw image URL (Mathongo style snipped image)
+  if (text.startsWith("http") && (text.endsWith(".png") || text.endsWith(".jpg") || text.endsWith(".jpeg") || text.endsWith(".webp") || text.includes("supabase.co"))) {
+    return <img src={text} alt="content" className="max-w-full max-h-[300px] object-contain rounded-lg shadow-sm" />;
+  }
+  // If it has markdown images ![alt](url)
+  const parts = text.split(/(!\[.*?\]\(.*?\))/g);
+  return (
+    <div className="whitespace-pre-wrap break-words">
+      {parts.map((part, i) => {
+        const match = part.match(/!\[(.*?)\]\((.*?)\)/);
+        if (match) {
+          return <img key={i} src={match[2]} alt={match[1] || "Question image"} className="max-w-full max-h-[300px] object-contain rounded-lg shadow-sm my-2 inline-block" />;
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/cbt/$testId")({
   component: TestTakingPage,
 });
@@ -301,8 +323,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
       </header>
 
       {/* ===== MAIN CONTENT: Question + Palette ===== */}
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentQ.id}
@@ -315,7 +336,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
                 <div className="flex items-start justify-between gap-2 mb-4">
                   <h2 className="text-base sm:text-lg font-medium leading-relaxed">
                     <span className="text-primary font-bold mr-2">Q{currentQIndex + 1}.</span>
-                    {currentQ.question_text}
+                    {renderContent(currentQ.question_text)}
                   </h2>
                   <button
                     onClick={() => toggleFlag(currentQ.id)}
@@ -346,7 +367,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
                     >
                       <RadioGroupItem value={opt} id={`${currentQ.id}-${opt}`} />
                       <span className="font-bold text-primary min-w-[20px]">{opt.toUpperCase()}.</span>
-                      <span className="text-sm">{(currentQ as any)[`option_${opt}`]}</span>
+                      <span className="text-sm">{renderContent(currentQ[`option_${opt}`])}</span>
                     </label>
                   ))}
                 </RadioGroup>
