@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -51,7 +51,9 @@ function EnrollmentsAdmin() {
   const qc = useQueryClient();
   const grant = useServerFn(grantBatchAccess);
 
-  const [email, setEmail] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<{ id: string; full_name: string | null; phone: string | null } | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [batchId, setBatchId] = useState("");
   const [amount, setAmount] = useState<string>("");
   const [status, setStatus] = useState("paid");
@@ -67,14 +69,38 @@ function EnrollmentsAdmin() {
     },
   });
 
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ["admin", "all-profiles-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone")
+        .order("full_name");
+      if (error) {
+        console.error("fetch profiles error:", error);
+        return [];
+      }
+      return data ?? [];
+    },
+  });
+
   const { data: enrollments = [], isLoading } = useQuery({
     queryKey: ["admin", "enrollments"],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("enrollments")
-        .select("*, batch:batches(title), profile:profiles(full_name, phone)")
-        .order("enrolled_at", { ascending: false });
-      return data ?? [];
+      const [enrollmentsRes, profilesRes] = await Promise.all([
+        supabase
+          .from("enrollments")
+          .select("*, batch:batches(title)")
+          .order("enrolled_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("id, full_name, phone"),
+      ]);
+      const pMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+      return (enrollmentsRes.data ?? []).map((e: any) => ({
+        ...e,
+        profile: pMap.get(e.user_id) ?? { full_name: "Student", phone: "" },
+      }));
     },
   });
 
@@ -102,21 +128,85 @@ function EnrollmentsAdmin() {
     },
   });
 
+  const matchingStudents = useMemo(() => {
+    if (!studentSearch.trim()) return allProfiles.slice(0, 8);
+    const term = studentSearch.trim().toLowerCase();
+    return allProfiles.filter(
+      (p) =>
+        (p.full_name ?? "").toLowerCase().includes(term) ||
+        (p.phone ?? "").includes(term) ||
+        p.id.toLowerCase().includes(term)
+    ).slice(0, 10);
+  }, [allProfiles, studentSearch]);
+
   const grantMutation = useMutation({
     mutationFn: async () => {
-      const res = await grant({
-        data: {
-          email,
-          batch_id: batchId,
-          amount_paid_inr: amount === "" ? 0 : Number(amount),
-          payment_status: status as any,
-        },
-      });
-      return res;
+      if (!batchId) throw new Error("Please select a batch");
+      
+      let targetUserId = selectedStudent?.id;
+      const rawInput = studentSearch.trim();
+
+      if (!targetUserId && rawInput) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawInput);
+        if (isUUID) {
+          targetUserId = rawInput;
+        } else {
+          const match = allProfiles.find(
+            (p) =>
+              p.id === rawInput ||
+              (p.phone && p.phone.includes(rawInput)) ||
+              (p.full_name && p.full_name.toLowerCase() === rawInput.toLowerCase())
+          );
+          if (match) {
+            targetUserId = match.id;
+          }
+        }
+      }
+
+      if (targetUserId) {
+        const { data: userData } = await supabase.auth.getUser();
+        const adminId = userData.user?.id;
+        const { data: adminProfile } = adminId
+          ? await supabase.from("profiles").select("full_name").eq("id", adminId).maybeSingle()
+          : { data: null };
+        const adminName = adminProfile?.full_name ?? "Admin";
+
+        const { error: upErr } = await supabase.from("enrollments").upsert(
+          {
+            user_id: targetUserId,
+            batch_id: batchId,
+            status: "active",
+            payment_status: status as any,
+            payment_provider: "admin_grant",
+            amount_paid_inr: amount === "" ? 0 : Number(amount),
+            enrolled_by: adminId,
+            enrolled_by_name: adminName,
+          },
+          { onConflict: "user_id,batch_id" }
+        );
+        if (upErr) throw new Error(upErr.message);
+        return { ok: true, user_id: targetUserId };
+      }
+
+      if (rawInput && rawInput.includes("@")) {
+        const res = await grant({
+          data: {
+            email: rawInput,
+            batch_id: batchId,
+            amount_paid_inr: amount === "" ? 0 : Number(amount),
+            payment_status: status as any,
+          },
+        });
+        return res;
+      }
+
+      throw new Error("Student not found. Please select from registered students or enter a valid Student ID / Phone / Email.");
     },
     onSuccess: () => {
-      toast.success("Access granted");
-      setEmail(""); setAmount("");
+      toast.success("Batch access granted successfully!");
+      setSelectedStudent(null);
+      setStudentSearch("");
+      setAmount("");
       qc.invalidateQueries({ queryKey: ["admin", "enrollments"] });
       qc.invalidateQueries({ queryKey: ["admin", "enrollment-stats"] });
       qc.invalidateQueries({ queryKey: ["admin", "enrollment-graph"] });
@@ -144,6 +234,7 @@ function EnrollmentsAdmin() {
     const b = e.batch;
     return (p?.full_name ?? "").toLowerCase().includes(term)
       || (p?.phone ?? "").toLowerCase().includes(term)
+      || (e.user_id ?? "").toLowerCase().includes(term)
       || (b?.title ?? "").toLowerCase().includes(term)
       || (e.enrolled_by_name ?? "").toLowerCase().includes(term);
   });
@@ -311,17 +402,76 @@ function EnrollmentsAdmin() {
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="lg:col-span-2">
-            <Label className="text-xs">Student Email *</Label>
-            <Input
-              type="email"
-              placeholder="student@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              The student must have signed up first.
-            </p>
+          <div className="lg:col-span-2 relative">
+            <Label className="text-xs">Search Student (Name / Phone / Student ID / Email) *</Label>
+            {selectedStudent ? (
+              <div className="mt-1 flex items-center justify-between p-2.5 rounded-xl border border-primary/30 bg-primary/5">
+                <div>
+                  <div className="text-sm font-bold text-slate-900">{selectedStudent.full_name || "Student"}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Phone: {selectedStudent.phone || "—"} | ID: <span className="font-mono">{selectedStudent.id.slice(0, 8)}…</span>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setStudentSearch("");
+                  }}
+                  className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                >
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="relative mt-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Type Student Name, Phone, ID, or Email…"
+                    value={studentSearch}
+                    onChange={(e) => {
+                      setStudentSearch(e.target.value);
+                      setShowDropdown(true);
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    className="pl-9"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Select student from dropdown or paste Student UUID / Phone / Email directly.
+                </p>
+
+                {showDropdown && matchingStudents.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-border bg-popover p-1.5 shadow-xl">
+                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Matching Students ({matchingStudents.length})
+                    </div>
+                    {matchingStudents.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStudent(s);
+                          setStudentSearch(s.full_name || s.phone || s.id);
+                          setShowDropdown(false);
+                        }}
+                        className="w-full rounded-xl px-3 py-2 text-left text-xs transition-colors hover:bg-muted flex flex-col gap-0.5"
+                      >
+                        <div className="font-semibold text-foreground flex items-center justify-between">
+                          <span>{s.full_name || "Unnamed Student"}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{s.id.slice(0, 8)}…</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          📱 {s.phone || "No phone"}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="lg:col-span-2">
@@ -368,7 +518,7 @@ function EnrollmentsAdmin() {
             <Button
               className="w-full gap-2"
               onClick={() => grantMutation.mutate()}
-              disabled={!email || !batchId || grantMutation.isPending}
+              disabled={(!selectedStudent && !studentSearch.trim()) || !batchId || grantMutation.isPending}
             >
               {grantMutation.isPending
                 ? <Loader2 className="h-4 w-4 animate-spin" />

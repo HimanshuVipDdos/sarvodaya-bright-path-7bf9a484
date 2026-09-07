@@ -155,51 +155,84 @@ function BatchPortal() {
     );
   }
 
-  const { batch, lectures, materials, liveClasses, tests } = data;
+  const { batch, lectures, materials, liveClasses, tests, notifications } = data;
 
-  // Derive Subjects
+  // Derive Subjects safely with fallback
   const subjectsMap = new Map<string, { chapters: Set<string> }>();
-  
-  // Add live classes to subjects too!
-  liveClasses.forEach(l => {
-    if (l.subject) {
-      if (!subjectsMap.has(l.subject)) subjectsMap.set(l.subject, { chapters: new Set() });
-      if (l.chapter) subjectsMap.get(l.subject)!.chapters.add(l.chapter);
-    }
+  const defaultSubject = (batch.subjects && batch.subjects[0]) || "Core Subjects";
+
+  // 1. Initialize with batch.subjects if configured
+  if (Array.isArray(batch.subjects)) {
+    batch.subjects.forEach((s: string) => {
+      if (s && !subjectsMap.has(s)) subjectsMap.set(s, { chapters: new Set() });
+    });
+  }
+
+  // 2. Add live classes
+  liveClasses.forEach((l: any) => {
+    const subj = l.subject || defaultSubject;
+    const ch = l.chapter || "Live Sessions";
+    if (!subjectsMap.has(subj)) subjectsMap.set(subj, { chapters: new Set() });
+    subjectsMap.get(subj)!.chapters.add(ch);
   });
-  lectures.forEach(l => {
-    if (l.subject) {
-      if (!subjectsMap.has(l.subject)) subjectsMap.set(l.subject, { chapters: new Set() });
-      if (l.chapter) subjectsMap.get(l.subject)!.chapters.add(l.chapter);
-    }
+
+  // 3. Add lectures
+  lectures.forEach((l: any) => {
+    const subj = l.subject || defaultSubject;
+    const ch = l.chapter || "Lectures & Classes";
+    if (!subjectsMap.has(subj)) subjectsMap.set(subj, { chapters: new Set() });
+    subjectsMap.get(subj)!.chapters.add(ch);
   });
-  materials.forEach(m => {
-    if (m.subject) {
-      if (!subjectsMap.has(m.subject)) subjectsMap.set(m.subject, { chapters: new Set() });
-      if (m.chapter) subjectsMap.get(m.subject)!.chapters.add(m.chapter);
-    }
+
+  // 4. Add study materials
+  materials.forEach((m: any) => {
+    const subj = m.subject || defaultSubject;
+    const ch = m.chapter || "Study Notes";
+    if (!subjectsMap.has(subj)) subjectsMap.set(subj, { chapters: new Set() });
+    subjectsMap.get(subj)!.chapters.add(ch);
   });
-  
+
+  // 5. Ensure at least one subject exists
+  if (subjectsMap.size === 0) {
+    subjectsMap.set("All Classes", { chapters: new Set(["Lectures & Notes"]) });
+  }
+
   const subjects = Array.from(subjectsMap.keys()).sort();
 
   // Content for active drill-down
   let chapters: string[] = [];
   if (activeSubject) {
     chapters = Array.from(subjectsMap.get(activeSubject)?.chapters || []).sort();
+    if (chapters.length === 0) chapters = ["General Classes"];
   }
 
   const chapterLectures = useMemo(() => {
-    const rec = lectures.filter(l => l.subject === activeSubject && l.chapter === activeChapter);
-    const live = liveClasses.filter(l => l.subject === activeSubject && l.chapter === activeChapter);
-    // Combine recorded and live for the chapter
+    const rec = lectures.filter((l: any) => {
+      const s = l.subject || defaultSubject;
+      const c = l.chapter || "Lectures & Classes";
+      return s === activeSubject && (!activeChapter || c === activeChapter);
+    });
+    const live = liveClasses.filter((l: any) => {
+      const s = l.subject || defaultSubject;
+      const c = l.chapter || "Live Sessions";
+      return s === activeSubject && (!activeChapter || c === activeChapter);
+    });
     return [...live, ...rec].sort((a: any, b: any) => {
-      // sort by date descending or lecture number
       return new Date(b.created_at || b.scheduled_at).getTime() - new Date(a.created_at || a.scheduled_at).getTime();
     });
-  }, [lectures, liveClasses, activeSubject, activeChapter]);
+  }, [lectures, liveClasses, activeSubject, activeChapter, defaultSubject]);
 
-  const chapterNotes = materials.filter(m => m.subject === activeSubject && m.chapter === activeChapter && m.material_type !== "dpp");
-  const chapterDpps = materials.filter(m => m.subject === activeSubject && m.chapter === activeChapter && m.material_type === "dpp");
+  const chapterNotes = materials.filter((m: any) => {
+    const s = m.subject || defaultSubject;
+    const c = m.chapter || "Study Notes";
+    return s === activeSubject && (!activeChapter || c === activeChapter) && m.material_type !== "dpp";
+  });
+  
+  const chapterDpps = materials.filter((m: any) => {
+    const s = m.subject || defaultSubject;
+    const c = m.chapter || "Study Notes";
+    return s === activeSubject && (!activeChapter || c === activeChapter) && m.material_type === "dpp";
+  });
 
   const playVideo = (item: any) => {
     const isLive = "is_live" in item;
@@ -227,10 +260,14 @@ function BatchPortal() {
       <div className="min-h-screen bg-[#F8F9FA] pb-20 font-sans">
         {/* The Purple/Blue PW Header */}
         <div className="bg-[#6043ED] text-white pt-8 pb-4 relative overflow-hidden">
-          {/* Subtle background decoration */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
           <div className="mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-6">{batch.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">{batch.title}</h1>
+            {batch.exam_category && (
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-semibold uppercase tracking-wider mb-4">
+                {batch.exam_category}
+              </span>
+            )}
           </div>
         </div>
 
@@ -239,7 +276,7 @@ function BatchPortal() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
               <div className="flex gap-6 overflow-x-auto scrollbar-hide">
-                {(["Description", "All Classes", "Infinity Learning", "Tests", "Community"] as MainTab[]).map(t => (
+                {(["All Classes", "Description", "Tests", "Infinity Learning", "Community"] as MainTab[]).map(t => (
                   <button
                     key={t}
                     onClick={() => setMainTab(t)}
@@ -254,10 +291,21 @@ function BatchPortal() {
               </div>
               
               <div className="flex items-center gap-3 shrink-0 pb-2 sm:pb-0">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">
+                <button
+                  onClick={() => {
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success("Batch link copied to clipboard!");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition"
+                >
                   <Share2 className="w-3.5 h-3.5" /> Share Batch
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">
+                <button
+                  onClick={() => setMainTab("Community")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition"
+                >
                   <Bell className="w-3.5 h-3.5" /> Announcement
                 </button>
               </div>
@@ -269,15 +317,43 @@ function BatchPortal() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
           {mainTab === "All Classes" && (
             <>
+              {/* Quick direct lectures if available */}
+              {lectures.length > 0 && subjects.length === 1 && (
+                <div className="mb-10">
+                  <h3 className="text-base font-bold text-slate-900 mb-4">Recent Lectures</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {lectures.slice(0, 4).map((l: any) => (
+                      <div
+                        key={l.id}
+                        onClick={() => playVideo(l)}
+                        className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col"
+                      >
+                        <div className="aspect-video w-full rounded-lg bg-slate-100 overflow-hidden relative mb-2 flex items-center justify-center">
+                          {l.thumbnail_url ? (
+                            <img src={getStorageUrl(l.thumbnail_url) || l.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Video className="w-8 h-8 text-slate-300" />
+                          )}
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center hover:bg-black/30 transition">
+                            <div className="w-9 h-9 rounded-full bg-[#6043ED] text-white flex items-center justify-center shadow-lg">
+                              <Play className="w-4 h-4 ml-0.5" />
+                            </div>
+                          </div>
+                        </div>
+                        <h4 className="font-bold text-xs text-slate-900 line-clamp-2">{l.title}</h4>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <h2 className="text-xl font-bold text-slate-900">Subjects</h2>
               <p className="text-sm text-slate-500 mb-6 mt-1">Select your subjects & start learning</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {subjects.length === 0 ? (
-                  <div className="col-span-full py-10 text-center text-slate-500">No subjects available yet.</div>
-                ) : subjects.map((s, idx) => {
+                {subjects.map((s, idx) => {
                   const color = pastelColors[idx % pastelColors.length];
-                  const chapterCount = subjectsMap.get(s)?.chapters.size || 0;
+                  const chapterCount = subjectsMap.get(s)?.chapters.size || 1;
                   return (
                     <button
                       key={s}
@@ -289,7 +365,7 @@ function BatchPortal() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#6043ED] transition-colors">{s}</h3>
-                        <p className="text-[11px] text-slate-500 mt-1">{chapterCount} Chapters</p>
+                        <p className="text-[11px] text-slate-500 mt-1">{chapterCount} {chapterCount === 1 ? "Chapter / Section" : "Chapters"}</p>
                       </div>
                     </button>
                   );
@@ -298,9 +374,101 @@ function BatchPortal() {
             </>
           )}
 
+          {mainTab === "Description" && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm max-w-4xl space-y-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">About this Batch</h3>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {batch.description || "Comprehensive coaching and test preparation designed for guaranteed success in examinations."}
+                </p>
+              </div>
+              {batch.faculty && batch.faculty.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 mb-2">Faculty</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {batch.faculty.map((f: string) => (
+                      <span key={f} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-100">
+                        👨‍🏫 {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {batch.features && batch.features.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 mb-2">Batch Highlights</h4>
+                  <ul className="grid sm:grid-cols-2 gap-2">
+                    {batch.features.map((feat: string, idx: number) => (
+                      <li key={idx} className="flex items-center gap-2 text-xs text-slate-700">
+                        <span className="text-emerald-500 font-bold">✓</span> {feat}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="pt-4 border-t flex flex-wrap gap-6 text-xs text-slate-500 font-medium">
+                {batch.starts_on && <div>Starts on: <strong className="text-slate-800">{new Date(batch.starts_on).toLocaleDateString()}</strong></div>}
+                {batch.duration && <div>Duration: <strong className="text-slate-800">{batch.duration}</strong></div>}
+                {batch.exam_category && <div>Target Exam: <strong className="text-slate-800">{batch.exam_category}</strong></div>}
+              </div>
+            </div>
+          )}
+
+          {mainTab === "Infinity Learning" && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-slate-900">Study Materials & Notes</h3>
+              {materials.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 bg-white rounded-3xl border">No study materials uploaded yet.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {materials.map((m: any) => (
+                    <div key={m.id} className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                          {m.material_type || "Notes"}
+                        </span>
+                        <h4 className="font-bold text-slate-900 text-sm mt-2 line-clamp-2">{m.title}</h4>
+                      </div>
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                        <span className="text-[11px] text-slate-400">{new Date(m.created_at).toLocaleDateString()}</span>
+                        <Button size="sm" variant="outline" onClick={() => openDoc(m.file_url, m.title)} className="gap-1.5 text-xs">
+                          <Download className="w-3.5 h-3.5" /> View PDF
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {mainTab === "Community" && (
+            <div className="max-w-2xl mx-auto space-y-4">
+              <h3 className="text-lg font-bold text-slate-900">Announcements & Updates</h3>
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 bg-white rounded-3xl border">No announcements yet. Check back soon!</div>
+              ) : (
+                notifications.map((n: any) => (
+                  <div key={n.id} className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex gap-4 items-start">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100">
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-900 text-sm">{n.title}</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{n.message || n.body}</p>
+                      <span className="text-[10px] text-slate-400 mt-2 block font-medium">
+                        {new Date(n.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
           {mainTab === "Tests" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {tests.length === 0 ? <div className="col-span-2 py-10 text-center text-slate-500">No tests available.</div> :
+              {tests.length === 0 ? <div className="col-span-2 py-10 text-center text-slate-500 bg-white rounded-3xl border">No tests available for this batch yet.</div> :
                tests.map(t => (
                  <div key={t.id} className="border bg-white rounded-2xl p-6 shadow-sm flex flex-col">
                    <div className="flex items-center justify-between mb-2">
