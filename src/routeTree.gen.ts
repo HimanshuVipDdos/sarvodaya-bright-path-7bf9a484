@@ -27,6 +27,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedMyDoubtsRouteImport } from './routes/_authenticated/my-doubts'
+import { Route as AuthenticatedMyBatchesRouteImport } from './routes/_authenticated/my-batches'
 import { Route as AuthenticatedMockTestsRouteImport } from './routes/_authenticated/mock-tests'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -145,6 +146,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
 const AuthenticatedMyDoubtsRoute = AuthenticatedMyDoubtsRouteImport.update({
   id: '/my-doubts',
   path: '/my-doubts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyBatchesRoute = AuthenticatedMyBatchesRouteImport.update({
+  id: '/my-batches',
+  path: '/my-batches',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMockTestsRoute = AuthenticatedMockTestsRouteImport.update({
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/mock-tests': typeof AuthenticatedMockTestsRoute
+  '/my-batches': typeof AuthenticatedMyBatchesRoute
   '/my-doubts': typeof AuthenticatedMyDoubtsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
@@ -386,6 +393,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/mock-tests': typeof AuthenticatedMockTestsRoute
+  '/my-batches': typeof AuthenticatedMyBatchesRoute
   '/my-doubts': typeof AuthenticatedMyDoubtsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
@@ -435,6 +443,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/mock-tests': typeof AuthenticatedMockTestsRoute
+  '/_authenticated/my-batches': typeof AuthenticatedMyBatchesRoute
   '/_authenticated/my-doubts': typeof AuthenticatedMyDoubtsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/batches/$slug': typeof BatchesSlugRoute
@@ -486,6 +495,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/mock-tests'
+    | '/my-batches'
     | '/my-doubts'
     | '/profile'
     | '/batches/$slug'
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/dashboard'
     | '/mock-tests'
+    | '/my-batches'
     | '/my-doubts'
     | '/profile'
     | '/batches/$slug'
@@ -582,6 +593,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/mock-tests'
+    | '/_authenticated/my-batches'
     | '/_authenticated/my-doubts'
     | '/_authenticated/profile'
     | '/batches/$slug'
@@ -758,6 +770,13 @@ declare module '@tanstack/react-router' {
       path: '/my-doubts'
       fullPath: '/my-doubts'
       preLoaderRoute: typeof AuthenticatedMyDoubtsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-batches': {
+      id: '/_authenticated/my-batches'
+      path: '/my-batches'
+      fullPath: '/my-batches'
+      preLoaderRoute: typeof AuthenticatedMyBatchesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mock-tests': {
@@ -1076,6 +1095,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMockTestsRoute: typeof AuthenticatedMockTestsRoute
+  AuthenticatedMyBatchesRoute: typeof AuthenticatedMyBatchesRoute
   AuthenticatedMyDoubtsRoute: typeof AuthenticatedMyDoubtsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedCbtTestIdRoute: typeof AuthenticatedCbtTestIdRouteWithChildren
@@ -1086,6 +1106,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMockTestsRoute: AuthenticatedMockTestsRoute,
+  AuthenticatedMyBatchesRoute: AuthenticatedMyBatchesRoute,
   AuthenticatedMyDoubtsRoute: AuthenticatedMyDoubtsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedCbtTestIdRoute: AuthenticatedCbtTestIdRouteWithChildren,

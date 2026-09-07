@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   X,
   PlayCircle,
@@ -185,7 +185,7 @@ export function TheaterModal({
             <div className="min-w-0 space-y-4">
               {/* 16:9 Video Player Container */}
               <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 relative">
-                <VideoPlayer src={videoSrc} title={title} poster={poster ?? undefined} />
+                <VideoPlayer src={videoSrc} title={title} poster={poster ?? undefined} chatComponent={liveClassId ? <LiveChat liveClassId={liveClassId} /> : undefined} />
               </div>
 
               {/* Video Title */}
@@ -449,3 +449,5 @@ export function TheaterModal({
     </div>
   );
 }
+
+

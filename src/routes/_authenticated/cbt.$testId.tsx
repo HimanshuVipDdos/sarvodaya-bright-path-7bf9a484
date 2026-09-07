@@ -323,7 +323,8 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
       </header>
 
       {/* ===== MAIN CONTENT: Question + Palette ===== */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 flex overflow-hidden">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentQ.id}

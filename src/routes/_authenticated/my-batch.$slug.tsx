@@ -1,21 +1,16 @@
 ﻿import { useState, useMemo } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Video, FileText, ClipboardList, Radio, Clock,
-  BookOpen, Bell, ExternalLink, PlayCircle, Award, Sparkles,
-  ChevronRight, Folder, FolderOpen, Play, CheckCircle2, ChevronLeft
+  BookOpen, Bell, Share2, Search, Download, Paperclip, MoreVertical, Map, LayoutGrid
 } from "lucide-react";
-
-import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { TheaterModal, type TheaterLecture } from "@/components/theater-modal";
 import { DocumentViewer } from "@/components/document-viewer";
-import { cn } from "@/lib/utils";
-import { getStorageUrl } from "@/lib/utils";
+import { cn, getStorageUrl } from "@/lib/utils";
 
 const batchPortalQuery = (slug: string) =>
   queryOptions({
@@ -89,30 +84,41 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
   ),
 });
 
-type MainTab = "Subjects" | "Live" | "Tests" | "Updates";
-type SubTab = "Lectures" | "Notes" | "DPPs";
+type MainTab = "Description" | "All Classes" | "Infinity Learning" | "Tests" | "Community";
+type SubTab = "Lectures" | "Notes" | "DPP" | "DPP PDF" | "DPP VIDEOS";
+
+// Pastel colors for subject icons
+const pastelColors = [
+  "bg-blue-50 text-blue-500 border-blue-100",
+  "bg-purple-50 text-purple-500 border-purple-100",
+  "bg-emerald-50 text-emerald-500 border-emerald-100",
+  "bg-rose-50 text-rose-500 border-rose-100",
+  "bg-orange-50 text-orange-500 border-orange-100",
+  "bg-cyan-50 text-cyan-500 border-cyan-100",
+];
 
 function BatchPortal() {
   const { slug } = Route.useParams();
   const { data } = useSuspenseQuery(batchPortalQuery(slug));
 
-  const [mainTab, setMainTab] = useState<MainTab>("Subjects");
+  const [mainTab, setMainTab] = useState<MainTab>("All Classes");
   
-  // Folders UI state
+  // Drill-down UI state
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<SubTab>("Lectures");
 
   // Theater state
   const [theaterOpen, setTheaterOpen] = useState(false);
-  const [playingVideo, setPlayingVideo] = useState<any>(null); // holds lecture or live_class
+  const [playingVideo, setPlayingVideo] = useState<any>(null);
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [docTitle, setDocTitle] = useState<string>("");
 
   if (!data.enrolled) {
     return (
       <Section>
         <div className="mx-auto max-w-lg bg-white border rounded-3xl p-10 text-center shadow-sm">
-          <Lock className="mx-auto h-12 w-12 text-slate-300 mb-4" />
+          <BookOpen className="mx-auto h-12 w-12 text-slate-300 mb-4" />
           <h1 className="text-2xl font-bold">{data.batch.title}</h1>
           <p className="mt-2 text-sm text-slate-500">You haven't enrolled in this batch yet.</p>
           <div className="mt-6">
@@ -123,37 +129,54 @@ function BatchPortal() {
     );
   }
 
-  const { batch, lectures, materials, liveClasses, tests, notifications } = data;
+  const { batch, lectures, materials, liveClasses, tests } = data;
 
-  // Process Subjects & Chapters
-  const subjectsSet = new Set<string>();
-  lectures.forEach(l => l.subject && subjectsSet.add(l.subject));
-  materials.forEach(m => m.subject && subjectsSet.add(m.subject));
+  // Derive Subjects
+  const subjectsMap = new Map<string, { chapters: Set<string> }>();
   
-  const subjects = Array.from(subjectsSet).sort();
-  // Default selection
-  if (!activeSubject && subjects.length > 0) {
-    setActiveSubject(subjects[0]);
-  }
+  // Add live classes to subjects too!
+  liveClasses.forEach(l => {
+    if (l.subject) {
+      if (!subjectsMap.has(l.subject)) subjectsMap.set(l.subject, { chapters: new Set() });
+      if (l.chapter) subjectsMap.get(l.subject)!.chapters.add(l.chapter);
+    }
+  });
+  lectures.forEach(l => {
+    if (l.subject) {
+      if (!subjectsMap.has(l.subject)) subjectsMap.set(l.subject, { chapters: new Set() });
+      if (l.chapter) subjectsMap.get(l.subject)!.chapters.add(l.chapter);
+    }
+  });
+  materials.forEach(m => {
+    if (m.subject) {
+      if (!subjectsMap.has(m.subject)) subjectsMap.set(m.subject, { chapters: new Set() });
+      if (m.chapter) subjectsMap.get(m.subject)!.chapters.add(m.chapter);
+    }
+  });
+  
+  const subjects = Array.from(subjectsMap.keys()).sort();
 
-  // Derive Chapters for activeSubject
-  const chaptersSet = new Set<string>();
+  // Content for active drill-down
+  let chapters: string[] = [];
   if (activeSubject) {
-    lectures.filter(l => l.subject === activeSubject && l.chapter).forEach(l => chaptersSet.add(l.chapter!));
-    materials.filter(m => m.subject === activeSubject && m.chapter).forEach(m => chaptersSet.add(m.chapter!));
+    chapters = Array.from(subjectsMap.get(activeSubject)?.chapters || []).sort();
   }
-  const chapters = Array.from(chaptersSet).sort();
 
-  // Content for active chapter
-  const chapterLectures = lectures.filter(l => l.subject === activeSubject && l.chapter === activeChapter).sort((a,b) => (a.lecture_number||0) - (b.lecture_number||0));
+  const chapterLectures = useMemo(() => {
+    const rec = lectures.filter(l => l.subject === activeSubject && l.chapter === activeChapter);
+    const live = liveClasses.filter(l => l.subject === activeSubject && l.chapter === activeChapter);
+    // Combine recorded and live for the chapter
+    return [...live, ...rec].sort((a: any, b: any) => {
+      // sort by date descending or lecture number
+      return new Date(b.created_at || b.scheduled_at).getTime() - new Date(a.created_at || a.scheduled_at).getTime();
+    });
+  }, [lectures, liveClasses, activeSubject, activeChapter]);
+
   const chapterNotes = materials.filter(m => m.subject === activeSubject && m.chapter === activeChapter && m.material_type !== "dpp");
   const chapterDpps = materials.filter(m => m.subject === activeSubject && m.chapter === activeChapter && m.material_type === "dpp");
 
-  // Live classes logic
-  const now = Date.now();
-  const upcomingLive = liveClasses.filter(l => l.is_live || (new Date(l.scheduled_at).getTime() > now - 4*3600_000));
-
-  const playVideo = (item: any, isLive = false) => {
+  const playVideo = (item: any) => {
+    const isLive = "is_live" in item;
     setPlayingVideo({
       id: item.id,
       src: isLive ? item.youtube_url : item.video_url,
@@ -164,300 +187,319 @@ function BatchPortal() {
     setTheaterOpen(true);
   };
 
-  const coverUrl = batch.thumbnail_url ? getStorageUrl(batch.thumbnail_url) : null;
+  const openDoc = (url: string | null, title: string) => {
+    if (!url) return toast.error("No file attached");
+    setDocUrl(url);
+    setDocTitle(title);
+  };
 
-  return (
-    <div className="min-h-screen bg-slate-50/50 pb-20">
-      {/* Batch Header */}
-      <div className="bg-white border-b">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 flex flex-col md:flex-row gap-6 items-start md:items-center">
-          <div className="h-24 w-24 md:h-32 md:w-32 shrink-0 rounded-2xl overflow-hidden shadow-sm border bg-slate-100">
-            {coverUrl ? <img src={coverUrl} alt={batch.title} className="w-full h-full object-cover" /> : <BookOpen className="w-full h-full p-8 text-slate-300" />}
+  // ----------------------------------------------------
+  // RENDER: LEVEL 1 (Blue Banner + Subjects Grid)
+  // ----------------------------------------------------
+  if (!activeSubject) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] pb-20 font-sans">
+        {/* The Purple/Blue PW Header */}
+        <div className="bg-[#6043ED] text-white pt-8 pb-4 relative overflow-hidden">
+          {/* Subtle background decoration */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-6">{batch.title}</h1>
           </div>
-          <div className="flex-1">
-            <Link to="/dashboard" className="text-xs font-semibold text-primary mb-2 flex items-center gap-1"><ArrowLeft className="w-3 h-3"/> Dashboard</Link>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{batch.title}</h1>
-            <div className="flex items-center gap-4 mt-3 text-xs font-medium text-slate-500">
-              <span className="flex items-center gap-1"><Video className="w-4 h-4"/> {lectures.length} Lectures</span>
-              <span className="flex items-center gap-1"><FileText className="w-4 h-4"/> {materials.length} Notes & DPPs</span>
+        </div>
+
+        {/* White Sub-tabs Bar */}
+        <div className="bg-white border-b sticky top-0 z-20 shadow-sm">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
+              <div className="flex gap-6 overflow-x-auto scrollbar-hide">
+                {(["Description", "All Classes", "Infinity Learning", "Tests", "Community"] as MainTab[]).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setMainTab(t)}
+                    className={cn(
+                      "py-3 text-[13px] font-semibold whitespace-nowrap border-b-2 transition-colors",
+                      mainTab === t ? "border-[#6043ED] text-[#6043ED]" : "border-transparent text-slate-500 hover:text-slate-800"
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="flex items-center gap-3 shrink-0 pb-2 sm:pb-0">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">
+                  <Share2 className="w-3.5 h-3.5" /> Share Batch
+                </button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">
+                  <Bell className="w-3.5 h-3.5" /> Announcement
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Main Tabs */}
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="flex gap-6 border-b overflow-x-auto scrollbar-hide">
-            {(["Subjects", "Live", "Tests", "Updates"] as MainTab[]).map(t => (
-              <button
-                key={t}
-                onClick={() => setMainTab(t)}
-                className={cn(
-                  "py-4 px-1 border-b-2 text-sm font-bold whitespace-nowrap transition-colors",
-                  mainTab === t ? "border-primary text-primary" : "border-transparent text-slate-500 hover:text-slate-800"
-                )}
-              >
-                {t}
-                {t === "Live" && upcomingLive.length > 0 && <span className="ml-2 bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">LIVE</span>}
-              </button>
-            ))}
+        {/* Main Content Area */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+          {mainTab === "All Classes" && (
+            <>
+              <h2 className="text-xl font-bold text-slate-900">Subjects</h2>
+              <p className="text-sm text-slate-500 mb-6 mt-1">Select your subjects & start learning</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {subjects.length === 0 ? (
+                  <div className="col-span-full py-10 text-center text-slate-500">No subjects available yet.</div>
+                ) : subjects.map((s, idx) => {
+                  const color = pastelColors[idx % pastelColors.length];
+                  const chapterCount = subjectsMap.get(s)?.chapters.size || 0;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setActiveSubject(s)}
+                      className="bg-white p-4 rounded-xl shadow-sm border border-slate-200/60 hover:shadow-md transition-all flex items-center gap-4 text-left group"
+                    >
+                      <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border", color)}>
+                        <LayoutGrid className="w-6 h-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#6043ED] transition-colors">{s}</h3>
+                        <p className="text-[11px] text-slate-500 mt-1">{chapterCount} Chapters</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {mainTab === "Tests" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tests.length === 0 ? <div className="col-span-2 py-10 text-center text-slate-500">No tests available.</div> :
+               tests.map(t => (
+                 <div key={t.id} className="border bg-white rounded-2xl p-6 shadow-sm flex flex-col">
+                   <div className="flex items-center justify-between mb-2">
+                     <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md uppercase tracking-wide">Test</span>
+                     <span className="text-xs font-semibold text-slate-500">{t.duration_minutes} mins</span>
+                   </div>
+                   <h3 className="text-lg font-bold text-slate-900 mb-1">{t.title}</h3>
+                   <p className="text-sm text-slate-500 line-clamp-2 mb-6 flex-1">{t.description}</p>
+                   
+                   {t.attempt?.status === "completed" ? (
+                     <div className="flex items-center justify-between mt-auto">
+                       <div>
+                         <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Score</p>
+                         <p className="text-xl font-black text-emerald-600">{t.attempt.score} <span className="text-sm font-semibold text-emerald-600/50">/ {t.attempt.max_score}</span></p>
+                       </div>
+                       <Button variant="outline" asChild className="rounded-lg"><Link to="/cbt/$testId/result" params={{ testId: t.id }}>View Analysis</Link></Button>
+                     </div>
+                   ) : (
+                     <Button asChild className="w-full rounded-lg bg-[#6043ED] hover:bg-[#4E36C2] mt-auto shadow-sm"><Link to="/cbt/$testId" params={{ testId: t.id }}>Start Test</Link></Button>
+                   )}
+                 </div>
+               ))
+              }
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // RENDER: LEVEL 2 (Chapters List)
+  // ----------------------------------------------------
+  if (!activeChapter) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] pb-20 font-sans">
+        {/* Simple Header with Back Button */}
+        <div className="bg-white border-b sticky top-0 z-20 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
+          <button onClick={() => setActiveSubject(null)} className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+        </div>
+
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {chapters.length === 0 ? (
+              <div className="col-span-2 py-10 text-center text-slate-500">No chapters found.</div>
+            ) : (
+              chapters.map(c => {
+                const vids = lectures.filter(l => l.subject === activeSubject && l.chapter === c).length + liveClasses.filter(l => l.subject === activeSubject && l.chapter === c).length;
+                const notesCount = materials.filter(m => m.subject === activeSubject && m.chapter === c && m.material_type !== "dpp").length;
+                const dppCount = materials.filter(m => m.subject === activeSubject && m.chapter === c && m.material_type === "dpp").length;
+                
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setActiveChapter(c)}
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/70 hover:shadow-md transition-all text-left flex flex-col justify-center border-l-4 border-l-[#6043ED]"
+                  >
+                    <h3 className="font-bold text-slate-900 text-[15px] mb-2">{c}</h3>
+                    <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400">
+                      <span>{vids} Videos</span>
+                      <span>{dppCount} Exercises</span>
+                      <span>{notesCount} Notes</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // RENDER: LEVEL 3 (Lectures / Notes inside Chapter)
+  // ----------------------------------------------------
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] pb-20 font-sans">
+      {/* Simple Header with Back Button */}
+      <div className="bg-white border-b sticky top-0 z-20 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
+        <button onClick={() => setActiveChapter(null)} className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+      </div>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
-        
-        {/* ================= SUBJECTS TAB (PW STYLE) ================= */}
-        {mainTab === "Subjects" && (
-          <div className="flex flex-col md:flex-row gap-8">
-            
-            {/* Sidebar: Subjects List */}
-            <div className="w-full md:w-64 shrink-0 space-y-1">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">Subjects</h3>
-              {subjects.length === 0 ? (
-                <div className="text-sm text-slate-500 px-3">No subjects yet.</div>
-              ) : (
-                subjects.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => { setActiveSubject(s); setActiveChapter(null); }}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all",
-                      activeSubject === s ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-700 hover:bg-slate-100"
-                    )}
-                  >
-                    {s}
-                    <ChevronRight className={cn("w-4 h-4", activeSubject === s ? "text-white/70" : "text-slate-400")} />
-                  </button>
-                ))
+        <h2 className="text-2xl font-bold text-slate-900 mb-6">{activeChapter}</h2>
+
+        {/* Tab Bar for Chapter Content */}
+        <div className="flex gap-1 mb-8 bg-slate-100/50 p-1 rounded-xl inline-flex flex-wrap border">
+          {(["Lectures", "Notes", "DPP", "DPP PDF", "DPP VIDEOS"] as SubTab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => setSubTab(t)}
+              className={cn(
+                "px-4 py-2 text-[13px] font-bold rounded-lg transition-all",
+                subTab === t ? "bg-white text-[#6043ED] shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-black/5"
               )}
-            </div>
+            >
+              {t}
+            </button>
+          ))}
+        </div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 min-w-0 bg-white border rounded-3xl p-6 shadow-sm">
-              {!activeChapter ? (
-                // CHAPTER LIST VIEW
-                <>
-                  <h2 className="text-xl font-bold text-slate-900 mb-6">{activeSubject} Chapters</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {chapters.length === 0 ? (
-                      <p className="text-slate-500 text-sm col-span-2">No chapters found for this subject.</p>
-                    ) : (
-                      chapters.map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setActiveChapter(c)}
-                          className="flex items-center gap-4 p-4 rounded-2xl border hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
-                        >
-                          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                            <Folder className="w-6 h-6 fill-current opacity-20" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-bold text-slate-800 line-clamp-1">{c}</h4>
-                            <p className="text-xs text-slate-500 mt-0.5">View lectures & notes</p>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              ) : (
-                // LECTURES & NOTES VIEW (INSIDE CHAPTER)
-                <>
-                  <button onClick={() => setActiveChapter(null)} className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-4 hover:underline">
-                    <ChevronLeft className="w-4 h-4"/> Back to Chapters
-                  </button>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                    <FolderOpen className="w-6 h-6 text-primary fill-primary/20" /> {activeChapter}
-                  </h2>
-
-                  {/* Sub Tabs */}
-                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl mb-6 inline-flex">
-                    {(["Lectures", "Notes", "DPPs"] as SubTab[]).map(t => (
-                      <button
-                        key={t} onClick={() => setSubTab(t)}
-                        className={cn(
-                          "px-5 py-2 text-sm font-bold rounded-lg transition-all",
-                          subTab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                        )}
+        {/* LECTURES GRID */}
+        {subTab === "Lectures" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {chapterLectures.length === 0 ? <div className="col-span-full py-10 text-center text-slate-500">No lectures available.</div> :
+             chapterLectures.map((l: any) => (
+               <div key={l.id} className="bg-white rounded-2xl shadow-sm border border-slate-200/70 overflow-hidden flex flex-col group">
+                 {/* Top Half: Lavender Background */}
+                 <div className="bg-[#F6F5FC] p-4 relative h-36 flex flex-col justify-between">
+                   <div className="pr-16">
+                     <h4 className="font-bold text-[#6043ED] text-sm line-clamp-1">{activeChapter}</h4>
+                     <p className="text-xs font-black text-slate-900 mt-1 line-clamp-2">Lec {l.lecture_number}: {l.title}</p>
+                   </div>
+                   
+                   {/* Teacher Circle Image (Mocked if empty) */}
+                   <div className="absolute right-3 top-3 w-16 h-16 rounded-full border-2 border-white shadow-sm overflow-hidden bg-white">
+                      {l.thumbnail_url ? (
+                        <img src={getStorageUrl(l.thumbnail_url) || l.thumbnail_url} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
+                          <User className="w-8 h-8" />
+                        </div>
+                      )}
+                      
+                      {/* Purple Play Button overlay */}
+                      <button 
+                        onClick={() => playVideo(l)}
+                        className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#6043ED] rounded-full text-white flex items-center justify-center shadow-md border-2 border-white transition group-hover:scale-110"
                       >
-                        {t}
+                        <Play className="w-3.5 h-3.5 ml-0.5" />
                       </button>
-                    ))}
-                  </div>
-
-                  {/* Lists */}
-                  <div className="space-y-3">
-                    {subTab === "Lectures" && (
-                      chapterLectures.length === 0 ? <Empty msg="No lectures in this chapter yet." /> :
-                      chapterLectures.map(l => (
-                        <div key={l.id} className="flex flex-col sm:flex-row gap-4 p-4 border rounded-2xl hover:border-primary/30 transition-all bg-slate-50/50">
-                          <div className="w-full sm:w-40 aspect-video bg-black rounded-xl overflow-hidden relative shrink-0">
-                            {l.thumbnail_url ? <img src={l.thumbnail_url} className="w-full h-full object-cover opacity-60" alt="" /> : null}
-                            <PlayCircle className="absolute inset-0 m-auto w-8 h-8 text-white opacity-80" />
-                          </div>
-                          <div className="flex-1 py-1">
-                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                              Lec {l.lecture_number}
-                            </span>
-                            <h4 className="font-bold text-slate-900 mt-2 line-clamp-2">{l.title}</h4>
-                            <Button size="sm" onClick={() => playVideo(l)} className="mt-3 gap-1.5 rounded-full px-5">
-                              <Play className="w-3.5 h-3.5" /> Watch Now
-                            </Button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    {subTab === "Notes" && (
-                      chapterNotes.length === 0 ? <Empty msg="No notes uploaded." /> :
-                      chapterNotes.map(n => (
-                        <div key={n.id} className="flex items-center justify-between p-4 border rounded-2xl bg-slate-50/50">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><FileText className="w-5 h-5"/></div>
-                            <h4 className="font-semibold text-sm text-slate-800">{n.title}</h4>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => setDocUrl(n.file_url)}>View PDF</Button>
-                        </div>
-                      ))
-                    )}
-                    {subTab === "DPPs" && (
-                      chapterDpps.length === 0 ? <Empty msg="No DPPs uploaded." /> :
-                      chapterDpps.map(d => (
-                        <div key={d.id} className="flex items-center justify-between p-4 border rounded-2xl bg-slate-50/50">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center"><ClipboardList className="w-5 h-5"/></div>
-                            <h4 className="font-semibold text-sm text-slate-800">{d.title}</h4>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => setDocUrl(d.file_url)}>Solve DPP</Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ================= LIVE CLASSES TAB ================= */}
-        {mainTab === "Live" && (
-          <div className="max-w-4xl mx-auto space-y-4">
-            {upcomingLive.length === 0 ? <Empty msg="No live classes scheduled currently." /> :
-             upcomingLive.map(lc => (
-              <div key={lc.id} className="flex flex-col sm:flex-row gap-4 p-5 border rounded-3xl bg-white shadow-sm items-center">
-                <div className="w-full sm:w-48 aspect-video bg-slate-900 rounded-2xl overflow-hidden relative shrink-0">
-                  {lc.thumbnail_url && <img src={lc.thumbnail_url} className="w-full h-full object-cover opacity-50" />}
-                  {lc.is_live && <span className="absolute top-2 left-2 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md animate-pulse">LIVE NOW</span>}
-                </div>
-                <div className="flex-1 w-full text-center sm:text-left">
-                  <h3 className="text-lg font-bold text-slate-900 line-clamp-2">{lc.title}</h3>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 justify-center sm:justify-start">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
-                      <Clock className="w-4 h-4 text-slate-400"/>
-                      {new Date(lc.scheduled_at).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                    </span>
-                    {lc.subject && <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-lg">{lc.subject}</span>}
-                  </div>
-                </div>
-                <div className="w-full sm:w-auto shrink-0">
-                  <Button 
-                    className="w-full sm:w-auto rounded-xl shadow-md gap-2" 
-                    size="lg"
-                    onClick={() => {
-                      if (lc.is_live && lc.youtube_url) playVideo(lc, true);
-                      else if (lc.zoom_url) window.open(lc.zoom_url);
-                      else toast.warning("Class has not started yet.");
-                    }}
-                  >
-                    <Radio className="w-4 h-4" /> Join Class
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ================= TESTS TAB ================= */}
-        {mainTab === "Tests" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
-            {tests.length === 0 ? <div className="col-span-2"><Empty msg="No tests assigned to this batch." /></div> :
-             tests.map(t => (
-               <div key={t.id} className="border bg-white rounded-3xl p-6 shadow-sm flex flex-col">
-                 <div className="flex items-start justify-between mb-4">
-                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
-                     <Award className="w-6 h-6" />
                    </div>
-                   <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{t.duration_minutes} mins</span>
+
+                   <div className="text-[10px] font-bold text-slate-400 mt-auto uppercase tracking-wider">By Faculty</div>
                  </div>
-                 <h3 className="text-lg font-bold text-slate-900 mb-1">{t.title}</h3>
-                 <p className="text-sm text-slate-500 line-clamp-2 mb-6 flex-1">{t.description}</p>
-                 
-                 {t.attempt?.status === "completed" ? (
-                   <div className="flex items-center justify-between mt-auto">
-                     <div>
-                       <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Your Score</p>
-                       <p className="text-xl font-extrabold text-emerald-600">{t.attempt.score} <span className="text-sm text-emerald-600/50">/ {t.attempt.max_score}</span></p>
-                     </div>
-                     <Button variant="outline" asChild className="rounded-xl"><Link to="/cbt/$testId/result" params={{ testId: t.id }}>View Analysis</Link></Button>
+
+                 {/* Bottom Half: White */}
+                 <div className="p-4 flex flex-col flex-1 bg-white">
+                   <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-2">
+                     <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5"/> {new Date(l.created_at || l.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                     <span className="flex items-center gap-1"><Video className="w-3.5 h-3.5"/> {l.duration_minutes || "00"}:00:00</span>
                    </div>
-                 ) : (
-                   <Button asChild className="w-full rounded-xl shadow-md mt-auto"><Link to="/cbt/$testId" params={{ testId: t.id }}>Start Test</Link></Button>
-                 )}
+                   <p className="text-xs font-semibold text-slate-800 line-clamp-2 mb-3 flex-1">
+                     {activeChapter} {l.lecture_number ? `|| Lec ${l.lecture_number}` : ""} || {l.title}
+                   </p>
+                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                     <button className="p-1.5 text-slate-400 hover:text-slate-600 transition"><Paperclip className="w-4 h-4" /></button>
+                     <button className="p-1.5 text-slate-400 hover:text-slate-600 transition"><MoreVertical className="w-4 h-4" /></button>
+                   </div>
+                 </div>
                </div>
              ))
             }
           </div>
         )}
 
-        {/* ================= UPDATES TAB ================= */}
-        {mainTab === "Updates" && (
-          <div className="max-w-2xl mx-auto space-y-3">
-             {notifications.length === 0 ? <Empty msg="No recent updates." /> :
-              notifications.map(n => (
-                <div key={n.id} className="flex gap-4 p-5 bg-white border rounded-3xl shadow-sm">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                    <Bell className="w-5 h-5"/>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900">{n.title}</h4>
-                    <p className="text-sm text-slate-600 mt-1 leading-relaxed">{n.message}</p>
-                    <span className="text-[10px] font-bold text-slate-400 mt-3 block">
-                      {new Date(n.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))
-             }
+        {/* NOTES GRID */}
+        {subTab === "Notes" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {chapterNotes.length === 0 ? <div className="col-span-full py-10 text-center text-slate-500">No notes available.</div> :
+             chapterNotes.map(n => (
+               <div key={n.id} className="bg-white rounded-xl shadow-sm border border-slate-200/70 p-4 flex flex-col h-full">
+                 <h4 className="font-bold text-sm text-slate-900 mb-6 flex-1 line-clamp-3">{n.title}</h4>
+                 <div className="flex items-center justify-between mt-auto">
+                   <div className="w-8 h-8 rounded-lg bg-[#6043ED] text-white flex items-center justify-center shrink-0">
+                     <span className="text-[10px] font-black tracking-tighter">PDF</span>
+                   </div>
+                   <button 
+                     onClick={() => openDoc(n.file_url, n.title)}
+                     className="w-8 h-8 rounded-full border border-slate-200 text-[#6043ED] flex items-center justify-center hover:bg-slate-50 transition"
+                   >
+                     <Download className="w-4 h-4" />
+                   </button>
+                 </div>
+               </div>
+             ))
+            }
           </div>
         )}
 
+        {/* DPP GRID */}
+        {(subTab === "DPP" || subTab === "DPP PDF") && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {chapterDpps.length === 0 ? <div className="col-span-full py-10 text-center text-slate-500">No DPPs available.</div> :
+             chapterDpps.map(d => (
+               <div key={d.id} className="bg-white rounded-xl shadow-sm border border-slate-200/70 p-4 flex flex-col h-full">
+                 <h4 className="font-bold text-sm text-slate-900 mb-6 flex-1 line-clamp-3">{d.title}</h4>
+                 <div className="flex items-center justify-between mt-auto">
+                   <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center shrink-0">
+                     <ClipboardList className="w-4 h-4" />
+                   </div>
+                   <button 
+                     onClick={() => openDoc(d.file_url, d.title)}
+                     className="w-8 h-8 rounded-full border border-slate-200 text-orange-500 flex items-center justify-center hover:bg-slate-50 transition"
+                   >
+                     <Download className="w-4 h-4" />
+                   </button>
+                 </div>
+               </div>
+             ))
+            }
+          </div>
+        )}
       </div>
 
       {theaterOpen && playingVideo && (
         <TheaterModal
           open={theaterOpen}
-          onOpenChange={setTheaterOpen}
-          src={playingVideo.src}
+          onClose={() => setTheaterOpen(false)}
+          videoSrc={playingVideo.src}
           poster={playingVideo.poster}
           title={playingVideo.title}
           meta={playingVideo.isLive ? "Live Class" : "Recorded Lecture"}
           liveClassId={playingVideo.isLive ? playingVideo.id : undefined}
           lectures={[]}
-          activeLectureId={null}
-          onLectureChange={() => {}}
+          onSelectLecture={() => {}}
         />
       )}
 
-      <DocumentViewer url={docUrl} onClose={() => setDocUrl(null)} />
-    </div>
-  );
-}
-
-function Empty({ msg }: { msg: string }) {
-  return (
-    <div className="text-center py-16 px-4 bg-white border border-dashed rounded-3xl">
-      <FolderOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-      <p className="text-sm font-medium text-slate-500">{msg}</p>
+      <DocumentViewer url={docUrl} title={docTitle} onClose={() => setDocUrl(null)} />
     </div>
   );
 }
