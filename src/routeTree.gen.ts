@@ -50,6 +50,7 @@ import { Route as AuthenticatedAdminDashboardSettingsRouteImport } from './route
 import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
 import { Route as AuthenticatedAdminCbtRouteImport } from './routes/_authenticated/admin.cbt'
 import { Route as AuthenticatedAdminBatchesRouteImport } from './routes/_authenticated/admin.batches'
+import { Route as AuthenticatedCbtTestIdIndexRouteImport } from './routes/_authenticated/cbt.$testId.index'
 import { Route as AuthenticatedAdminCbtIndexRouteImport } from './routes/_authenticated/admin.cbt.index'
 import { Route as AuthenticatedAdminBatchesIndexRouteImport } from './routes/_authenticated/admin.batches.index'
 import { Route as AuthenticatedCbtTestIdResultRouteImport } from './routes/_authenticated/cbt.$testId.result'
@@ -277,6 +278,12 @@ const AuthenticatedAdminBatchesRoute =
     path: '/batches',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedCbtTestIdIndexRoute =
+  AuthenticatedCbtTestIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedCbtTestIdRoute,
+  } as any)
 const AuthenticatedAdminCbtIndexRoute =
   AuthenticatedAdminCbtIndexRouteImport.update({
     id: '/',
@@ -373,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/cbt/$testId/result': typeof AuthenticatedCbtTestIdResultRoute
   '/admin/batches/': typeof AuthenticatedAdminBatchesIndexRoute
   '/admin/cbt/': typeof AuthenticatedAdminCbtIndexRoute
+  '/cbt/$testId/': typeof AuthenticatedCbtTestIdIndexRoute
   '/admin/cbt/$testId/leaderboard': typeof AuthenticatedAdminCbtTestIdLeaderboardRoute
   '/admin/cbt/$testId/questions': typeof AuthenticatedAdminCbtTestIdQuestionsRoute
 }
@@ -411,7 +419,6 @@ export interface FileRoutesByTo {
   '/admin/pdfs': typeof AuthenticatedAdminPdfsRoute
   '/admin/results': typeof AuthenticatedAdminResultsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
-  '/cbt/$testId': typeof AuthenticatedCbtTestIdRouteWithChildren
   '/my-batch/$slug': typeof AuthenticatedMyBatchSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/batches/$batchId': typeof AuthenticatedAdminBatchesBatchIdRoute
@@ -420,6 +427,7 @@ export interface FileRoutesByTo {
   '/cbt/$testId/result': typeof AuthenticatedCbtTestIdResultRoute
   '/admin/batches': typeof AuthenticatedAdminBatchesIndexRoute
   '/admin/cbt': typeof AuthenticatedAdminCbtIndexRoute
+  '/cbt/$testId': typeof AuthenticatedCbtTestIdIndexRoute
   '/admin/cbt/$testId/leaderboard': typeof AuthenticatedAdminCbtTestIdLeaderboardRoute
   '/admin/cbt/$testId/questions': typeof AuthenticatedAdminCbtTestIdQuestionsRoute
 }
@@ -472,6 +480,7 @@ export interface FileRoutesById {
   '/_authenticated/cbt/$testId/result': typeof AuthenticatedCbtTestIdResultRoute
   '/_authenticated/admin/batches/': typeof AuthenticatedAdminBatchesIndexRoute
   '/_authenticated/admin/cbt/': typeof AuthenticatedAdminCbtIndexRoute
+  '/_authenticated/cbt/$testId/': typeof AuthenticatedCbtTestIdIndexRoute
   '/_authenticated/admin/cbt/$testId/leaderboard': typeof AuthenticatedAdminCbtTestIdLeaderboardRoute
   '/_authenticated/admin/cbt/$testId/questions': typeof AuthenticatedAdminCbtTestIdQuestionsRoute
 }
@@ -524,6 +533,7 @@ export interface FileRouteTypes {
     | '/cbt/$testId/result'
     | '/admin/batches/'
     | '/admin/cbt/'
+    | '/cbt/$testId/'
     | '/admin/cbt/$testId/leaderboard'
     | '/admin/cbt/$testId/questions'
   fileRoutesByTo: FileRoutesByTo
@@ -562,7 +572,6 @@ export interface FileRouteTypes {
     | '/admin/pdfs'
     | '/admin/results'
     | '/admin/students'
-    | '/cbt/$testId'
     | '/my-batch/$slug'
     | '/admin'
     | '/admin/batches/$batchId'
@@ -571,6 +580,7 @@ export interface FileRouteTypes {
     | '/cbt/$testId/result'
     | '/admin/batches'
     | '/admin/cbt'
+    | '/cbt/$testId'
     | '/admin/cbt/$testId/leaderboard'
     | '/admin/cbt/$testId/questions'
   id:
@@ -622,6 +632,7 @@ export interface FileRouteTypes {
     | '/_authenticated/cbt/$testId/result'
     | '/_authenticated/admin/batches/'
     | '/_authenticated/admin/cbt/'
+    | '/_authenticated/cbt/$testId/'
     | '/_authenticated/admin/cbt/$testId/leaderboard'
     | '/_authenticated/admin/cbt/$testId/questions'
   fileRoutesById: FileRoutesById
@@ -933,6 +944,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBatchesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/cbt/$testId/': {
+      id: '/_authenticated/cbt/$testId/'
+      path: '/'
+      fullPath: '/cbt/$testId/'
+      preLoaderRoute: typeof AuthenticatedCbtTestIdIndexRouteImport
+      parentRoute: typeof AuthenticatedCbtTestIdRoute
+    }
     '/_authenticated/admin/cbt/': {
       id: '/_authenticated/admin/cbt/'
       path: '/'
@@ -1076,6 +1094,7 @@ interface AuthenticatedCbtTestIdRouteChildren {
   AuthenticatedCbtTestIdLeaderboardRoute: typeof AuthenticatedCbtTestIdLeaderboardRoute
   AuthenticatedCbtTestIdMistakesRoute: typeof AuthenticatedCbtTestIdMistakesRoute
   AuthenticatedCbtTestIdResultRoute: typeof AuthenticatedCbtTestIdResultRoute
+  AuthenticatedCbtTestIdIndexRoute: typeof AuthenticatedCbtTestIdIndexRoute
 }
 
 const AuthenticatedCbtTestIdRouteChildren: AuthenticatedCbtTestIdRouteChildren =
@@ -1084,6 +1103,7 @@ const AuthenticatedCbtTestIdRouteChildren: AuthenticatedCbtTestIdRouteChildren =
       AuthenticatedCbtTestIdLeaderboardRoute,
     AuthenticatedCbtTestIdMistakesRoute: AuthenticatedCbtTestIdMistakesRoute,
     AuthenticatedCbtTestIdResultRoute: AuthenticatedCbtTestIdResultRoute,
+    AuthenticatedCbtTestIdIndexRoute: AuthenticatedCbtTestIdIndexRoute,
   }
 
 const AuthenticatedCbtTestIdRouteWithChildren =
