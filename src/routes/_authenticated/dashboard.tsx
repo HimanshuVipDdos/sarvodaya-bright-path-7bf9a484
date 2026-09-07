@@ -30,15 +30,11 @@ const dashboardQuery = queryOptions({
       if (!userId) return { profile: null, enrollments: [], roles: [], config: defaultDashboardConfig, streak: { current_streak: 0, longest_streak: 0 } };
 
       const [profile, enrollments, roles, configRow, streakResult] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId).maybeSingle().catch(() => ({ data: null })),
-        supabase.from("enrollments").select("*, batch:batches(*)").eq("user_id", userId).catch(() => ({ data: [] })),
-        supabase.from("user_roles").select("role").eq("user_id", userId).catch(() => ({ data: [] })),
-        supabase.from("notifications").select("body").eq("category", "dashboard_config").eq("title", "dashboard_settings").maybeSingle().catch(() => ({ data: null })),
-        // Record today's activity and get streak count
-        supabase
-          .rpc("record_daily_activity")
-          .then((res) => res.data ?? { current_streak: 0, longest_streak: 0 })
-          .catch(() => ({ current_streak: 0, longest_streak: 0 })),
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle().then(res => res, () => ({ data: null, error: null })),
+        supabase.from("enrollments").select("*, batch:batches(*)").eq("user_id", userId).then(res => res, () => ({ data: [], error: null })),
+        supabase.from("user_roles").select("role").eq("user_id", userId).then(res => res, () => ({ data: [], error: null })),
+        supabase.from("notifications").select("body").eq("category", "dashboard_config").eq("title", "dashboard_settings").maybeSingle().then(res => res, () => ({ data: null, error: null })),
+        supabase.rpc("record_daily_activity" as never).then(res => res.data ?? { current_streak: 0, longest_streak: 0 }, () => ({ current_streak: 0, longest_streak: 0 })),
       ]);
 
       let config = defaultDashboardConfig;

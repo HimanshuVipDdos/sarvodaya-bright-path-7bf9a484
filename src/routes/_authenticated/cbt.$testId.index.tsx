@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -232,10 +232,14 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const payload = data.questions.map((q: any) => ({
-        question_id: q.id,
-        selected_option: answers[q.id] ?? null,
-      }));
+      const payload = data.questions.map((q: any) => {
+        const val = answers[q.id];
+        const selected = (val === "a" || val === "b" || val === "c" || val === "d") ? val : null;
+        return {
+          question_id: q.id,
+          selected_option: selected,
+        };
+      });
       return submit({ data: { attempt_id: data.attempt_id, answers: payload } });
     },
     onSuccess: (res) => {
@@ -247,7 +251,10 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
         search: { attempt: res.attempt_id } as any 
       });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      hasSubmittedRef.current = false;
+      toast.error(e.message || "Failed to submit test. Please try again.");
+    },
   });
 
   const doSubmit = useCallback(() => {

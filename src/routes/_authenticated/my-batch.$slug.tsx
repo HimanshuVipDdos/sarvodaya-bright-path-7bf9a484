@@ -66,7 +66,11 @@ const batchPortalQuery = (slug: string) =>
         };
       }
 
-      await supabase.rpc("tick_live_classes" as never).catch(() => {});
+      try {
+        await supabase.rpc("tick_live_classes" as never);
+      } catch {
+        // ignore if rpc does not exist
+      }
 
       const [lectures, liveClasses, materials, notifications, batchTests, freeTests, myAttempts] =
         await Promise.all([

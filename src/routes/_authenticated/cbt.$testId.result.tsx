@@ -22,7 +22,7 @@ function ResultPage() {
   const search = Route.useSearch();
   const fetchResult = useServerFn(getCbtAttemptResult);
 
-  // If attempt was not passed in query params, resolve the user's latest attempt
+  // If attempt was not passed in query params, resolve the user's latest submitted attempt
   const { data: latestAttemptId, isLoading: findingAttempt } = useQuery({
     queryKey: ["cbt-latest-attempt", testId],
     enabled: !search?.attempt,
@@ -34,6 +34,7 @@ function ResultPage() {
         .select("id")
         .eq("test_id", testId)
         .eq("user_id", userData.user.id)
+        .eq("status", "submitted")
         .order("submitted_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -115,7 +116,7 @@ function ResultPage() {
     toast.success("Certificate downloaded");
   }
 
-  if (isLoading) {
+  if (findingAttempt || isLoading) {
     return <Section><div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></Section>;
   }
   if (error || !data) {
