@@ -72,7 +72,7 @@ const batchPortalQuery = (slug: string) =>
         // ignore if rpc does not exist
       }
 
-      const [lectures, liveClasses, materials, notifications, batchTests, freeTests, myAttempts] =
+      const [lectures, liveClasses, materials, notifications, batchTests, freeTests, myAttempts, facultyList] =
         await Promise.all([
           supabase
             .from("lectures")
@@ -108,6 +108,10 @@ const batchPortalQuery = (slug: string) =>
             .from("cbt_attempts")
             .select("test_id,status,score,max_score")
             .eq("user_id", userId),
+          supabase
+            .from("faculty")
+            .select("id,name,photo_url")
+            .eq("is_active", true),
         ]);
 
       const attemptByTest = new Map((myAttempts.data ?? []).map((a) => [a.test_id, a]));
@@ -123,6 +127,7 @@ const batchPortalQuery = (slug: string) =>
         liveClasses: liveClasses.data ?? [],
         materials: materials.data ?? [],
         notifications: notifications.data ?? [],
+        facultyList: facultyList.data ?? [],
         tests,
       };
     },
@@ -200,6 +205,16 @@ function BatchPortal() {
   }
 
   const { batch, lectures, materials, liveClasses, tests, notifications } = data;
+
+  const facultyPhotoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (data.facultyList ?? []).forEach((f: any) => {
+      if (f.name && f.photo_url) {
+        map.set(f.name.toLowerCase().trim(), f.photo_url);
+      }
+    });
+    return map;
+  }, [data.facultyList]);
 
   // Derive Subjects and Chapters
   const subjectsMap = new Map<string, { chapters: Set<string> }>();
@@ -906,6 +921,13 @@ function BatchPortal() {
             ) : (
               chapterLectures.map((l: any) => {
                 const isLive = Boolean(l.is_live ?? (l.scheduled_at && !l.recorded_lecture_id));
+                const teacherPhoto = l.faculty ? facultyPhotoMap.get(String(l.faculty).toLowerCase().trim()) : null;
+                const avatarSrc = l.thumbnail_url
+                  ? (getStorageUrl(l.thumbnail_url) || l.thumbnail_url)
+                  : teacherPhoto
+                  ? (getStorageUrl(teacherPhoto) || teacherPhoto)
+                  : null;
+
                 return (
                   <div
                     key={l.id}
@@ -924,11 +946,11 @@ function BatchPortal() {
 
                       {/* Circular Teacher Photo / Thumbnail */}
                       <div className="absolute right-3 top-3 w-16 h-16 rounded-full border-2 border-white shadow-md overflow-hidden bg-white">
-                        {l.thumbnail_url ? (
+                        {avatarSrc ? (
                           <img
-                            src={getStorageUrl(l.thumbnail_url) || l.thumbnail_url}
+                            src={avatarSrc}
                             className="w-full h-full object-cover"
-                            alt=""
+                            alt={l.faculty || "Faculty"}
                           />
                         ) : (
                           <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
@@ -945,8 +967,8 @@ function BatchPortal() {
                         </button>
                       </div>
 
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        {l.faculty || "Faculty"}
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[130px]">
+                        {l.faculty || "Sarvodaya Faculty"}
                       </div>
                     </div>
 

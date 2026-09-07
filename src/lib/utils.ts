@@ -21,7 +21,11 @@ export function getStorageUrl(path: string | null | undefined, defaultBucket: st
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://uivnjfxyoacrmjocxryd.supabase.co";
   const cleanPath = path.replace(/^\/+/, "");
   
-  const knownBuckets = ["batch-thumbnails", "study-materials", "public", "avatars", "lectures", "cbt-images"];
+  const knownBuckets = [
+    "batch-thumbnails", "batch-covers", "covers", "study-materials",
+    "public", "avatars", "lectures", "cbt-images", "images", "photos",
+    "hero-slides", "gallery-photos", "faculty-photos", "materials"
+  ];
   const firstSegment = cleanPath.split("/")[0];
   
   if (knownBuckets.includes(firstSegment)) {

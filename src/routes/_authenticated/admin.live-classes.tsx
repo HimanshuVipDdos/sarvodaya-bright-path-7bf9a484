@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, CalendarDays, Clock3, Hash, Loader2, Pencil, Plus, Radio, TimerReset, Trash2, XCircle } from "lucide-react";
+import { BookOpen, CalendarDays, Clock3, Hash, Loader2, Pencil, Plus, Radio, TimerReset, Trash2, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn, getStorageUrl } from "@/lib/utils";
 
 type LiveClass = {
   id: string; title: string; batch_id: string | null; description: string | null; scheduled_at: string;
@@ -19,11 +20,12 @@ type LiveClass = {
   auto_end: boolean; recorded_lecture_id: string | null; thumbnail_url: string | null; youtube_url: string | null;
   zoom_url: string | null; meet_url: string | null;
   subject: string | null; chapter: string | null; lecture_number: number | null;
+  faculty: string | null;
 };
 type Batch = { id: string; title: string };
 type Form = Omit<LiveClass, "id" | "scheduled_at" | "end_at" | "duration_minutes" | "recorded_lecture_id"> & {
   date: string; startTime: string; startPeriod: "AM" | "PM"; endTime: string; endPeriod: "AM" | "PM";
-  subject: string; chapter: string; lecture_number: string;
+  subject: string; chapter: string; lecture_number: string; faculty: string;
 };
 
 const emptyForm = (): Form => ({
@@ -31,7 +33,7 @@ const emptyForm = (): Form => ({
   startTime: "04:00", startPeriod: "PM", endTime: "05:00", endPeriod: "PM",
   is_live: false, auto_start: true, auto_end: true,
   thumbnail_url: "", youtube_url: "", zoom_url: "", meet_url: "",
-  subject: "", chapter: "", lecture_number: "",
+  subject: "", chapter: "", lecture_number: "", faculty: "",
 });
 
 function to24Hour(time: string, period: "AM" | "PM") {
@@ -91,6 +93,7 @@ function LiveClassesAdmin() {
         zoom_url: form.zoom_url || null, meet_url: form.meet_url || null,
         subject: form.subject.trim() || null, chapter: form.chapter.trim() || null,
         lecture_number: (lecNum !== null && !isNaN(lecNum)) ? lecNum : null,
+        faculty: form.faculty.trim() || null,
       };
       const client = supabase as unknown as { from: (table: string) => any };
       const result = editing
@@ -167,6 +170,7 @@ function LiveClassesAdmin() {
       zoom_url: row.zoom_url ?? "", meet_url: row.meet_url ?? "",
       subject: row.subject ?? "", chapter: row.chapter ?? "",
       lecture_number: row.lecture_number != null ? String(row.lecture_number) : "",
+      faculty: row.faculty ?? "",
     });
     setOpen(true);
   };
@@ -335,6 +339,28 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
     },
   });
 
+  const { data: facultyList = [] } = useQuery({
+    queryKey: ["admin-live-faculty-options", form.batch_id],
+    queryFn: async () => {
+      const { data: facs } = await supabase.from("faculty").select("name, photo_url, subject").eq("is_active", true).order("name");
+      const list: { name: string; photo_url: string | null; subject?: string | null }[] = (facs ?? []).map((f) => ({
+        name: f.name, photo_url: f.photo_url, subject: f.subject,
+      }));
+
+      if (form.batch_id && form.batch_id !== "none") {
+        const { data: b } = await supabase.from("batches").select("faculty").eq("id", form.batch_id as string).maybeSingle();
+        if (b?.faculty && Array.isArray(b.faculty)) {
+          b.faculty.forEach((name: string) => {
+            if (name && !list.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
+              list.push({ name, photo_url: null });
+            }
+          });
+        }
+      }
+      return list;
+    },
+  });
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
@@ -351,6 +377,46 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
             {batches.map((b) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="sm:col-span-2">
+        <Label className="flex items-center gap-1.5">
+          <User className="h-3.5 w-3.5 text-indigo-600" /> Faculty / Teacher Name
+        </Label>
+        <Input
+          value={form.faculty}
+          onChange={(e) => set("faculty", e.target.value)}
+          placeholder="Select or type teacher name (e.g. Anurag Sir)"
+        />
+        {facultyList.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900">
+            <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider">
+              Recommended Teachers:
+            </span>
+            {facultyList.map((fac) => (
+              <button
+                key={fac.name}
+                type="button"
+                onClick={() => set("faculty", fac.name)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition shadow-2xs",
+                  form.faculty === fac.name
+                    ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+                    : "bg-background hover:bg-muted text-foreground border-border/60"
+                )}
+              >
+                {fac.photo_url ? (
+                  <img src={getStorageUrl(fac.photo_url) || fac.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold">
+                    {fac.name[0]}
+                  </span>
+                )}
+                {fac.name} {fac.subject ? `(${fac.subject})` : ""}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/30 p-4">

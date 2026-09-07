@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { BatchFolderManager, getStoredPremadeFolders } from "@/components/admin/batch-folder-manager";
+import { cn, getStorageUrl } from "@/lib/utils";
 
 export type Field = {
   name: string;
@@ -98,7 +99,10 @@ export function ResourceManager<T extends Record<string, unknown>>({
       let q = client.from(table).select("*").order(orderBy.column, { ascending: orderBy.ascending });
       if (presetFilter) q = q.eq(presetFilter.column, presetFilter.value) as typeof q;
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+        console.warn(`Query warning for ${table}:`, error.message);
+        return [];
+      }
       return (data ?? []) as unknown as T[];
     },
   });
@@ -384,6 +388,30 @@ function FieldsForm({
     },
   });
 
+  // Fetch faculty options from faculty table and current batch
+  const { data: facultyOptions = [] } = useQuery({
+    queryKey: ["admin-faculty-recommendations", form.batch_id],
+    queryFn: async () => {
+      const { data: facs } = await supabase.from("faculty").select("name, photo_url, subject").eq("is_active", true).order("name");
+      const list: { name: string; photo_url: string | null; subject?: string | null }[] = (facs ?? []).map((f) => ({
+        name: f.name, photo_url: f.photo_url, subject: f.subject,
+      }));
+
+      if (form.batch_id) {
+        const { data: b } = await supabase.from("batches").select("faculty").eq("id", form.batch_id as string).maybeSingle();
+        if (b?.faculty && Array.isArray(b.faculty)) {
+          b.faculty.forEach((name: string) => {
+            if (name && !list.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
+              list.push({ name, photo_url: null });
+            }
+          });
+        }
+      }
+      return list;
+    },
+    enabled: fields.some((f) => f.name === "faculty"),
+  });
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => {
@@ -413,6 +441,36 @@ function FieldsForm({
                   placeholder={f.placeholder ?? (f.type === "array" ? "comma, separated, values" : "")}
                   onChange={(e) => set(f.name, e.target.value)}
                 />
+                {/* Faculty Quick Pills */}
+                {f.name === "faculty" && facultyOptions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900">
+                    <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider">
+                      Recommended Teachers:
+                    </span>
+                    {facultyOptions.map((fac) => (
+                      <button
+                        key={fac.name}
+                        type="button"
+                        onClick={() => set("faculty", fac.name)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition shadow-2xs",
+                          form.faculty === fac.name
+                            ? "border-indigo-600 bg-indigo-600 text-white"
+                            : "bg-background hover:bg-muted text-foreground border-border/60"
+                        )}
+                      >
+                        {fac.photo_url ? (
+                          <img src={getStorageUrl(fac.photo_url) || fac.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold">
+                            {fac.name[0]}
+                          </span>
+                        )}
+                        {fac.name} {fac.subject ? `(${fac.subject})` : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {/* Subject Folder Quick Pills */}
                 {f.name === "subject" && folderOptions?.subjects && folderOptions.subjects.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-muted/40 p-2 rounded-xl border border-border/50">
