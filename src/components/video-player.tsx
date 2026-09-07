@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import { useState, useRef, useEffect, type RefObject } from "react";
 import ReactPlayer from "react-player";
+=======
+import { useState, useRef, type RefObject } from "react";
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
 import { ExternalLink, AlertTriangle } from "lucide-react";
 import { cn, getStorageUrl } from "@/lib/utils";
 
@@ -98,6 +102,7 @@ export function VideoPlayer({
 
   const canShowChat = Boolean(isLive && (chatComponent || externalOnChatToggle));
 
+<<<<<<< HEAD
   // ReactPlayer (cookpete/react-player) drives YouTube + direct file playback.
   // If it ever throws (blocked SDK, ad-blocker, flaky network, unsupported
   // embed), we drop to a raw iframe/<video> fallback so the class ALWAYS
@@ -107,6 +112,8 @@ export function VideoPlayer({
     setPlaybackFailed(false);
   }, [src]);
 
+=======
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
@@ -126,7 +133,11 @@ export function VideoPlayer({
       )}
     >
       <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-black overflow-hidden">
+<<<<<<< HEAD
         {embedInfo.type === "drive" ? (
+=======
+        {embedInfo.type === "youtube" || embedInfo.type === "drive" ? (
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
           <div className="relative w-full h-full">
             <iframe
               src={embedInfo.embedUrl}
@@ -146,6 +157,7 @@ export function VideoPlayer({
               <ExternalLink className="h-3 w-3" /> Open Link
             </a>
           </div>
+<<<<<<< HEAD
         ) : embedInfo.type === "youtube" && playbackFailed ? (
           // Guaranteed-play fallback: raw YouTube iframe embed, used only if
           // ReactPlayer itself errors out (e.g. blocked script, IFrame API
@@ -199,6 +211,9 @@ export function VideoPlayer({
             </a>
           </div>
         ) : playbackFailed ? (
+=======
+        ) : (
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
           <video
             src={embedInfo.embedUrl}
             poster={poster}
@@ -206,6 +221,7 @@ export function VideoPlayer({
             autoPlay
             playsInline
             className="w-full h-full object-contain bg-black"
+<<<<<<< HEAD
           />
         ) : (
           <ReactPlayer
@@ -218,6 +234,8 @@ export function VideoPlayer({
             height="100%"
             style={{ backgroundColor: "black" }}
             onError={() => setPlaybackFailed(true)}
+=======
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
           />
         )}
       </div>

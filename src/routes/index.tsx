@@ -71,6 +71,7 @@ function Index() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
             <div className="flex-1">
+<<<<<<< HEAD
               <motion.h1
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -109,11 +110,32 @@ function Index() {
             >
                <Hero3DModel />
             </motion.div>
+=======
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-[1.15] tracking-tight">
+                Bharat's <span className="text-[#5B21B6]">Trusted &</span><br />
+                <span className="text-[#5B21B6]">Affordable</span><br />
+                Educational Platform
+              </h1>
+              <p className="mt-6 text-slate-600 text-lg sm:text-xl max-w-lg">
+                Unlock your potential by signing up with {SITE.name} <br />
+                The most affordable learning solution
+              </p>
+              <div className="mt-8">
+                <Button asChild size="lg" className="rounded-md bg-[#5B21B6] hover:bg-[#4C1D95] text-white px-8 py-6 text-base shadow-md transition-all">
+                  <Link to="/batches">Get Started</Link>
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 relative flex justify-center lg:justify-end">
+               <Hero3DModel />
+            </div>
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
           </div>
 
           {/* STATS ROW */}
           <div className="mt-16 sm:mt-24 border-t border-b border-slate-100 py-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 divide-x divide-slate-100">
+<<<<<<< HEAD
                {[
                  { Icon: Video, iconClass: "text-red-500", title: "Daily Live", sub: "Interactive classes" },
                  { Icon: FileText, iconClass: "text-blue-500", title: "10 Million +", sub: "Tests, sample papers & notes" },
@@ -133,6 +155,28 @@ function Index() {
                     <div className="text-xs text-slate-500 mt-1">{sub}</div>
                  </motion.div>
                ))}
+=======
+               <div className="flex flex-col items-center text-center px-4">
+                  <Video className="w-8 h-8 text-red-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">Daily Live</div>
+                  <div className="text-xs text-slate-500 mt-1">Interactive classes</div>
+               </div>
+               <div className="flex flex-col items-center text-center px-4">
+                  <FileText className="w-8 h-8 text-blue-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">10 Million +</div>
+                  <div className="text-xs text-slate-500 mt-1">Tests, sample papers & notes</div>
+               </div>
+               <div className="flex flex-col items-center text-center px-4">
+                  <Clock className="w-8 h-8 text-purple-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">24 x 7</div>
+                  <div className="text-xs text-slate-500 mt-1">Doubt solving sessions</div>
+               </div>
+               <div className="flex flex-col items-center text-center px-4">
+                  <MapPin className="w-8 h-8 text-yellow-500 mb-3" />
+                  <div className="font-bold text-slate-900 text-sm">100 +</div>
+                  <div className="text-xs text-slate-500 mt-1">Offline centres</div>
+               </div>
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
             </div>
           </div>
         </div>
@@ -292,7 +336,11 @@ function Index() {
                          {r.rank_or_marks || 'SELECTED'}
                        </div>
                        {r.photo_url ? (
+<<<<<<< HEAD
                           <img src={r.photo_url} alt={r.student_name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+=======
+                          <img src={r.photo_url} alt={r.student_name} className="w-full h-full object-cover" />
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
                        ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-200 text-3xl font-black text-blue-900">
                              {r.student_name.charAt(0)}

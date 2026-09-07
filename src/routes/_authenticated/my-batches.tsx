@@ -90,8 +90,11 @@ function MyBatches() {
                     <img
                       src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url}
                       alt={b.title}
+<<<<<<< HEAD
                       loading="lazy"
                       decoding="async"
+=======
+>>>>>>> c3302841b74dbeebb6297ca5c277c5a1e4416ff2
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
