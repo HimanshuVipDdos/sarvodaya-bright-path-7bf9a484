@@ -307,30 +307,43 @@ function ControlBar({
   );
 }
 
-/* ---------------- YouTube Player — native controls, barely-visible YT branding ---------------- */
-function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { id: string; title?: string; poster?: string; className?: string; fullscreenTargetRef?: RefObject<HTMLElement | null> }) {
+/* -------- YouTube Player — native controls, preloaded iframe for reliable play -------- */
+function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: {
+  id: string; title?: string; poster?: string; className?: string;
+  fullscreenTargetRef?: RefObject<HTMLElement | null>;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [started, setStarted] = useState(false);
   const [embedError, setEmbedError] = useState(false);
 
   const fsElRef = fullscreenTargetRef ?? wrapRef;
   const isFs = useIsFullscreen(fsElRef);
 
-  // Native embed URL — controls=1 gives the thin native bar (exactly like the reference image)
-  // modestbranding=1 removes the YouTube logo from the control bar (only keeps the tiny watermark)
-  const embedSrc =
+  // Pre-load with autoplay=0 — iframe is ready but paused.
+  // On click we postMessage "playVideo" which is instant and reliable.
+  const preloadSrc =
     `https://www.youtube.com/embed/${id}` +
-    `?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=1&enablejsapi=1`;
+    `?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=0&enablejsapi=1`;
 
   function handlePlay() {
     setStarted(true);
-    // Auto fullscreen on first click
-    try {
-      const el = fsElRef.current;
-      if (el && !document.fullscreenElement) {
-        el.requestFullscreen?.().catch(() => {});
-      }
-    } catch {}
+    // Tell the already-loaded iframe to start playing via postMessage
+    setTimeout(() => {
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+          "*",
+        );
+      } catch {}
+      // Enter fullscreen after play starts
+      try {
+        const el = fsElRef.current;
+        if (el && !document.fullscreenElement) {
+          el.requestFullscreen?.().catch(() => {});
+        }
+      } catch {}
+    }, 200);
   }
 
   if (embedError) {
@@ -347,62 +360,58 @@ function YouTubePlayer({ id, title, poster, className, fullscreenTargetRef }: { 
     <div
       ref={wrapRef}
       className={cn(
-        "group relative overflow-hidden bg-black",
+        "relative overflow-hidden bg-black",
         isFs
           ? "!aspect-auto h-full w-full !rounded-none"
           : cn("rounded-2xl", !className?.includes("h-full") && "aspect-video"),
         className,
       )}
     >
-      {!started ? (
-        <>
-          {/* Poster / thumbnail */}
-          {poster ? (
-            <img
-              src={poster}
-              alt={title ?? ""}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(https://i.ytimg.com/vi/${id}/maxresdefault.jpg), url(https://i.ytimg.com/vi/${id}/hqdefault.jpg)`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            />
-          )}
-          {/* Gradient scrim for readability */}
-          <div className="pointer-events-none absolute inset-0 bg-black/30" />
-          {/* Title at top */}
+      {/* Iframe always loaded — hidden behind poster until started */}
+      <iframe
+        ref={iframeRef}
+        src={preloadSrc}
+        title={title ?? "Video"}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        className={cn(
+          "absolute inset-0 h-full w-full border-0 transition-opacity duration-300",
+          started ? "opacity-100" : "opacity-0 pointer-events-none",
+        )}
+        onError={() => setEmbedError(true)}
+      />
+
+      {/* Poster overlay — shown until play is clicked */}
+      {!started && (
+        <div className="absolute inset-0 z-10">
+          {/* Thumbnail */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: poster
+                ? `url(${poster})`
+                : `url(https://i.ytimg.com/vi/${id}/maxresdefault.jpg), url(https://i.ytimg.com/vi/${id}/hqdefault.jpg)`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+          {/* Dark scrim */}
+          <div className="absolute inset-0 bg-black/25" />
+          {/* Title */}
           {title && (
             <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
               <p className="line-clamp-1 text-sm font-semibold text-white drop-shadow">{title}</p>
             </div>
           )}
-          {/* Big red play button — exactly like YouTube */}
+          {/* Big red YouTube-style play button */}
           <button
             onClick={handlePlay}
             aria-label="Play video"
-            className="absolute"
-            style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-[72px] w-[72px] items-center justify-center rounded-full bg-red-600 shadow-2xl transition-all hover:scale-110 hover:bg-red-700 active:scale-95"
           >
-            <div className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-red-600 shadow-2xl transition-all hover:scale-110 hover:bg-red-700 active:scale-95">
-              <Play className="h-8 w-8 translate-x-0.5 text-white" />
-            </div>
+            <Play className="h-9 w-9 translate-x-0.5 text-white" />
           </button>
-        </>
-      ) : (
-        /* Native YouTube iframe — fills container completely */
-        <iframe
-          src={embedSrc}
-          title={title ?? "Video"}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-          allowFullScreen
-          className="absolute inset-0 h-full w-full border-0"
-          onError={() => setEmbedError(true)}
-        />
+        </div>
       )}
     </div>
   );
