@@ -24,9 +24,35 @@ const batchPortalQuery = (slug: string) =>
           return { batch: null, enrolled: false, lectures: [], liveClasses: [], materials: [], notifications: [], tests: [] };
         }
 
-        const { data: batch, error: batchError } = await supabase
-          .from("batches").select("*").eq("slug", slug).maybeSingle();
-        if (!batch || batchError) {
+        const cleanSlug = decodeURIComponent(slug).trim();
+        let batch: any = null;
+
+        // 1. Try exact slug
+        const { data: b1 } = await supabase.from("batches").select("*").eq("slug", cleanSlug).maybeSingle();
+        if (b1) {
+          batch = b1;
+        } else {
+          // 2. Try UUID id if it looks like a uuid
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanSlug);
+          if (isUUID) {
+            const { data: b2 } = await supabase.from("batches").select("*").eq("id", cleanSlug).maybeSingle();
+            if (b2) batch = b2;
+          }
+        }
+
+        // 3. Try case-insensitive slug or clean title match
+        if (!batch) {
+          const { data: b3 } = await supabase.from("batches").select("*").ilike("slug", cleanSlug).maybeSingle();
+          if (b3) {
+            batch = b3;
+          } else {
+            const titleAttempt = cleanSlug.replace(/-/g, " ");
+            const { data: b4 } = await supabase.from("batches").select("*").ilike("title", `%${titleAttempt}%`).maybeSingle();
+            if (b4) batch = b4;
+          }
+        }
+
+        if (!batch) {
           return { batch: null, enrolled: false, lectures: [], liveClasses: [], materials: [], notifications: [], tests: [] };
         }
 

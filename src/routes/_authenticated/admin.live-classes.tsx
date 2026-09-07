@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, Clock3, Hash, Loader2, Pencil, Plus, Radio, TimerReset, Trash2, XCircle } from "lucide-react";
@@ -20,7 +20,7 @@ type LiveClass = {
   zoom_url: string | null; meet_url: string | null;
   subject: string | null; chapter: string | null; lecture_number: number | null;
 };
-type Batch = { id: string; title: string };
+type Batch = { id: string; title: string; subjects?: string[] | null };
 type Form = Omit<LiveClass, "id" | "scheduled_at" | "end_at" | "duration_minutes" | "recorded_lecture_id"> & {
   date: string; startTime: string; startPeriod: "AM" | "PM"; endTime: string; endPeriod: "AM" | "PM";
   subject: string; chapter: string; lecture_number: string;
@@ -31,7 +31,7 @@ const emptyForm = (): Form => ({
   startTime: "04:00", startPeriod: "PM", endTime: "05:00", endPeriod: "PM",
   is_live: false, auto_start: true, auto_end: true,
   thumbnail_url: "", youtube_url: "", zoom_url: "", meet_url: "",
-  subject: "", chapter: "", lecture_number: "",
+  subject: "", chapter: "", lecture_number: "1",
 });
 
 function to24Hour(time: string, period: "AM" | "PM") {
@@ -66,10 +66,19 @@ function LiveClassesAdmin() {
       return (data ?? []) as LiveClass[];
     },
   });
+
+  const { data: lectures = [] } = useQuery({
+    queryKey: ["admin", "lectures-for-tracking"],
+    queryFn: async () => {
+      const { data } = await supabase.from("lectures").select("batch_id, subject, chapter, lecture_number, created_at");
+      return (data ?? []) as { batch_id: string | null; subject: string | null; chapter: string | null; lecture_number: number | null }[];
+    },
+  });
+
   const { data: batches = [] } = useQuery({
     queryKey: ["admin", "batch-options"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("batches").select("id,title").order("title");
+      const { data, error } = await supabase.from("batches").select("id,title,subjects").order("title");
       if (error) throw error;
       return (data ?? []) as Batch[];
     },
@@ -92,6 +101,11 @@ function LiveClassesAdmin() {
         subject: form.subject.trim() || null, chapter: form.chapter.trim() || null,
         lecture_number: (lecNum !== null && !isNaN(lecNum)) ? lecNum : null,
       };
+
+      if (form.subject.trim()) localStorage.setItem("last_live_subject", form.subject.trim());
+      if (form.chapter.trim()) localStorage.setItem("last_live_chapter", form.chapter.trim());
+      if (form.batch_id) localStorage.setItem("last_live_batch", form.batch_id);
+
       const client = supabase as unknown as { from: (table: string) => any };
       const result = editing
         ? await client.from("live_classes").update(payload).eq("id", editing.id)
@@ -139,7 +153,7 @@ function LiveClassesAdmin() {
       const { error } = await (supabase as any).from("live_classes").update({ duration_minutes: newDuration }).eq("id", row.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "live_classes"] }); toast.success("15 minutes added."); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "live_classes"] }); toast.success("Class extended by 15 mins"); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -153,7 +167,41 @@ function LiveClassesAdmin() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm()); setOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    const lastSubject = localStorage.getItem("last_live_subject") || classes[0]?.subject || "";
+    const lastChapter = localStorage.getItem("last_live_chapter") || classes[0]?.chapter || "";
+    const lastBatchId = localStorage.getItem("last_live_batch") || classes[0]?.batch_id || null;
+
+    let nextLec = "1";
+    if (lastSubject && lastChapter) {
+      const matchClasses = classes.filter(
+        (c) =>
+          c.subject?.trim().toLowerCase() === lastSubject.trim().toLowerCase() &&
+          c.chapter?.trim().toLowerCase() === lastChapter.trim().toLowerCase()
+      );
+      const matchLectures = lectures.filter(
+        (l) =>
+          l.subject?.trim().toLowerCase() === lastSubject.trim().toLowerCase() &&
+          l.chapter?.trim().toLowerCase() === lastChapter.trim().toLowerCase()
+      );
+      const maxNum = Math.max(
+        0,
+        ...matchClasses.map((c) => c.lecture_number || 0),
+        ...matchLectures.map((l) => l.lecture_number || 0)
+      );
+      nextLec = String(maxNum + 1);
+    }
+
+    setForm({
+      ...emptyForm(),
+      batch_id: lastBatchId,
+      subject: lastSubject,
+      chapter: lastChapter,
+      lecture_number: nextLec,
+    });
+    setOpen(true);
+  };
   const openEdit = (row: LiveClass) => {
     const start = toLocalParts(row.scheduled_at);
     const end = toLocalParts(row.end_at ?? new Date(new Date(row.scheduled_at).getTime() + (row.duration_minutes ?? 60) * 60000).toISOString());
@@ -280,7 +328,7 @@ function LiveClassesAdmin() {
             <DialogTitle>{editing ? "Update class timing" : "Schedule a live class"}</DialogTitle>
             <DialogDescription>All times use India Standard Time (IST).</DialogDescription>
           </DialogHeader>
-          <ClassForm form={form} setForm={setForm} batches={batches} />
+          <ClassForm form={form} setForm={setForm} batches={batches} classes={classes} lectures={lectures} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
@@ -294,7 +342,19 @@ function LiveClassesAdmin() {
   );
 }
 
-function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Form) => void; batches: Batch[] }) {
+function ClassForm({
+  form,
+  setForm,
+  batches,
+  classes,
+  lectures,
+}: {
+  form: Form;
+  setForm: (value: Form) => void;
+  batches: Batch[];
+  classes: LiveClass[];
+  lectures: { batch_id: string | null; subject: string | null; chapter: string | null; lecture_number: number | null }[];
+}) {
   const duration = useMemo(() => {
     const start = new Date(makeIndiaIso(form.date, form.startTime, form.startPeriod));
     const end = new Date(makeIndiaIso(form.date, form.endTime, form.endPeriod));
@@ -310,6 +370,75 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
     </Select>
   );
 
+  // 1. Available subjects
+  const availableSubjects = useMemo(() => {
+    const sSet = new Set<string>();
+    const b = batches.find((item) => item.id === form.batch_id);
+    if (b?.subjects && Array.isArray(b.subjects)) {
+      b.subjects.forEach((s) => s && sSet.add(s.trim()));
+    }
+    classes.forEach((c) => {
+      if (c.subject && (!form.batch_id || c.batch_id === form.batch_id)) sSet.add(c.subject.trim());
+    });
+    lectures.forEach((l) => {
+      if (l.subject && (!form.batch_id || l.batch_id === form.batch_id)) sSet.add(l.subject.trim());
+    });
+    return Array.from(sSet);
+  }, [batches, classes, lectures, form.batch_id]);
+
+  // 2. Available chapters for current subject
+  const availableChapters = useMemo(() => {
+    if (!form.subject.trim()) return [];
+    const cSet = new Set<string>();
+    const lowerS = form.subject.trim().toLowerCase();
+    classes.forEach((c) => {
+      if (c.subject?.trim().toLowerCase() === lowerS && c.chapter) cSet.add(c.chapter.trim());
+    });
+    lectures.forEach((l) => {
+      if (l.subject?.trim().toLowerCase() === lowerS && l.chapter) cSet.add(l.chapter.trim());
+    });
+    return Array.from(cSet);
+  }, [classes, lectures, form.subject]);
+
+  // 3. Helper to compute next lecture number
+  const getNextLectureNumber = (subj: string, ch: string) => {
+    if (!subj.trim() || !ch.trim()) return 1;
+    const s = subj.trim().toLowerCase();
+    const c = ch.trim().toLowerCase();
+    const matchC = classes.filter((cl) => cl.subject?.trim().toLowerCase() === s && cl.chapter?.trim().toLowerCase() === c);
+    const matchL = lectures.filter((le) => le.subject?.trim().toLowerCase() === s && le.chapter?.trim().toLowerCase() === c);
+    const maxNum = Math.max(0, ...matchC.map((cl) => cl.lecture_number || 0), ...matchL.map((le) => le.lecture_number || 0));
+    return maxNum + 1;
+  };
+
+  const handleSelectSubject = (s: string) => {
+    const lowerS = s.trim().toLowerCase();
+    const chaps: string[] = [];
+    classes.forEach((c) => {
+      if (c.subject?.trim().toLowerCase() === lowerS && c.chapter && !chaps.includes(c.chapter.trim())) chaps.push(c.chapter.trim());
+    });
+    lectures.forEach((l) => {
+      if (l.subject?.trim().toLowerCase() === lowerS && l.chapter && !chaps.includes(l.chapter.trim())) chaps.push(l.chapter.trim());
+    });
+    const chosenChapter = chaps[0] || form.chapter;
+    const nextLec = getNextLectureNumber(s, chosenChapter);
+    setForm({
+      ...form,
+      subject: s,
+      chapter: chosenChapter,
+      lecture_number: String(nextLec),
+    });
+  };
+
+  const handleSelectChapter = (c: string) => {
+    const nextLec = getNextLectureNumber(form.subject, c);
+    setForm({
+      ...form,
+      chapter: c,
+      lecture_number: String(nextLec),
+    });
+  };
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
@@ -319,23 +448,113 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
 
       <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/30 p-4">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <BookOpen className="h-3.5 w-3.5" /> Chapter & Lecture Info
+          <BookOpen className="h-3.5 w-3.5" /> Chapter & Lecture Info (Smart Tracked)
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <Label>Subject</Label>
-            <Input value={form.subject} onChange={(e) => set("subject", e.target.value)} placeholder="e.g. Mathematics" />
+            <Input
+              value={form.subject}
+              onChange={(e) => {
+                const s = e.target.value;
+                const nextLec = getNextLectureNumber(s, form.chapter);
+                setForm({ ...form, subject: s, lecture_number: String(nextLec) });
+              }}
+              placeholder="e.g. OC, Maths, Physics"
+            />
+            {availableSubjects.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                <span className="text-[10px] text-muted-foreground font-semibold">Suggestions:</span>
+                {availableSubjects.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleSelectSubject(s)}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
+                      form.subject.toLowerCase() === s.toLowerCase()
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground/80 hover:bg-muted border-border"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
           <div>
             <Label>Chapter</Label>
-            <Input value={form.chapter} onChange={(e) => set("chapter", e.target.value)} placeholder="e.g. Algebra" />
+            <Input
+              value={form.chapter}
+              onChange={(e) => {
+                const c = e.target.value;
+                const nextLec = getNextLectureNumber(form.subject, c);
+                setForm({ ...form, chapter: c, lecture_number: String(nextLec) });
+              }}
+              placeholder="e.g. GOC ONE SHOT, Algebra"
+            />
+            {availableChapters.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                <span className="text-[10px] text-muted-foreground font-semibold">Chapters:</span>
+                {availableChapters.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleSelectChapter(c)}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
+                      form.chapter.toLowerCase() === c.toLowerCase()
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground/80 hover:bg-muted border-border"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
           <div>
             <Label className="flex items-center gap-1"><Hash className="h-3 w-3" /> Lecture #</Label>
-            <Input type="number" min={1} value={form.lecture_number} onChange={(e) => set("lecture_number", e.target.value)} placeholder="e.g. 12" />
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 font-bold"
+                onClick={() => {
+                  const curr = parseInt(form.lecture_number, 10) || 1;
+                  set("lecture_number", String(Math.max(1, curr - 1)));
+                }}
+              >
+                -
+              </Button>
+              <Input
+                type="number"
+                min={1}
+                value={form.lecture_number}
+                onChange={(e) => set("lecture_number", e.target.value)}
+                placeholder="e.g. 1"
+                className="text-center font-bold"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 font-bold"
+                onClick={() => {
+                  const curr = parseInt(form.lecture_number, 10) || 0;
+                  set("lecture_number", String(curr + 1));
+                }}
+              >
+                +
+              </Button>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">Auto-increments by chapter history</p>
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Groups lectures into subject/chapter folders for students.</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">Automatically groups this class into students' PW subject & chapter portals.</p>
       </div>
 
       <div>

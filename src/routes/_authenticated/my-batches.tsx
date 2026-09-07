@@ -81,7 +81,7 @@ function MyBatches() {
               <Link
                 key={e.id}
                 to="/my-batch/$slug"
-                params={{ slug: b.slug }}
+                params={{ slug: b.slug || b.id }}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
               >
                 {/* Thumbnail */}
