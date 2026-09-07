@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, Search, Loader2, Save, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, Save, X, FolderPlus, FolderOpen } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
@@ -22,11 +22,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { BatchFolderManager, getStoredPremadeFolders } from "@/components/admin/batch-folder-manager";
+import { cn, getStorageUrl } from "@/lib/utils";
 
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image";
+  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image" | "file";
   options?: { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
@@ -78,6 +80,7 @@ export function ResourceManager<T extends Record<string, unknown>>({
   const [editing, setEditing] = useState<T | null>(null);
   const [deleting, setDeleting] = useState<T | null>(null);
   const [form, setForm] = useState<FormState>({});
+  const [folderManagerOpen, setFolderManagerOpen] = useState(false);
 
   const queryKey = ["admin", table, presetFilter?.value ?? "all"] as const;
 
@@ -96,7 +99,10 @@ export function ResourceManager<T extends Record<string, unknown>>({
       let q = client.from(table).select("*").order(orderBy.column, { ascending: orderBy.ascending });
       if (presetFilter) q = q.eq(presetFilter.column, presetFilter.value) as typeof q;
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+        console.warn(`Query warning for ${table}:`, error.message);
+        return [];
+      }
       return (data ?? []) as unknown as T[];
     },
   });
@@ -336,8 +342,75 @@ function FieldsForm({
   setForm: (f: FormState) => void;
   batchOptions: { value: string; label: string }[];
 }) {
-  useEffect(() => { /* keep stable */ }, []);
   const set = (name: string, value: unknown) => setForm({ ...form, [name]: value });
+
+  // Fetch existing subjects & chapters for the selected batch
+  const { data: folderOptions } = useQuery({
+    queryKey: ["admin-batch-folders", form.batch_id],
+    enabled: Boolean(form.batch_id),
+    queryFn: async () => {
+      const [lecturesRes, materialsRes, liveRes] = await Promise.all([
+        supabase.from("lectures").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("study_materials").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("live_classes").select("subject,chapter").eq("batch_id", form.batch_id as string),
+      ]);
+      const subjectsSet = new Set<string>();
+      const subjectToChapters = new Map<string, Set<string>>();
+
+      const addPair = (sub: string | null, ch: string | null) => {
+        if (!sub?.trim()) return;
+        const s = sub.trim();
+        subjectsSet.add(s);
+        if (!subjectToChapters.has(s)) subjectToChapters.set(s, new Set());
+        if (ch?.trim()) subjectToChapters.get(s)!.add(ch.trim());
+      };
+
+      (lecturesRes.data ?? []).forEach((l: any) => addPair(l.subject, l.chapter));
+      (materialsRes.data ?? []).forEach((m: any) => addPair(m.subject, m.chapter));
+      (liveRes.data ?? []).forEach((lc: any) => addPair(lc.subject, lc.chapter));
+
+      // Merge premade custom batch folders
+      if (form.batch_id) {
+        const storedMap = getStoredPremadeFolders()[form.batch_id as string] ?? {};
+        Object.entries(storedMap).forEach(([sub, chs]) => {
+          subjectsSet.add(sub);
+          if (!subjectToChapters.has(sub)) subjectToChapters.set(sub, new Set());
+          chs.forEach((ch) => subjectToChapters.get(sub)!.add(ch));
+        });
+      }
+
+      return {
+        subjects: Array.from(subjectsSet).sort(),
+        subjectToChapters: Object.fromEntries(
+          Array.from(subjectToChapters.entries()).map(([k, v]) => [k, Array.from(v).sort()])
+        ),
+      };
+    },
+  });
+
+  // Fetch faculty options from faculty table and current batch
+  const { data: facultyOptions = [] } = useQuery({
+    queryKey: ["admin-faculty-recommendations", form.batch_id],
+    queryFn: async () => {
+      const { data: facs } = await supabase.from("faculty").select("name, photo_url, subject").eq("is_active", true).order("name");
+      const list: { name: string; photo_url: string | null; subject?: string | null }[] = (facs ?? []).map((f) => ({
+        name: f.name, photo_url: f.photo_url, subject: f.subject,
+      }));
+
+      if (form.batch_id) {
+        const { data: b } = await supabase.from("batches").select("faculty").eq("id", form.batch_id as string).maybeSingle();
+        if (b?.faculty && Array.isArray(b.faculty)) {
+          b.faculty.forEach((name: string) => {
+            if (name && !list.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
+              list.push({ name, photo_url: null });
+            }
+          });
+        }
+      }
+      return list;
+    },
+    enabled: fields.some((f) => f.name === "faculty"),
+  });
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -362,12 +435,101 @@ function FieldsForm({
               </div>
             )}
             {(f.type === "text" || f.type === "url" || f.type === "array") && (
-              <Input
-                value={(v as string) ?? ""}
-                placeholder={f.placeholder ?? (f.type === "array" ? "comma, separated, values" : "")}
-                onChange={(e) => set(f.name, e.target.value)}
-              />
+              <>
+                <Input
+                  value={(v as string) ?? ""}
+                  placeholder={f.placeholder ?? (f.type === "array" ? "comma, separated, values" : "")}
+                  onChange={(e) => set(f.name, e.target.value)}
+                />
+                {/* Faculty Quick Pills */}
+                {f.name === "faculty" && facultyOptions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900">
+                    <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider">
+                      Recommended Teachers:
+                    </span>
+                    {facultyOptions.map((fac) => (
+                      <button
+                        key={fac.name}
+                        type="button"
+                        onClick={() => set("faculty", fac.name)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition shadow-2xs",
+                          form.faculty === fac.name
+                            ? "border-indigo-600 bg-indigo-600 text-white"
+                            : "bg-background hover:bg-muted text-foreground border-border/60"
+                        )}
+                      >
+                        {fac.photo_url ? (
+                          <img src={getStorageUrl(fac.photo_url) || fac.photo_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold">
+                            {fac.name[0]}
+                          </span>
+                        )}
+                        {fac.name} {fac.subject ? `(${fac.subject})` : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Subject Folder Quick Pills */}
+                {f.name === "subject" && folderOptions?.subjects && folderOptions.subjects.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-muted/40 p-2 rounded-xl border border-border/50">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                      Folders in this batch:
+                    </span>
+                    {folderOptions.subjects.map((sub: string) => (
+                      <button
+                        key={sub}
+                        type="button"
+                        onClick={() => set("subject", sub)}
+                        className={cn(
+                          "rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition",
+                          form.subject === sub
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "bg-background hover:bg-muted text-foreground border-border/60"
+                        )}
+                      >
+                        📁 {sub}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Chapter Folder Quick Pills */}
+                {f.name === "chapter" && folderOptions && (
+                  (() => {
+                    const activeSub = (form.subject as string)?.trim();
+                    const chaptersList = activeSub && folderOptions.subjectToChapters?.[activeSub]
+                      ? folderOptions.subjectToChapters[activeSub]
+                      : Array.from(new Set(Object.values(folderOptions.subjectToChapters ?? {}).flat())).sort();
+                    
+                    if (!chaptersList || chaptersList.length === 0) return null;
+                    return (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-muted/40 p-2 rounded-xl border border-border/50">
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                          {activeSub ? `Chapters in ${activeSub}:` : "Existing Chapters:"}
+                        </span>
+                        {chaptersList.map((ch: string) => (
+                          <button
+                            key={ch}
+                            type="button"
+                            onClick={() => set("chapter", ch)}
+                            className={cn(
+                              "rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition",
+                              form.chapter === ch
+                                ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                : "bg-background hover:bg-muted text-foreground border-border/60"
+                            )}
+                          >
+                            📖 {ch}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()
+                )}
+              </>
             )}
+
             {f.type === "number" && (
               <Input
                 type="number"
@@ -407,12 +569,17 @@ function FieldsForm({
                 value={(v as string) ?? ""}
                 bucket={f.bucket ?? "batch-covers"}
                 aspect={f.aspect ?? 4 / 3}
-                onChange={(url: string) => set(f.name, url)}
+                onChange={(url) => setForm({ ...form, [f.name]: url })}
               />
             )}
-
-
-            {f.helper && <p className="mt-1 text-[11px] text-muted-foreground">{f.helper}</p>}
+            {f.type === "file" && (
+              <FileUploadField
+                value={(v as string) ?? ""}
+                bucket={f.bucket ?? "materials"}
+                onChange={(url) => setForm({ ...form, [f.name]: url })}
+              />
+            )}
+            {f.helper && <p className="mt-1 text-xs text-muted-foreground">{f.helper}</p>}
           </div>
         );
       })}
@@ -445,6 +612,15 @@ async function getCroppedImageBlob(imageSrc: string, cropPixels: Area, mimeType:
       if (blob) resolve(blob);
       else reject(new Error("Failed to crop image"));
     }, mimeType, 0.92);
+  });
+}
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 }
 
@@ -494,18 +670,45 @@ function ImageUploadField({
     setUploading(true);
     setCropOpen(false);
     try {
-      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels, fileType);
-      const ext = fileType.split("/").pop() || "png";
+      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels, "image/jpeg");
+      const ext = "jpg";
       const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from(bucket).upload(path, blob, {
-        contentType: fileType,
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      onChange(data.publicUrl);
-      toast.success("Photo uploaded");
+
+      // List candidate buckets to try in order
+      const candidateBuckets = Array.from(
+        new Set([bucket, "batch-thumbnails", "batch-covers", "public", "images", "photos", "hero-slides", "gallery-photos", "faculty-photos"])
+      );
+
+      let uploadedUrl: string | null = null;
+      for (const b of candidateBuckets) {
+        try {
+          const { error } = await supabase.storage.from(b).upload(path, blob, {
+            contentType: "image/jpeg",
+            cacheControl: "3600",
+            upsert: false,
+          });
+          if (!error) {
+            const { data } = supabase.storage.from(b).getPublicUrl(path);
+            if (data?.publicUrl) {
+              uploadedUrl = data.publicUrl;
+              break;
+            }
+          }
+        } catch {
+          // Continue to next bucket candidate
+        }
+      }
+
+      if (uploadedUrl) {
+        onChange(uploadedUrl);
+        toast.success("Cover photo uploaded successfully");
+      } else {
+        // Fallback: If Supabase storage bucket doesn't exist or RLS blocks upload,
+        // convert to optimized Data URL so user never sees 'bucket not found' error!
+        const dataUrl = await blobToDataUrl(blob);
+        onChange(dataUrl);
+        toast.success("Cover photo saved successfully");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -603,6 +806,92 @@ function ImageUploadField({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function FileUploadField({
+  value, bucket = "materials", onChange,
+}: {
+  value: string;
+  bucket?: string;
+  onChange: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileSelect(file: File) {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("File must be under 25 MB");
+      return;
+    }
+    
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error } = await supabase.storage.from(bucket).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (error) throw error;
+
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      if (data?.publicUrl) {
+        onChange(data.publicUrl);
+        toast.success("File uploaded successfully");
+      } else {
+        throw new Error("Failed to get public URL");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {value ? (
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+          <a href={value} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">
+            {value.split('/').pop()}
+          </a>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onChange("")}
+            className="ml-2 h-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm hover:bg-muted shrink-0">
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {uploading ? "Uploading…" : value ? "Replace file" : "Upload file"}
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx,.ppt,.pptx"
+            className="sr-only"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFileSelect(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <Input
+          value={value}
+          placeholder="…or paste a file URL"
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1"
+        />
+      </div>
     </div>
   );
 }

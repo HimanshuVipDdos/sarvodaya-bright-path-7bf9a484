@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, GraduationCap } from "lucide-react";
+import { Menu, X, GraduationCap, User } from "lucide-react";
 import { NAV, SITE } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,13 +58,8 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="hidden sm:inline-flex"
-              onClick={handleLoginClick}
-            >
-              Login
+            <Button asChild size="sm" variant="ghost" className="hidden rounded-full sm:inline-flex">
+              <Link to="/profile"><User className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Profile</span></Link>
             </Button>
             <Button asChild size="sm" className="hidden rounded-full bg-gradient-to-br from-primary to-primary-glow shadow-elegant sm:inline-flex">
               <Link to="/dashboard">My Batches</Link>

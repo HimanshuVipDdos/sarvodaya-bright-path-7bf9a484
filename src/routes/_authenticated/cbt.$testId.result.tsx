@@ -10,19 +10,44 @@ import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { formatScore } from "@/lib/utils";
 
+import { supabase } from "@/integrations/supabase/client";
+
 export const Route = createFileRoute("/_authenticated/cbt/$testId/result")({
-  validateSearch: z.object({ attempt: z.string() }),
+  validateSearch: z.object({ attempt: z.string().optional() }),
   component: ResultPage,
 });
 
 function ResultPage() {
   const { testId } = Route.useParams();
-  const { attempt: attemptId } = Route.useSearch();
+  const search = Route.useSearch();
   const fetchResult = useServerFn(getCbtAttemptResult);
 
+  // If attempt was not passed in query params, resolve the user's latest submitted attempt
+  const { data: latestAttemptId, isLoading: findingAttempt } = useQuery({
+    queryKey: ["cbt-latest-attempt", testId],
+    enabled: !search?.attempt,
+    queryFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return null;
+      const { data } = await supabase
+        .from("cbt_attempts")
+        .select("id")
+        .eq("test_id", testId)
+        .eq("user_id", userData.user.id)
+        .eq("status", "submitted")
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data?.id ?? null;
+    },
+  });
+
+  const effectiveAttemptId = search?.attempt || latestAttemptId;
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["cbt-result", attemptId],
-    queryFn: () => fetchResult({ data: { attempt_id: attemptId } }),
+    queryKey: ["cbt-result", effectiveAttemptId],
+    enabled: !!effectiveAttemptId,
+    queryFn: () => fetchResult({ data: { attempt_id: effectiveAttemptId! } }),
   });
 
   function downloadCertificate() {
@@ -91,7 +116,7 @@ function ResultPage() {
     toast.success("Certificate downloaded");
   }
 
-  if (isLoading) {
+  if (findingAttempt || isLoading) {
     return <Section><div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></Section>;
   }
   if (error || !data) {

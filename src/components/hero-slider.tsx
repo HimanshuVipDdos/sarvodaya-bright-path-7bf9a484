@@ -92,19 +92,10 @@ export function HeroSlider() {
           const href = buildHref(slide);
           const img = (
             <div className="relative h-full w-full overflow-hidden">
-              {/* blurred backdrop fills any empty space, no matter the image's ratio */}
               <img
                 src={slide.image_url}
                 alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
-                draggable={false}
-              />
-              {/* full image, always shown completely — never cropped */}
-              <img
-                src={slide.image_url}
-                alt=""
-                className="relative h-full w-full object-contain"
+                className="relative h-full w-full object-cover object-center"
                 draggable={false}
                 loading={i === 0 ? "eager" : "lazy"}
               />

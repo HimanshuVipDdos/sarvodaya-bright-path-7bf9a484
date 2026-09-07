@@ -25,6 +25,10 @@ import {
   Sparkles,
   Trash2,
   RefreshCw,
+  Table2,
+  FileJson,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,12 +54,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   parseFromDelimited,
   parseFromLabeledFormat,
+  parseFromJSON,
   validateQuestions,
   toSupabaseFormat,
   type ParsedQuestion,
 } from "@/lib/ocr";
 
-type InputMode = "upload" | "paste" | "camera";
+type InputMode = "upload" | "paste" | "camera" | "csv" | "json";
 type ParserMode = "auto" | "delimited" | "labeled";
 
 interface AiQuestionParserProps {
@@ -79,10 +84,130 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   const [fromPage, setFromPage] = useState<string>("");
   const [toPage, setToPage] = useState<string>("");
   const [pdfTotalPages, setPdfTotalPages] = useState<number | null>(null);
+  const [csvText, setCsvText] = useState("");
+  const [jsonText, setJsonText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
+  // --- CSV Parser ---
+  function parseCSVQuestions(raw: string): ParsedQuestion[] {
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length === 0) return [];
+    // Detect header row
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader =
+      firstLine.includes("question") ||
+      firstLine.includes("option") ||
+      firstLine.includes("correct");
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    return dataLines
+      .map((line, i) => {
+        // Smart CSV split (handles quoted fields with commas inside)
+        const cols = splitCSVLine(line);
+        if (cols.length < 5) return null;
+        const [q, a, b, c, d, correct, topic, marks] = cols.map((s) => s.trim().replace(/^"|"$/g, ""));
+        const optMap: Record<string, "a" | "b" | "c" | "d"> = {
+          a: "a", b: "b", c: "c", d: "d",
+          "1": "a", "2": "b", "3": "c", "4": "d",
+        };
+        const correctOpt = optMap[correct?.toLowerCase()] ?? "a";
+        return {
+          question_text: q,
+          option_a: a,
+          option_b: b,
+          option_c: c,
+          option_d: d,
+          correct_option: correctOpt,
+          topic: topic || defaultTopic || null,
+          marks: Number(marks) || defaultMarks || 1,
+          sort_order: i,
+        } satisfies ParsedQuestion;
+      })
+      .filter(Boolean) as ParsedQuestion[];
+  }
+
+  function splitCSVLine(line: string): string[] {
+    const result: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; continue; }
+      if (ch === "," && !inQuotes) { result.push(cur); cur = ""; continue; }
+      cur += ch;
+    }
+    result.push(cur);
+    return result;
+  }
+
+  // --- JSON Parser (Unlimited Questions, cleans markdown fences, repairs trailing commas) ---
+  function parseJSONQuestions(raw: string): ParsedQuestion[] {
+    return parseFromJSON(raw, {
+      defaultTopic: defaultTopic || null,
+      defaultMarks,
+    });
+  }
+
+  // --- Download JSON Template ---
+  function downloadJSONTemplate() {
+    const example = [
+      {
+        question_text: "What is the capital of India?",
+        option_a: "Mumbai",
+        option_b: "New Delhi",
+        option_c: "Kolkata",
+        option_d: "Chennai",
+        correct_option: "b",
+        topic: "General Knowledge",
+        marks: 1,
+      },
+      {
+        question_text: "What is 2 + 2?",
+        option_a: "3",
+        option_b: "4",
+        option_c: "5",
+        option_d: "6",
+        correct_option: "b",
+        topic: "Mathematics",
+        marks: 1,
+      },
+      {
+        question_text: "Who wrote Ramcharitmanas?",
+        option_a: "Tulsidas",
+        option_b: "Surdas",
+        option_c: "Kabirdas",
+        option_d: "Mirabai",
+        correct_option: "a",
+        topic: "Hindi Literature",
+        marks: 1,
+      },
+    ];
+    const blob = new Blob([JSON.stringify(example, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "questions_template.json";
+    a.click();
+  }
+
+  // --- Download CSV Template ---
+  function downloadCSVTemplate() {
+    const header = "question,option_a,option_b,option_c,option_d,correct,topic,marks";
+    const example = [
+      `"What is the capital of India?","Mumbai","Delhi","Kolkata","Chennai","b","GK",1`,
+      `"2 + 2 = ?","3","4","5","6","b","Maths",1`,
+      `"Who wrote Ramcharitmanas?","Tulsidas","Surdas","Kabirdas","Mirabai","a","Hindi",1`,
+    ].join("\n");
+    const blob = new Blob([header + "\n" + example], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "questions_template.csv";
+    a.click();
+  }
 
   // Call the Gemini-powered edge function to parse questions from text or an image
   const callParseQuestionsAPI = useCallback(
@@ -271,6 +396,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
       // Insert in batches of 50 (Supabase limit)
       const batchSize = 50;
       for (let i = 0; i < toInsert.length; i += batchSize) {
+        setProcessingStep(`Saving ${Math.min(i + batchSize, toInsert.length)} of ${toInsert.length} questions...`);
         const batch = toInsert.slice(i, i + batchSize);
         const { error } = await supabase.from("cbt_questions").insert(batch);
         if (error) throw error;
@@ -370,16 +496,18 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
             </div>
 
             {/* Input Mode Tabs */}
-            <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            <div className="flex flex-wrap gap-1 p-1 bg-muted rounded-lg">
               {([
-                { key: "upload", label: "Upload File", icon: Upload },
-                { key: "paste", label: "Paste Text", icon: Type },
+                { key: "upload", label: "AI Upload", icon: Upload },
+                { key: "csv", label: "CSV Import", icon: FileSpreadsheet },
+                { key: "json", label: "JSON Paste", icon: FileJson },
+                { key: "paste", label: "Text Paste", icon: Type },
                 { key: "camera", label: "Camera", icon: Camera },
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   onClick={() => setInputMode(key)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all ${
+                  className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all ${
                     inputMode === key
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
@@ -390,7 +518,223 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
               ))}
             </div>
 
-            {/* Upload Mode */}
+            {/* ─── CSV Import Mode ─── */}
+            {inputMode === "csv" && (
+              <div className="space-y-3">
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">CSV / Excel Import</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a .csv file or paste CSV text. Column order:{" "}
+                      <code className="bg-muted px-1 rounded text-[10px]">
+                        question, option_a, option_b, option_c, option_d, correct(a/b/c/d), topic, marks
+                      </code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={downloadCSVTemplate}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Template
+                  </button>
+                </div>
+
+                {/* File upload zone */}
+                <div
+                  onClick={() => csvFileInputRef.current?.click()}
+                  className="border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <input
+                    ref={csvFileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setCsvText((ev.target?.result as string) ?? "");
+                      reader.readAsText(file, "UTF-8");
+                    }}
+                  />
+                  <Table2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm font-medium">Click to pick a CSV file</p>
+                  <p className="text-xs text-muted-foreground">Or paste CSV below</p>
+                </div>
+
+                {/* Paste area */}
+                <Textarea
+                  value={csvText}
+                  onChange={(e) => setCsvText(e.target.value)}
+                  placeholder={`question,option_a,option_b,option_c,option_d,correct,topic,marks
+"What is capital of India?","Mumbai","Delhi","Kolkata","Chennai","b","GK",1
+"2+2=?","3","4","5","6","b","Maths",1`}
+                  className="min-h-[130px] text-xs font-mono"
+                />
+
+                {/* Preview count */}
+                {csvText.trim() && (
+                  <p className="text-xs text-muted-foreground">
+                    ≈ {Math.max(0, csvText.trim().split(/\r?\n/).filter(l => l.trim()).length - 1)} rows detected
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      try {
+                        const qs = parseCSVQuestions(csvText);
+                        if (qs.length === 0) { toast.error("No questions parsed — check CSV format"); return; }
+                        setParsedQuestions(qs);
+                        setShowValidation(true);
+                        toast.success(`Parsed ${qs.length} questions from CSV!`);
+                      } catch (e: any) { toast.error(e.message); }
+                    }}
+                    disabled={!csvText.trim()}
+                    className="gap-2"
+                  >
+                    <Table2 className="h-4 w-4" /> Import CSV
+                  </Button>
+                  <Button variant="outline" onClick={() => setCsvText("")} disabled={!csvText}>Clear</Button>
+                </div>
+              </div>
+            )}
+
+            {/* ─── JSON Paste Mode (Unlimited Questions) ─── */}
+            {inputMode === "json" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">JSON File Upload or Paste (Unlimited)</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a .json file or paste question objects. Markdown code fences (```json) and trailing commas are auto-cleaned.
+                    </p>
+                  </div>
+                  <button
+                    onClick={downloadJSONTemplate}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Template
+                  </button>
+                </div>
+
+                {/* File upload zone for JSON */}
+                <div
+                  onClick={() => jsonFileInputRef.current?.click()}
+                  className="border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <input
+                    ref={jsonFileInputRef}
+                    type="file"
+                    accept=".json,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const content = (ev.target?.result as string) ?? "";
+                        setJsonText(content);
+                        try {
+                          const qs = parseJSONQuestions(content);
+                          if (qs.length > 0) {
+                            setParsedQuestions(qs);
+                            setShowValidation(true);
+                            toast.success(`Imported ${qs.length} questions from ${file.name}!`);
+                          }
+                        } catch (err: any) {
+                          toast.error(err.message || "Failed to parse JSON file");
+                        }
+                      };
+                      reader.readAsText(file, "UTF-8");
+                    }}
+                  />
+                  <FileJson className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <p className="text-sm font-medium">Click to upload .json file (Recommended for 100+ questions)</p>
+                  <p className="text-xs text-muted-foreground">Direct file upload has no browser clipboard limits</p>
+                </div>
+
+                {/* AI prompt helper */}
+                <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 space-y-1">
+                  <p className="text-[11px] font-semibold text-primary">💡 ChatGPT / Gemini se 100+ Questions generate karein</p>
+                  <p className="text-[10px] text-muted-foreground">Prompt copy karein aur AI ko dein:</p>
+                  <div className="bg-background rounded-lg p-2 text-[10px] font-mono text-slate-700 select-all overflow-x-auto">
+                    {`Generate [number] MCQ questions for [topic] in valid JSON array format:\n[\n  {\n    "question_text": "...",\n    "option_a": "...",\n    "option_b": "...",\n    "option_c": "...",\n    "option_d": "...",\n    "correct_option": "a",\n    "topic": "[topic]",\n    "marks": 1\n  }\n]`}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const prompt = `Generate [number] MCQ questions for [topic] in valid JSON array format:\n[\n  {\n    "question_text": "...",\n    "option_a": "...",\n    "option_b": "...",\n    "option_c": "...",\n    "option_d": "...",\n    "correct_option": "a",\n    "topic": "[topic]",\n    "marks": 1\n  }\n]`;
+                      navigator.clipboard?.writeText(prompt);
+                      toast.success("Prompt copied to clipboard!");
+                    }}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Copy prompt
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Or Paste JSON Questions</Label>
+                    {jsonText.trim() && (
+                      <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        {(() => {
+                          try {
+                            const qs = parseJSONQuestions(jsonText);
+                            return `${qs.length} questions detected`;
+                          } catch {
+                            return "0 questions detected (Checking JSON...)";
+                          }
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                  <Textarea
+                    value={jsonText}
+                    onChange={(e) => setJsonText(e.target.value)}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    placeholder={`[
+  {
+    "question_text": "What is 2+2?",
+    "option_a": "3",
+    "option_b": "4",
+    "option_c": "5",
+    "option_d": "6",
+    "correct_option": "b",
+    "topic": "Maths",
+    "marks": 1
+  }
+]`}
+                    className="min-h-[220px] text-xs font-mono"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      try {
+                        const qs = parseJSONQuestions(jsonText);
+                        if (qs.length === 0) { toast.error("No questions found in JSON"); return; }
+                        setParsedQuestions(qs);
+                        setShowValidation(true);
+                        toast.success(`Imported ${qs.length} questions from JSON!`);
+                      } catch (e: any) { toast.error(e.message); }
+                    }}
+                    disabled={!jsonText.trim()}
+                    className="gap-2"
+                  >
+                    <FileJson className="h-4 w-4" /> Import JSON
+                  </Button>
+                  <Button variant="outline" onClick={() => setJsonText("")} disabled={!jsonText}>Clear</Button>
+                </div>
+              </div>
+            )}
+
+            {/* ─── AI Upload Mode ─── */}
             {inputMode === "upload" && (
               <div className="space-y-3">
                 {/* PDF page range — leave blank to parse the whole file. Useful

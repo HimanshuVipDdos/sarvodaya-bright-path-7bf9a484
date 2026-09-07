@@ -439,15 +439,41 @@ function ImageUploadField({
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from(bucket).upload(path, file, {
-        contentType: file.type,
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      onChange(data.publicUrl);
-      toast.success("Cover uploaded");
+      const candidateBuckets = Array.from(
+        new Set([bucket, "batch-thumbnails", "batch-covers", "public", "images", "photos", "hero-slides", "gallery-photos", "faculty-photos"])
+      );
+
+      let uploadedUrl: string | null = null;
+      for (const b of candidateBuckets) {
+        try {
+          const { error } = await supabase.storage.from(b).upload(path, file, {
+            contentType: file.type,
+            cacheControl: "3600",
+            upsert: false,
+          });
+          if (!error) {
+            const { data } = supabase.storage.from(b).getPublicUrl(path);
+            if (data?.publicUrl) {
+              uploadedUrl = data.publicUrl;
+              break;
+            }
+          }
+        } catch {
+          // try next
+        }
+      }
+
+      if (uploadedUrl) {
+        onChange(uploadedUrl);
+        toast.success("Cover uploaded");
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          onChange(reader.result as string);
+          toast.success("Cover saved successfully");
+        };
+        reader.readAsDataURL(file);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {

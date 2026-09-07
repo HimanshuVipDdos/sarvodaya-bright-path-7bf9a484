@@ -3,21 +3,44 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Shield, Users, BookOpen, Bell, FileText, Video, Image as ImageIcon,
-  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks,
+  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks, LayoutDashboard,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
+import { OwnerRevenueCard, type RevenueStats } from "@/components/admin/owner-revenue-card";
 
 const adminQuery = queryOptions({
   queryKey: ["admin", "overview"],
   queryFn: async () => {
     const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    const roles = userId
-      ? (await supabase.from("user_roles").select("role").eq("user_id", userId)).data ?? []
-      : [];
+    const user = userData.user;
+    const userId = user?.id;
+    const userEmail = (user?.email ?? "").toLowerCase().trim();
+
+    const rolesRes = userId
+      ? await supabase.from("user_roles").select("role, created_at").eq("user_id", userId)
+      : { data: [] };
+    const roles = rolesRes.data ?? [];
     const isAdmin = roles.some((r) => r.role === "admin");
-    if (!isAdmin) return { isAdmin: false, counts: null };
+    if (!isAdmin) return { isAdmin: false, isOwner: false, counts: null, revenueStats: null, currentUserId: undefined };
+
+    // Strict Owner Identification:
+    // 1. Check known owner/founder emails (Himanshu / Sarvodaya)
+    // 2. Or query earliest created admin in user_roles
+    let isOwner = userEmail === "hr152830@gmail.com" || userEmail === "info@sarvodayaadhyeta.in";
+    if (!isOwner) {
+      const { data: earliestAdmin } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "admin")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (earliestAdmin && earliestAdmin.user_id === userId) {
+        isOwner = true;
+      }
+    }
 
     const [batches, inquiries, lectures, materials, notifications, students] = await Promise.all([
       supabase.from("batches").select("id", { count: "exact", head: true }),
@@ -27,8 +50,90 @@ const adminQuery = queryOptions({
       supabase.from("notifications").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }),
     ]);
+
+    let revenueStats: RevenueStats | null = null;
+
+    // ONLY fetch and compute financial statistics if the authenticated user is verified as Owner
+    if (isOwner) {
+      const { data: enrollments } = await supabase
+        .from("enrollments")
+        .select("id, amount_paid_inr, payment_status, enrolled_at")
+        .order("enrolled_at", { ascending: true });
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const paidList = (enrollments ?? []).filter((e) => {
+        const amt = Number(e.amount_paid_inr) || 0;
+        return amt > 0 || e.payment_status === "paid";
+      });
+
+      let totalLifetime = 0;
+      let monthly = 0;
+      let weekly = 0;
+      let today = 0;
+
+      paidList.forEach((e) => {
+        const amt = Number(e.amount_paid_inr) || 0;
+        totalLifetime += amt;
+        const eDate = e.enrolled_at ? new Date(e.enrolled_at) : new Date(0);
+        if (eDate >= thirtyDaysAgo) monthly += amt;
+        if (eDate >= sevenDaysAgo) weekly += amt;
+        if (eDate >= todayStart) today += amt;
+      });
+
+      // Prepare 30-day timeline map
+      const map30: Record<string, { date: string; revenue: number; orders: number; label: string }> = {};
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const key = d.toISOString().split("T")[0];
+        const label = d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+        map30[key] = { date: key, revenue: 0, orders: 0, label };
+      }
+
+      // Prepare 7-day timeline map
+      const map7: Record<string, { date: string; revenue: number; orders: number; label: string }> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const key = d.toISOString().split("T")[0];
+        const label = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
+        map7[key] = { date: key, revenue: 0, orders: 0, label };
+      }
+
+      paidList.forEach((e) => {
+        if (e.enrolled_at) {
+          const key = new Date(e.enrolled_at).toISOString().split("T")[0];
+          const amt = Number(e.amount_paid_inr) || 0;
+          if (map30[key]) {
+            map30[key].revenue += amt;
+            map30[key].orders += 1;
+          }
+          if (map7[key]) {
+            map7[key].revenue += amt;
+            map7[key].orders += 1;
+          }
+        }
+      });
+
+      revenueStats = {
+        totalLifetime,
+        monthly,
+        weekly,
+        today,
+        totalPaidStudents: paidList.length,
+        averageOrderValue: paidList.length > 0 ? Math.round(totalLifetime / paidList.length) : 0,
+        chartData30Days: Object.values(map30),
+        chartData7Days: Object.values(map7),
+      };
+    }
+
     return {
       isAdmin: true,
+      isOwner,
+      currentUserId: userId,
+      revenueStats,
       counts: {
         batches: batches.count ?? 0,
         inquiries: inquiries.count ?? 0,
@@ -92,6 +197,7 @@ function AdminPage() {
     { icon: Trophy, label: "Results", desc: "Selections and testimonials", to: "/admin/results" },
     { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles", to: "/admin/faculty" },
     { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars", to: "/admin/gallery" },
+    { icon: LayoutDashboard, label: "Dashboard Editor", desc: "Customize all texts, titles, banners & announcements", to: "/admin/dashboard-settings" },
     { icon: ImageIcon, label: "Homepage Slider", desc: "Promotional images with WhatsApp/link redirect", to: "/admin/hero-slides" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
   ];
@@ -103,6 +209,11 @@ function AdminPage() {
         <h1 className="mt-1 text-3xl font-bold tracking-tight">Control Panel</h1>
         <p className="mt-1 text-sm text-muted-foreground">Manage everything that powers Sarvodaya Adhyeta.</p>
       </motion.div>
+
+      {/* Confidential Owner-Only Financial & Revenue Analytics */}
+      {data.isOwner && data.revenueStats && (
+        <OwnerRevenueCard stats={data.revenueStats} currentUserId={data.currentUserId} />
+      )}
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s) => {

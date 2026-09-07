@@ -39,7 +39,18 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (existing && existing.status === "submitted") {
-      throw new Error("You have already submitted this test.");
+      return {
+        already_submitted: true,
+        attempt_id: existing.id,
+        test_id: data.test_id,
+        test: {
+          id: test.id,
+          title: test.title,
+          description: test.description,
+          duration_minutes: test.duration_minutes,
+        },
+        questions: [],
+      };
     }
 
     let attemptId = existing?.id as string | undefined;

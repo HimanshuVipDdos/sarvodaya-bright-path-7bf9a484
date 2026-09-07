@@ -9,40 +9,44 @@ type Props = {
   title?: string;
   poster?: string;
   liveClassId: string;
+  /** Chat only ever makes sense for a class that is actually live right now
+   *  — a recorded/VOD lecture has no one to chat with. Defaults to true for
+   *  back-compat, but callers playing back a recording should pass false. */
+  isLive?: boolean;
   className?: string;
 };
 
 /**
- * A live class = video + live comments, wired together so fullscreen
- * behaves like the YouTube app: outside fullscreen the chat sits beside the
- * video at all times; entering fullscreen hides it behind a small corner
- * toggle, and opening it slides a chat panel in over the video (without
- * leaving fullscreen or changing the video's resolution/state).
+ * A live class = video + live comments. The chat option lives in the video
+ * overlay: a small "Chat" toggle in the corner. Clicking it slides a chat
+ * panel in from the right and the video RESIZES (shrinks) to make room for
+ * it — the video is never covered or cropped, on-screen or in fullscreen.
+ * Recorded/VOD playback never shows the chat option at all.
  */
-export function LiveClassPlayer({ src, title, poster, liveClassId, className }: Props) {
+export function LiveClassPlayer({ src, title, poster, liveClassId, isLive = true, className }: Props) {
   const fsRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(isLive);
 
   useEffect(() => {
-    const handler = () => {
-      const fs = document.fullscreenElement === fsRef.current;
-      setIsFullscreen(fs);
-      if (!fs) setChatOpen(false);
-    };
+    const handler = () => setIsFullscreen(document.fullscreenElement === fsRef.current);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  const showChat = isLive && chatOpen;
 
   return (
     <div
       ref={fsRef}
       className={cn(
-        isFullscreen ? "h-full w-full overflow-hidden bg-black" : "flex flex-col gap-3 lg:flex-row",
+        isFullscreen ? "h-full w-full overflow-hidden bg-black" : "",
+        "flex flex-col gap-3 lg:flex-row",
         className,
       )}
     >
-      <div className={cn("relative", isFullscreen ? "h-full w-full" : "min-w-0 lg:flex-1")}>
+      {/* Video shrinks to make room for chat instead of being overlaid/cropped */}
+      <div className={cn("relative min-w-0", isFullscreen ? "h-full flex-1" : "flex-1")}>
         <VideoPlayer
           src={src}
           title={title}
@@ -51,7 +55,7 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, className }: 
           className={isFullscreen ? "h-full w-full rounded-none" : undefined}
         />
 
-        {isFullscreen && !chatOpen && (
+        {isLive && !chatOpen && (
           <button
             onClick={() => setChatOpen(true)}
             aria-label="Open live chat"
@@ -60,9 +64,19 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, className }: 
             <MessageCircle className="h-4 w-4" /> Chat
           </button>
         )}
+      </div>
 
-        {isFullscreen && chatOpen && (
-          <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-xs flex-col bg-black/90 backdrop-blur-md sm:max-w-sm">
+      {/* Chat panel: fixed width, sits beside the (now-smaller) video, never on top of it */}
+      {showChat && (
+        <div
+          className={cn(
+            "flex min-w-0 shrink-0 flex-col",
+            isFullscreen
+              ? "h-full w-full max-w-xs bg-black/90 backdrop-blur-md sm:max-w-sm"
+              : "w-full lg:w-80",
+          )}
+        >
+          {isFullscreen && (
             <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-white/80">Live Chat</span>
               <button
@@ -73,16 +87,11 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, className }: 
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-hidden p-2">
-              <LiveChat liveClassId={liveClassId} className="h-full" />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {!isFullscreen && (
-        <div className="w-full min-w-0 lg:w-80 lg:shrink-0">
-          <LiveChat liveClassId={liveClassId} className="h-64 sm:h-72 lg:h-[26rem]" />
+          )}
+          <LiveChat
+            liveClassId={liveClassId}
+            className={isFullscreen ? "h-full flex-1" : "h-64 sm:h-72 lg:h-[26rem]"}
+          />
         </div>
       )}
     </div>

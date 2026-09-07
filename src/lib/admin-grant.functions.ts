@@ -6,7 +6,7 @@ const grantInputSchema = z.object({
   email: z.string().email("Invalid email format"),
   batch_id: z.string().uuid("Invalid batch ID format"),
   amount_paid_inr: z.number().nonnegative().optional(),
-  payment_status: z.enum(["paid", "unpaid", "refunded"]).optional(),
+  payment_status: z.enum(["paid", "free", "partial", "pending", "unpaid", "refunded"]).optional(),
   expires_at: z.string().datetime().nullable().optional(),
 }).strict();
 
@@ -37,6 +37,14 @@ export const grantBatchAccess = createServerFn({ method: "POST" })
     }
     if (!userId) throw new Error(`No student found with email ${email}. Ask them to sign up first.`);
 
+    // Fetch granting admin's profile name for denormalized display
+    const { data: adminProfile } = await context.supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", context.userId)
+      .maybeSingle();
+    const adminName = adminProfile?.full_name ?? "Admin";
+
     const { error: upErr } = await supabaseAdmin.from("enrollments").upsert(
       {
         user_id: userId,
@@ -46,6 +54,8 @@ export const grantBatchAccess = createServerFn({ method: "POST" })
         payment_provider: "admin_grant",
         amount_paid_inr: data.amount_paid_inr ?? 0,
         expires_at: data.expires_at ?? null,
+        enrolled_by: context.userId,
+        enrolled_by_name: adminName,
       },
       { onConflict: "user_id,batch_id" },
     );

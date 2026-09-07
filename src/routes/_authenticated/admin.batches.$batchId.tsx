@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Plus, ListChecks, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Plus, ListChecks, Trophy, Users, FolderPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BatchFolderManager } from "@/components/admin/batch-folder-manager";
 
 export const Route = createFileRoute("/_authenticated/admin/batches/$batchId")({
   component: BatchManage,
@@ -12,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/admin/batches/$batchId")({
 
 function BatchManage() {
   const { batchId } = useParams({ from: "/_authenticated/admin/batches/$batchId" });
+  const [foldersOpen, setFoldersOpen] = useState(false);
 
   const { data: batch } = useQuery({
     queryKey: ["admin", "batch", batchId],
@@ -47,10 +50,18 @@ function BatchManage() {
         <ArrowLeft className="h-3.5 w-3.5" /> All Batches
       </Link>
 
-      <div className="mt-4 mb-8">
-        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Admin · Manage Batch</div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{batch?.title ?? "…"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{batch?.exam_category}</p>
+      <div className="mt-4 mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Admin · Manage Batch</div>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">{batch?.title ?? "…"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{batch?.exam_category}</p>
+        </div>
+        <Button
+          onClick={() => setFoldersOpen(true)}
+          className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+        >
+          <FolderPlus className="h-4 w-4" /> Premade Folders
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -101,6 +112,12 @@ function BatchManage() {
           </div>
         ))}
       </div>
+
+      <BatchFolderManager
+        open={foldersOpen}
+        onOpenChange={setFoldersOpen}
+        defaultBatchId={batchId}
+      />
     </Section>
   );
 }

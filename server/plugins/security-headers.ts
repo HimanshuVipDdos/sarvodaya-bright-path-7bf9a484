@@ -20,12 +20,12 @@ export default defineNitroPlugin((nitroApp) => {
     // 6. Content-Security-Policy (CSP) - Ultra strict
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", 
       "style-src 'self' 'unsafe-inline'", 
       "img-src 'self' data: https: blob:", 
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.youtube.com https://www.youtube-nocookie.com",
-      "frame-src 'self' https://www.google.com/maps/ https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://drive.google.com https://docs.google.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co", 
+      "frame-src 'self' https://www.google.com/maps/", 
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

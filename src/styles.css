@@ -57,17 +57,43 @@
 }
 
 :root {
+  --radius: 0.625rem; /* ~10px — gives gentle rounded corners in light mode */
+
+  /* Retain a light mode fallback but we will default to dark */
+  --background: oklch(0.99 0.006 240);
+  --foreground: oklch(0.18 0.04 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.04 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.04 255);
+  --primary: oklch(0.54 0.22 260);
+  --primary-foreground: oklch(0.99 0.003 240);
+  --primary-glow: oklch(0.74 0.16 245);
+  --secondary: oklch(0.965 0.012 240);
+  --secondary-foreground: oklch(0.22 0.04 255);
+  --muted: oklch(0.965 0.012 240);
+  --muted-foreground: oklch(0.52 0.03 250);
+  --accent: oklch(0.95 0.04 245);
+  --accent-foreground: oklch(0.25 0.08 255);
+  --destructive: oklch(0.62 0.22 27);
+  --destructive-foreground: oklch(0.99 0.003 240);
+  --border: oklch(0.92 0.014 245);
+  --input: oklch(0.92 0.014 245);
+  --ring: oklch(0.54 0.22 260);
+}
+
+.dark {
   --radius: 1rem;
 
   /* Premium Deep Cyber/Tech Dark Mode (Default) */
   --background: oklch(0.12 0.02 270); /* Very deep purple/black */
-  --foreground: oklch(0.93 0.01 270); /* Soft off-white — less glare than pure white */
+  --foreground: oklch(0.98 0 0); /* Pure white */
 
-  --card: oklch(0.17 0.03 270);
-  --card-foreground: oklch(0.93 0.01 270);
+  --card: oklch(0.16 0.03 270);
+  --card-foreground: oklch(0.98 0 0);
   
-  --popover: oklch(0.17 0.03 270);
-  --popover-foreground: oklch(0.93 0.01 270);
+  --popover: oklch(0.16 0.03 270);
+  --popover-foreground: oklch(0.98 0 0);
 
   /* Vibrant Indigo to Pink */
   --primary: oklch(0.65 0.25 280); /* Bright Indigo/Purple */
@@ -97,7 +123,7 @@
   --chart-5: oklch(0.8 0.2 50);
 
   --sidebar: oklch(0.12 0.02 270);
-  --sidebar-foreground: oklch(0.93 0.01 270);
+  --sidebar-foreground: oklch(0.98 0 0);
   --sidebar-primary: oklch(0.65 0.25 280);
   --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0.25 0.1 290);
@@ -125,30 +151,6 @@
   --shadow-glow: 0 0 20px 0 color-mix(in oklab, var(--primary) 50%, transparent);
 }
 
-.light {
-  /* Retain a light mode fallback but we will default to dark */
-  --background: oklch(0.99 0.006 240);
-  --foreground: oklch(0.18 0.04 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.04 255);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.04 255);
-  --primary: oklch(0.58 0.19 252);
-  --primary-foreground: oklch(0.99 0.003 240);
-  --primary-glow: oklch(0.74 0.16 245);
-  --secondary: oklch(0.965 0.012 240);
-  --secondary-foreground: oklch(0.22 0.04 255);
-  --muted: oklch(0.965 0.012 240);
-  --muted-foreground: oklch(0.52 0.03 250);
-  --accent: oklch(0.95 0.04 245);
-  --accent-foreground: oklch(0.25 0.08 255);
-  --destructive: oklch(0.62 0.22 27);
-  --destructive-foreground: oklch(0.99 0.003 240);
-  --border: oklch(0.92 0.014 245);
-  --input: oklch(0.92 0.014 245);
-  --ring: oklch(0.58 0.19 252);
-}
-
 @layer base {
   * {
     border-color: var(--color-border);
@@ -166,6 +168,13 @@
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
     max-width: 100vw;
+    /* Kill the default grey/blue flash on mobile taps and the old
+       300ms tap delay some browsers still add — makes every button,
+       card and link feel like it responds the instant you touch it. */
+    -webkit-tap-highlight-color: transparent;
+  }
+  a, button, [role="button"] {
+    touch-action: manipulation;
   }
   h1, h2, h3, h4 {
     letter-spacing: -0.03em;
