@@ -24,32 +24,26 @@ type LiveClass = {
 };
 type Batch = { id: string; title: string };
 type Form = Omit<LiveClass, "id" | "scheduled_at" | "end_at" | "duration_minutes" | "recorded_lecture_id"> & {
-  date: string; startTime: string; startPeriod: "AM" | "PM"; endTime: string; endPeriod: "AM" | "PM";
+  date: string; startTime: string; endTime: string;
   subject: string; chapter: string; lecture_number: string; faculty: string;
 };
 
 const emptyForm = (): Form => ({
   title: "", batch_id: null, description: "", date: new Date().toISOString().slice(0, 10),
-  startTime: "04:00", startPeriod: "PM", endTime: "05:00", endPeriod: "PM",
+  startTime: "16:00", endTime: "17:00",
   is_live: false, auto_start: true, auto_end: true,
   thumbnail_url: "", youtube_url: "", zoom_url: "", meet_url: "",
   subject: "", chapter: "", lecture_number: "", faculty: "",
 });
 
-function to24Hour(time: string, period: "AM" | "PM") {
-  const [hourText, minute = "00"] = time.split(":");
-  let hour = Number(hourText) % 12;
-  if (period === "PM") hour += 12;
-  return `${String(hour).padStart(2, "0")}:${minute}`;
-}
 function toLocalParts(value: string) {
   const date = new Date(value);
-  const formatted = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true }).formatToParts(date);
+  const formatted = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(date);
   const part = (name: string) => formatted.find((p) => p.type === name)?.value ?? "";
-  const hour = Number(part("hour"));
-  return { date: `${part("year")}-${part("month")}-${part("day")}`, time: `${String(hour).padStart(2, "0")}:${part("minute")}`, period: part("dayPeriod").toUpperCase() as "AM" | "PM" };
+  const hour = part("hour") === "24" ? "00" : part("hour");
+  return { date: `${part("year")}-${part("month")}-${part("day")}`, time: `${hour}:${part("minute")}` };
 }
-function makeIndiaIso(date: string, time: string, period: "AM" | "PM") { return `${date}T${to24Hour(time, period)}:00+05:30`; }
+function makeIndiaIso(date: string, time: string) { return `${date}T${time}:00+05:30`; }
 function formatSchedule(value: string) { return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
 
 export const Route = createFileRoute("/_authenticated/admin/live-classes")({ component: LiveClassesAdmin });
@@ -79,8 +73,8 @@ function LiveClassesAdmin() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const scheduledAt = makeIndiaIso(form.date, form.startTime, form.startPeriod);
-      const endAt = makeIndiaIso(form.date, form.endTime, form.endPeriod);
+      const scheduledAt = makeIndiaIso(form.date, form.startTime);
+      const endAt = makeIndiaIso(form.date, form.endTime);
       const duration = Math.round((new Date(endAt).getTime() - new Date(scheduledAt).getTime()) / 60000);
       if (!form.title.trim()) throw new Error("Class title is required.");
       if (duration <= 0) throw new Error("End time must be after start time.");
@@ -163,8 +157,8 @@ function LiveClassesAdmin() {
     setEditing(row);
     setForm({
       title: row.title, batch_id: row.batch_id, description: row.description ?? "",
-      date: start.date, startTime: start.time, startPeriod: start.period,
-      endTime: end.time, endPeriod: end.period, is_live: row.is_live,
+      date: start.date, startTime: start.time,
+      endTime: end.time, is_live: row.is_live,
       auto_start: row.auto_start, auto_end: row.auto_end,
       thumbnail_url: row.thumbnail_url ?? "", youtube_url: row.youtube_url ?? "",
       zoom_url: row.zoom_url ?? "", meet_url: row.meet_url ?? "",
@@ -292,31 +286,29 @@ function LiveClassesAdmin() {
 
 function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Form) => void; batches: Batch[] }) {
   const duration = useMemo(() => {
-    const start = new Date(makeIndiaIso(form.date, form.startTime, form.startPeriod));
-    const end = new Date(makeIndiaIso(form.date, form.endTime, form.endPeriod));
+    const start = new Date(makeIndiaIso(form.date, form.startTime));
+    const end = new Date(makeIndiaIso(form.date, form.endTime));
     const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
     return minutes > 0 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : "Choose an end time after start";
   }, [form]);
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm({ ...form, [key]: value });
   const timeInput = (key: "startTime" | "endTime") => <Input type="time" value={form[key]} onChange={(e) => set(key, e.target.value)} />;
-  const period = (key: "startPeriod" | "endPeriod") => (
-    <Select value={form[key]} onValueChange={(v) => set(key, v as "AM" | "PM")}>
-      <SelectTrigger><SelectValue /></SelectTrigger>
-      <SelectContent><SelectItem value="AM">AM</SelectItem><SelectItem value="PM">PM</SelectItem></SelectContent>
-    </Select>
-  );
 
   const { data: batchFolders } = useQuery({
     queryKey: ["admin-live-batch-folders", form.batch_id],
     enabled: Boolean(form.batch_id && form.batch_id !== "none"),
     queryFn: async () => {
       const [lecturesRes, materialsRes, liveRes] = await Promise.all([
-        supabase.from("lectures").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("lectures").select("subject,chapter,lecture_number").eq("batch_id", form.batch_id as string),
         supabase.from("study_materials").select("subject,chapter").eq("batch_id", form.batch_id as string),
-        supabase.from("live_classes").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("live_classes").select("subject,chapter,lecture_number").eq("batch_id", form.batch_id as string),
       ]);
       const subjectsSet = new Set<string>();
       const subjectToChapters = new Map<string, Set<string>>();
+      // Highest lecture_number seen so far for each "subject|||chapter" pair,
+      // so we can suggest the next one instead of the admin having to check
+      // every existing lecture manually.
+      const maxLectureByFolder = new Map<string, number>();
 
       const addPair = (sub: string | null, ch: string | null) => {
         if (!sub?.trim()) return;
@@ -325,19 +317,36 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
         if (!subjectToChapters.has(s)) subjectToChapters.set(s, new Set());
         if (ch?.trim()) subjectToChapters.get(s)!.add(ch.trim());
       };
+      const trackLectureNumber = (sub: string | null, ch: string | null, num: number | null) => {
+        if (!sub?.trim() || !ch?.trim() || num == null) return;
+        const key = `${sub.trim()}|||${ch.trim()}`;
+        maxLectureByFolder.set(key, Math.max(maxLectureByFolder.get(key) ?? 0, num));
+      };
 
-      (lecturesRes.data ?? []).forEach((l: any) => addPair(l.subject, l.chapter));
+      (lecturesRes.data ?? []).forEach((l: any) => { addPair(l.subject, l.chapter); trackLectureNumber(l.subject, l.chapter, l.lecture_number); });
       (materialsRes.data ?? []).forEach((m: any) => addPair(m.subject, m.chapter));
-      (liveRes.data ?? []).forEach((lc: any) => addPair(lc.subject, lc.chapter));
+      (liveRes.data ?? []).forEach((lc: any) => { addPair(lc.subject, lc.chapter); trackLectureNumber(lc.subject, lc.chapter, lc.lecture_number); });
 
       return {
         subjects: Array.from(subjectsSet).sort(),
         subjectToChapters: Object.fromEntries(
           Array.from(subjectToChapters.entries()).map(([k, v]) => [k, Array.from(v).sort()])
         ),
+        nextLectureByFolder: Object.fromEntries(
+          Array.from(maxLectureByFolder.entries()).map(([k, v]) => [k, v + 1])
+        ) as Record<string, number>,
       };
     },
   });
+
+  // Suggested next lecture # for whatever subject+chapter is currently
+  // filled in — e.g. if "Algebra" already has Lec #1, this becomes 2.
+  const suggestedLectureNumber = (() => {
+    const sub = form.subject?.trim();
+    const ch = form.chapter?.trim();
+    if (!sub || !ch || !batchFolders) return null;
+    return batchFolders.nextLectureByFolder?.[`${sub}|||${ch}`] ?? 1;
+  })();
 
   const { data: facultyList = [] } = useQuery({
     queryKey: ["admin-live-faculty-options", form.batch_id],
@@ -478,6 +487,17 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
           <div>
             <Label className="flex items-center gap-1"><Hash className="h-3 w-3" /> Lecture #</Label>
             <Input type="number" min={1} value={form.lecture_number} onChange={(e) => set("lecture_number", e.target.value)} placeholder="e.g. 12" />
+            {suggestedLectureNumber != null && form.lecture_number !== String(suggestedLectureNumber) && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={() => set("lecture_number", String(suggestedLectureNumber))}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium border transition bg-background hover:bg-muted text-foreground border-border/60"
+                >
+                  🔢 Suggested: Lec #{suggestedLectureNumber}
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
@@ -491,11 +511,11 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
       </div>
       <div>
         <Label className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> Start time</Label>
-        <div className="grid grid-cols-[1fr_100px] gap-2">{timeInput("startTime")}{period("startPeriod")}</div>
+        {timeInput("startTime")}
       </div>
       <div>
         <Label className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> Fixed end time</Label>
-        <div className="grid grid-cols-[1fr_100px] gap-2">{timeInput("endTime")}{period("endPeriod")}</div>
+        {timeInput("endTime")}
         <p className="mt-1 text-[11px] text-muted-foreground">Duration: {duration}</p>
       </div>
       <div className="flex items-center justify-between rounded-xl border p-3">
