@@ -171,7 +171,7 @@ export function VideoPlayer({
         ) : (
           <ReactPlayer
             key={embedInfo.embedUrl}
-            src={embedInfo.embedUrl}
+            url={embedInfo.embedUrl}
             playing
             controls
             playsInline
