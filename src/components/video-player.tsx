@@ -40,21 +40,34 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   }
 
   // YouTube
-  const ytId = extractYouTubeId(target);
-  if (ytId) {
-    return {
-      type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
-      rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
-    };
-  }
-
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
-    return {
-      type: "video",
-      embedUrl: target,
-      rawUrl: target,
-    };
+    const ytId = extractYouTubeId(target);
+    if (ytId) {
+      return {
+        type: "youtube",
+        embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
+        rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
+      };
+    } else {
+      // It's a YouTube link but no 11-char ID found (maybe a playlist or custom URL)
+      // Attempt to convert to an embed URL anyway to avoid native video tag failure
+      try {
+        const u = new URL(target);
+        if (u.pathname === "/watch") {
+          const v = u.searchParams.get("v");
+          if (v) return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${v}?autoplay=1`, rawUrl: target };
+        } else if (u.pathname === "/playlist") {
+          const list = u.searchParams.get("list");
+          if (list) return { type: "youtube", embedUrl: `https://www.youtube.com/embed/videoseries?list=${list}`, rawUrl: target };
+        }
+      } catch {}
+      // Absolute fallback: still treat as youtube so we use iframe instead of ReactPlayer/native-video
+      return {
+        type: "youtube",
+        embedUrl: target.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/"),
+        rawUrl: target,
+      };
+    }
   }
 
   // Direct video file
