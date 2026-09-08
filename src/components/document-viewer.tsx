@@ -15,14 +15,6 @@ function toEmbeddableUrl(url: string): string {
       const m = u.pathname.match(/\/file\/d\/([^/]+)/);
       if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
     }
-
-    // Direct PDF (or unknown file type) -> Google Docs viewer renders it
-    // inline and works consistently across desktop + mobile browsers,
-    // instead of relying on the browser's native (often download-only)
-    // handling of the raw file URL inside an iframe.
-    if (/\.pdf(\?|#|$)/i.test(u.pathname) || !/\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(u.pathname)) {
-      return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    }
   } catch {}
   return url;
 }
@@ -54,7 +46,9 @@ export function DocumentViewer({ url, title, trigger }: Props) {
             <DialogTitle className="truncate text-sm">{title}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-hidden bg-muted">
-            <iframe src={embedUrl} title={title} className="h-full w-full border-0" />
+            <object data={embedUrl} type="application/pdf" className="h-full w-full">
+              <iframe src={embedUrl} title={title} className="h-full w-full border-0" />
+            </object>
           </div>
         </DialogContent>
       </Dialog>
