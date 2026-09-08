@@ -7,6 +7,8 @@ import { cn, getStorageUrl } from "@/lib/utils";
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
   let target = url.trim();
+  target = target.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  
   const iframeMatch = target.match(/src=["']([^"']+)["']/i);
   if (iframeMatch && iframeMatch[1]) {
     target = iframeMatch[1];
@@ -23,7 +25,10 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   if (!url || !url.trim()) return null;
   let target = url.trim();
 
-  // Extract src if iframe string
+  // 1. Decode HTML entities if it was saved encoded (e.g. &quot; instead of ")
+  target = target.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+  // 2. If it's an iframe string, extract the src URL
   const iframeMatch = target.match(/src=["']([^"']+)["']/i);
   if (iframeMatch && iframeMatch[1]) {
     target = iframeMatch[1];
@@ -42,26 +47,30 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   // YouTube
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
     const ytId = extractYouTubeId(target);
-    if (ytId) {
+    if (ytId && ytId.length === 11) {
       return {
         type: "youtube",
         embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
         rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
       };
     } else {
-      // It's a YouTube link but no 11-char ID found (maybe a playlist or custom URL)
-      // Attempt to convert to an embed URL anyway to avoid native video tag failure
+      // Fallback for weird YouTube links (like playlists)
       try {
         const u = new URL(target);
-        if (u.pathname === "/watch") {
-          const v = u.searchParams.get("v");
-          if (v) return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${v}?autoplay=1`, rawUrl: target };
-        } else if (u.pathname === "/playlist") {
-          const list = u.searchParams.get("list");
-          if (list) return { type: "youtube", embedUrl: `https://www.youtube.com/embed/videoseries?list=${list}`, rawUrl: target };
+        if (u.pathname === "/watch" && u.searchParams.get("v")) {
+          return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${u.searchParams.get("v")}?autoplay=1`, rawUrl: target };
+        } else if (u.pathname === "/playlist" && u.searchParams.get("list")) {
+          return { type: "youtube", embedUrl: `https://www.youtube.com/embed/videoseries?list=${u.searchParams.get("list")}`, rawUrl: target };
+        } else if (u.pathname.startsWith("/embed/")) {
+           return { type: "youtube", embedUrl: target, rawUrl: target };
         }
       } catch {}
-      // Absolute fallback: still treat as youtube so we use iframe instead of ReactPlayer/native-video
+      
+      // If it's a raw iframe string that somehow failed URL parsing, DO NOT use it as a src!
+      if (target.startsWith("<iframe")) {
+         return { type: "video", embedUrl: "", rawUrl: target };
+      }
+      
       return {
         type: "youtube",
         embedUrl: target.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/"),
@@ -72,6 +81,8 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
 
   // Direct video file
   const resolved = getStorageUrl(target) || target;
+  if (target.startsWith("<iframe")) return { type: "video", embedUrl: "", rawUrl: target };
+
   return {
     type: "video",
     embedUrl: resolved,
