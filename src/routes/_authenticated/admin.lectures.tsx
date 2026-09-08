@@ -24,7 +24,7 @@ const fields: Field[] = [
   { name: "chapter", label: "Chapter", type: "text" },
   { name: "lecture_number", label: "Lecture #", type: "number" },
   { name: "duration_minutes", label: "Duration (min)", type: "number" },
-  { name: "thumbnail_url", label: "Thumbnail / Cover Image", type: "image", bucket: "batch-thumbnails" },
+  { name: "thumbnail_url", label: "Thumbnail / Cover Image", type: "image", bucket: "public", aspect: 16/9 },
   { name: "video_url", label: "Video / Embed URL", type: "url" },
   { name: "description", label: "Description", type: "textarea" },
   { name: "is_published", label: "Published", type: "boolean" },

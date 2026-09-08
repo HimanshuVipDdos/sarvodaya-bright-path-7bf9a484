@@ -51,8 +51,8 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
 
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
     return {
-      type: "youtube",
-      embedUrl: target.includes("?") ? `${target}&autoplay=1` : `${target}?autoplay=1`,
+      type: "video",
+      embedUrl: target,
       rawUrl: target,
     };
   }
@@ -135,11 +135,11 @@ export function VideoPlayer({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
-        "group relative flex bg-black overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-slate-800 shadow-xl",
+        "group relative flex bg-white overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-slate-200 shadow-xl",
         className
       )}
     >
-      <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-black overflow-hidden">
+      <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-white overflow-hidden">
         {embedInfo.type === "drive" ? (
           <iframe
             src={embedInfo.embedUrl}
@@ -166,7 +166,7 @@ export function VideoPlayer({
             controls
             autoPlay
             playsInline
-            className="w-full h-full object-contain bg-black"
+            className="w-full h-full object-contain bg-white"
           />
         ) : (
           <ReactPlayer
@@ -177,7 +177,7 @@ export function VideoPlayer({
             playsInline
             width="100%"
             height="100%"
-            style={{ backgroundColor: "black" }}
+            style={{ backgroundColor: "white" }}
             onError={() => setPlaybackFailed(true)}
           />
         )}
@@ -194,8 +194,8 @@ export function VideoPlayer({
 
 function VideoUnavailable({ message, className }: { message: string; className?: string }) {
   return (
-    <div className={cn("flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl bg-slate-900 p-6 text-center text-sm text-slate-300 border border-slate-800", className)}>
-      <AlertTriangle className="h-8 w-8 text-amber-400" />
+    <div className={cn("flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500 border border-slate-200", className)}>
+      <AlertTriangle className="h-8 w-8 text-amber-500" />
       <p>{message}</p>
     </div>
   );
