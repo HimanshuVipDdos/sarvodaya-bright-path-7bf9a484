@@ -68,7 +68,7 @@ function BatchDetail() {
 
       {b.thumbnail_url && (
         <div className="relative mt-6 overflow-hidden rounded-3xl shadow-elegant">
-          <img src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url} alt={b.title} className="h-48 w-full object-cover sm:h-64 md:h-80" />
+          <img src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url} alt={b.title} loading="lazy" decoding="async" className="h-48 w-full object-cover sm:h-64 md:h-80" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
             <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/85">{b.exam_category}</div>

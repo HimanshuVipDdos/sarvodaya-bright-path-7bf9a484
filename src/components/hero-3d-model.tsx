@@ -60,11 +60,11 @@ export function Hero3DModel() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="relative z-10 w-[280px] h-[280px] sm:w-[380px] sm:h-[380px] lg:w-[420px] lg:h-[420px] flex items-center justify-center"
       >
-        <motion.div
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
-          className="relative w-full h-full flex items-center justify-center"
-        >
+        {/* Floating idle motion now runs on the CSS-only `animate-float`
+            keyframe (already defined site-wide in styles.css) instead of a
+            second Framer Motion instance — one less JS-driven animation
+            loop running for the entire time this component is mounted. */}
+        <div className="relative w-full h-full flex items-center justify-center animate-float">
           {/* Orbiting rings — plain CSS animation, no JS per frame */}
           <div
             className="absolute inset-[6%] rounded-full border-2 border-amber-500/40"
@@ -112,7 +112,7 @@ export function Hero3DModel() {
           >
             <BookOpen className="h-5 w-5 text-[#5B21B6]" />
           </motion.div>
-        </motion.div>
+        </div>
       </motion.div>
     </div>
   );

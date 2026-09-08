@@ -98,6 +98,12 @@ export function HeroSlider() {
                 className="relative h-full w-full object-cover object-center"
                 draggable={false}
                 loading={i === 0 ? "eager" : "lazy"}
+                // The first slide is almost always the page's Largest
+                // Contentful Paint element — telling the browser to fetch it
+                // at high priority (ahead of lower-priority scripts/fonts)
+                // shaves real time off when it actually appears on screen.
+                fetchPriority={i === 0 ? "high" : "auto"}
+                decoding={i === 0 ? "sync" : "async"}
               />
             </div>
           );

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type RefObject } from "react";
+import { motion } from "framer-motion";
 import ReactPlayer from "react-player";
-import { ExternalLink, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { cn, getStorageUrl } from "@/lib/utils";
 
 export function extractYouTubeId(url: string): string | null {
@@ -43,7 +44,7 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   if (ytId) {
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`,
+      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
       rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
     };
   }
@@ -98,10 +99,17 @@ export function VideoPlayer({
 
   const canShowChat = Boolean(isLive && (chatComponent || externalOnChatToggle));
 
-  // ReactPlayer (cookpete/react-player) drives YouTube + direct file playback.
-  // If it ever throws (blocked SDK, ad-blocker, flaky network, unsupported
-  // embed), we drop to a raw iframe/<video> fallback so the class ALWAYS
-  // plays — never a dead player for the student.
+  // Direct video files go through ReactPlayer (cookpete/react-player), with a
+  // plain <video> tag as a safety-net fallback if it ever errors.
+  //
+  // YouTube deliberately does NOT go through ReactPlayer's YouTube provider
+  // (a custom media-element under the hood) — that provider surfaced its own
+  // internal "media failed" placeholder for some perfectly valid links,
+  // without ever calling our onError, so the guaranteed-play fallback never
+  // kicked in and the class was just stuck. A plain YouTube iframe embed is
+  // the proven-reliable path this app already used successfully before, so
+  // YouTube always uses that directly — no custom element in the way that
+  // can silently fail.
   const [playbackFailed, setPlaybackFailed] = useState(false);
   useEffect(() => {
     setPlaybackFailed(false);
@@ -118,8 +126,14 @@ export function VideoPlayer({
   }
 
   return (
-    <div
+    <motion.div
       ref={outerWrapRef}
+      // One-time fade-in on mount — a single cheap opacity transition, not a
+      // continuous loop, so it adds a premium feel without costing anything
+      // once it's finished.
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
         "group relative flex bg-black overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-slate-800 shadow-xl",
         className
@@ -127,77 +141,24 @@ export function VideoPlayer({
     >
       <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-black overflow-hidden">
         {embedInfo.type === "drive" ? (
-          <div className="relative w-full h-full">
-            <iframe
-              src={embedInfo.embedUrl}
-              title={title || "Video Lecture"}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-              className="w-full h-full border-0"
-            />
-            <a
-              href={embedInfo.rawUrl}
-              target="_blank"
-              rel="noreferrer"
-              title="Open video in new tab if playback is restricted"
-              className="absolute top-2 right-2 z-30 flex items-center gap-1 rounded-md bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white/90 hover:bg-black hover:text-white backdrop-blur transition shadow-md opacity-75 hover:opacity-100"
-            >
-              <ExternalLink className="h-3 w-3" /> Open Link
-            </a>
-          </div>
-        ) : embedInfo.type === "youtube" && playbackFailed ? (
-          // Guaranteed-play fallback: raw YouTube iframe embed, used only if
-          // ReactPlayer itself errors out (e.g. blocked script, IFrame API
-          // hiccup). The class keeps playing no matter what.
-          <div className="relative w-full h-full">
-            <iframe
-              src={embedInfo.embedUrl}
-              title={title || "Video Lecture"}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-              className="w-full h-full border-0"
-            />
-            <a
-              href={embedInfo.rawUrl}
-              target="_blank"
-              rel="noreferrer"
-              title="Open video in new tab if playback is restricted"
-              className="absolute top-2 right-2 z-30 flex items-center gap-1 rounded-md bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white/90 hover:bg-black hover:text-white backdrop-blur transition shadow-md opacity-75 hover:opacity-100"
-            >
-              <ExternalLink className="h-3 w-3" /> Open Link
-            </a>
-          </div>
+          <iframe
+            src={embedInfo.embedUrl}
+            title={title || "Video Lecture"}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="w-full h-full border-0"
+          />
         ) : embedInfo.type === "youtube" ? (
-          <div className="relative w-full h-full">
-            <ReactPlayer
-              key={embedInfo.rawUrl}
-              src={embedInfo.rawUrl}
-              playing
-              controls
-              playsInline
-              width="100%"
-              height="100%"
-              style={{ position: "absolute", inset: 0 }}
-              config={{
-                youtube: {
-                  rel: 0,
-                  ...(typeof window !== "undefined" ? { origin: window.location.origin } : {}),
-                },
-              }}
-              onError={() => setPlaybackFailed(true)}
-            />
-            <a
-              href={embedInfo.rawUrl}
-              target="_blank"
-              rel="noreferrer"
-              title="Open video in new tab if playback is restricted"
-              className="absolute top-2 right-2 z-30 flex items-center gap-1 rounded-md bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white/90 hover:bg-black hover:text-white backdrop-blur transition shadow-md opacity-75 hover:opacity-100"
-            >
-              <ExternalLink className="h-3 w-3" /> Open Link
-            </a>
-          </div>
+          <iframe
+            key={embedInfo.embedUrl}
+            src={embedInfo.embedUrl}
+            title={title || "Video Lecture"}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="w-full h-full border-0"
+          />
         ) : playbackFailed ? (
           <video
             src={embedInfo.embedUrl}
@@ -227,7 +188,7 @@ export function VideoPlayer({
           {chatComponent}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

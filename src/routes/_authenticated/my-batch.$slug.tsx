@@ -951,6 +951,8 @@ function BatchPortal() {
                             src={avatarSrc}
                             className="w-full h-full object-cover"
                             alt={l.faculty || "Faculty"}
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">

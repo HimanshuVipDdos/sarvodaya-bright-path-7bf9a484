@@ -202,7 +202,13 @@ function RootComponent() {
     observer.observe(document.body, { attributes: true, attributeFilter: ["style"] });
 
     // Also do a periodic safety check in case the mutation is missed.
-    const interval = setInterval(clearStuckPointerEvents, 500);
+    // Safety-net poll — the MutationObserver above catches this instantly in
+    // practice, so this only exists for the rare missed-mutation edge case.
+    // 2.5s instead of 500ms cuts the background CPU wake-ups for this timer
+    // by 5x for the entire lifetime of every session, with no user-visible
+    // difference (a stuck page is now cleared within ~2.5s instead of ~0.5s
+    // in that rare fallback path).
+    const interval = setInterval(clearStuckPointerEvents, 2500);
 
     return () => {
       observer.disconnect();
