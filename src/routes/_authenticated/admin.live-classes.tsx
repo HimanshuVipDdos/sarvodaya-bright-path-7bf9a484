@@ -201,71 +201,75 @@ function LiveClassesAdmin() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={5} className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
-            ) : classes.map((row) => (
-              <tr key={row.id} className="border-b border-border/40 last:border-0">
-                <td className="py-3 pr-4">
-                  <div className="font-medium">{row.title}</div>
-                  {row.lecture_number != null && (
-                    <div className="text-[11px] text-muted-foreground">Lec #{row.lecture_number}</div>
-                  )}
-                </td>
-                <td className="py-3 pr-4 text-[12px] text-muted-foreground">
-                  {row.subject && <div className="font-medium text-foreground">{row.subject}</div>}
-                  {row.chapter && <div>{row.chapter}</div>}
-                  {!row.subject && !row.chapter && <span className="italic opacity-50">No chapter info</span>}
-                </td>
-                <td className="py-3 pr-4 whitespace-nowrap text-[12px]">{formatSchedule(row.scheduled_at)}</td>
-                <td className="py-3 pr-4">
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                    row.is_live
-                      ? "bg-red-500/15 text-red-600 dark:text-red-400"
-                      : row.recorded_lecture_id
-                      ? "bg-emerald-500/15 text-emerald-600"
-                      : "bg-primary/10 text-primary"
-                  }`}>
-                    {row.is_live ? "🔴 " : ""}{status(row)}
-                  </span>
-                </td>
-                <td className="py-3 text-right">
-                  <div className="inline-flex flex-wrap justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(row)} aria-label="Edit">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {!row.recorded_lecture_id && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => { if (window.confirm(`End "${row.title}" and archive to recorded lectures?`)) endNow.mutate(row.id); }}
-                        disabled={endNow.isPending}
-                        title="End Live Class — archives to Lectures"
-                        className={cn(
-                          "gap-1 font-semibold",
-                          row.is_live ? "bg-red-500/10 text-red-600 hover:bg-red-500/20" : "text-emerald-600 hover:bg-emerald-500/10"
-                        )}
-                      >
-                        <Radio className="h-3.5 w-3.5" />
-                        <span className="text-[11px]">{row.is_live ? "End Live" : "End & Archive"}</span>
-                      </Button>
+            ) : classes.map((row) => {
+              const b = batches.find((x) => x.id === row.batch_id);
+              const nowTime = new Date().getTime();
+              const startTime = new Date(row.scheduled_at).getTime();
+              const diffMins = (startTime - nowTime) / 60000;
+              const isStartingSoon = !row.is_live && !row.recorded_lecture_id && diffMins > 0 && diffMins <= 15;
+
+              return (
+                <tr key={row.id} className="group border-b border-border/40 hover:bg-muted/30">
+                  <td className="py-3 pr-4">
+                    <div className="font-semibold text-foreground">{row.title}</div>
+                    <div className="text-[11px] text-muted-foreground">{b?.title ?? "No batch"}</div>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="flex items-center gap-1">
+                      <BookOpen className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{row.subject || "—"}</span>
+                    </div>
+                    {row.chapter && <div className="text-[11px] text-muted-foreground mt-0.5">{row.chapter}</div>}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="font-medium">{formatSchedule(row.scheduled_at)}</div>
+                    <div className="text-[11px] text-muted-foreground">{row.duration_minutes} min</div>
+                  </td>
+                  <td className="py-3 pr-4">
+                    {row.is_live ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+                        </span>
+                        LIVE
+                      </span>
+                    ) : row.recorded_lecture_id ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <XCircle className="h-3 w-3 hidden" /> COMPLETED
+                      </span>
+                    ) : isStartingSoon ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        <Clock3 className="h-3 w-3" /> STARTING IN {Math.ceil(diffMins)}m
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+                        <CalendarDays className="h-3 w-3" /> SCHEDULED
+                      </span>
                     )}
-                    {row.is_live && (
-                      <Button size="sm" variant="ghost" onClick={() => extend.mutate(row)} disabled={extend.isPending} title="Add 15 minutes">
-                        <TimerReset className="h-4 w-4 text-primary" />
-                      </Button>
-                    )}
-                    <Button
-                      size="sm" variant="ghost"
-                      onClick={() => { if (window.confirm(`Cancel "${row.title}"? No recording will be saved.`)) cancelClass.mutate(row.id); }}
-                      disabled={cancelClass.isPending}
-                      title="Cancel — delete without archiving"
-                      className="text-orange-500 hover:bg-orange-500/10 hover:text-orange-600"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      <span className="ml-1 text-[11px] font-semibold hidden sm:inline">Cancel</span>
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="py-3 text-right align-top">
+                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      {row.is_live ? (
+                        <>
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => extend.mutate(row)} disabled={extend.isPending} title="Add 15 min">
+                            +15m
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] text-red-600 border-red-200 hover:bg-red-50" onClick={() => { if (confirm("End class & save recording?")) endNow.mutate(row.id); }} disabled={endNow.isPending}>
+                            End Now
+                          </Button>
+                        </>
+                      ) : !row.recorded_lecture_id && (
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { if (confirm("Cancel this scheduled class?")) cancelClass.mutate(row.id); }} disabled={cancelClass.isPending}>
+                          <XCircle className="h-3 w-3 mr-1" /> Cancel
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(row)} title="Edit settings"><Pencil className="h-3.5 w-3.5 text-slate-500" /></Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
