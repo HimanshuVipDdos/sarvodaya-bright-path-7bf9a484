@@ -7,8 +7,6 @@ import { cn, getStorageUrl } from "@/lib/utils";
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
   let target = url.trim();
-  target = target.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-  
   const iframeMatch = target.match(/src=["']([^"']+)["']/i);
   if (iframeMatch && iframeMatch[1]) {
     target = iframeMatch[1];
@@ -25,10 +23,7 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   if (!url || !url.trim()) return null;
   let target = url.trim();
 
-  // 1. Decode HTML entities if it was saved encoded (e.g. &quot; instead of ")
-  target = target.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-
-  // 2. If it's an iframe string, extract the src URL
+  // Extract src if iframe string
   const iframeMatch = target.match(/src=["']([^"']+)["']/i);
   if (iframeMatch && iframeMatch[1]) {
     target = iframeMatch[1];
@@ -45,44 +40,25 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   }
 
   // YouTube
+  const ytId = extractYouTubeId(target);
+  if (ytId) {
+    return {
+      type: "youtube",
+      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
+      rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
+    };
+  }
+
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
-    const ytId = extractYouTubeId(target);
-    if (ytId && ytId.length === 11) {
-      return {
-        type: "youtube",
-        embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
-        rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
-      };
-    } else {
-      // Fallback for weird YouTube links (like playlists)
-      try {
-        const u = new URL(target);
-        if (u.pathname === "/watch" && u.searchParams.get("v")) {
-          return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${u.searchParams.get("v")}?autoplay=1`, rawUrl: target };
-        } else if (u.pathname === "/playlist" && u.searchParams.get("list")) {
-          return { type: "youtube", embedUrl: `https://www.youtube.com/embed/videoseries?list=${u.searchParams.get("list")}`, rawUrl: target };
-        } else if (u.pathname.startsWith("/embed/")) {
-           return { type: "youtube", embedUrl: target, rawUrl: target };
-        }
-      } catch {}
-      
-      // If it's a raw iframe string that somehow failed URL parsing, DO NOT use it as a src!
-      if (target.startsWith("<iframe")) {
-         return { type: "video", embedUrl: "", rawUrl: target };
-      }
-      
-      return {
-        type: "youtube",
-        embedUrl: target.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/"),
-        rawUrl: target,
-      };
-    }
+    return {
+      type: "youtube",
+      embedUrl: target.includes("?") ? `${target}&autoplay=1` : `${target}?autoplay=1`,
+      rawUrl: target,
+    };
   }
 
   // Direct video file
   const resolved = getStorageUrl(target) || target;
-  if (target.startsWith("<iframe")) return { type: "video", embedUrl: "", rawUrl: target };
-
   return {
     type: "video",
     embedUrl: resolved,
@@ -159,11 +135,11 @@ export function VideoPlayer({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
-        "group relative flex bg-white overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-slate-200 shadow-xl",
+        "group relative flex bg-black overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-slate-800 shadow-xl",
         className
       )}
     >
-      <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-white overflow-hidden">
+      <div className="flex-1 relative min-w-0 h-full w-full flex items-center justify-center bg-black overflow-hidden">
         {embedInfo.type === "drive" ? (
           <iframe
             src={embedInfo.embedUrl}
@@ -190,18 +166,18 @@ export function VideoPlayer({
             controls
             autoPlay
             playsInline
-            className="w-full h-full object-contain bg-white"
+            className="w-full h-full object-contain bg-black"
           />
         ) : (
           <ReactPlayer
             key={embedInfo.embedUrl}
-            url={embedInfo.embedUrl}
+            src={embedInfo.embedUrl}
             playing
             controls
             playsInline
             width="100%"
             height="100%"
-            style={{ backgroundColor: "white" }}
+            style={{ backgroundColor: "black" }}
             onError={() => setPlaybackFailed(true)}
           />
         )}
@@ -218,8 +194,8 @@ export function VideoPlayer({
 
 function VideoUnavailable({ message, className }: { message: string; className?: string }) {
   return (
-    <div className={cn("flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500 border border-slate-200", className)}>
-      <AlertTriangle className="h-8 w-8 text-amber-500" />
+    <div className={cn("flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl bg-slate-900 p-6 text-center text-sm text-slate-300 border border-slate-800", className)}>
+      <AlertTriangle className="h-8 w-8 text-amber-400" />
       <p>{message}</p>
     </div>
   );

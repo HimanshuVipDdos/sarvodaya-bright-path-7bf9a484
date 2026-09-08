@@ -344,31 +344,6 @@ function StudentsAdmin() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-xl bg-white"
-            onClick={() => {
-              const headers = ["Name", "Phone", "Email", "Registered At", "Batches", "Total Paid", "Tests Taken", "Avg Score"];
-              const csv = filtered.map(s => [
-                `"${s.full_name || ''}"`,
-                `"${s.phone || ''}"`,
-                `"${s.email || ''}"`,
-                `"${s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}"`,
-                `"${s.enrollments.map(e => e.batch_title).join(', ')}"`,
-                s.enrollments.reduce((sum, e) => sum + e.amount_paid_inr, 0),
-                s.tests_count,
-                s.avg_score
-              ].join(","));
-              const blob = new Blob([headers.join(",") + "\n" + csv.join("\n")], { type: "text/csv" });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = `students_export_${new Date().toISOString().split('T')[0]}.csv`;
-              a.click();
-            }}
-          >
-            Export CSV
-          </Button>
           <Button asChild variant="outline" size="sm" className="rounded-xl">
             <Link to="/admin/enrollments">
               <UserPlus className="h-4 w-4 mr-1.5" /> Grant Batch Access

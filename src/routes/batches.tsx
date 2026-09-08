@@ -126,7 +126,7 @@ function BatchesPage() {
               <div className="group flex h-full flex-col overflow-hidden rounded-[20px] bg-white border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 relative">
                 
                 {/* Image Section */}
-                <div className="relative w-full pt-[60%] overflow-hidden bg-slate-100">
+                <div className="relative w-full aspect-video overflow-hidden bg-slate-100">
                   {b.thumbnail_url ? (
                     <img
                       src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url}

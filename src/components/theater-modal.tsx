@@ -218,24 +218,27 @@ export function TheaterModal({
             </div>
           </div>
 
-          {/* Right Live Chat Panel (Visible for Live Classes) */}
+          {/* Right Live Chat Panel (Visible for Live Classes) — dark,
+              PW-style panel. LiveChat itself already renders on a dark
+              (#0f0f0f) background; this wrapper now matches it instead of
+              boxing it in white chrome, so it reads as one seamless panel. */}
           {isLive && chatOpen && (
-            <div className="w-[340px] sm:w-[380px] lg:w-[420px] shrink-0 border-l border-slate-200 h-full flex flex-col bg-white animate-in slide-in-from-right duration-200 z-10">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
+            <div className="w-[340px] sm:w-[380px] lg:w-[420px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200 z-10">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#181818]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="font-bold text-xs uppercase tracking-wider text-slate-900">Live Discussion</span>
+                  <span className="font-bold text-xs uppercase tracking-wider text-white">Live Chat</span>
                 </div>
                 <button
                   onClick={() => setChatOpen(false)}
-                  className="p-1 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition"
+                  className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition"
                   title="Hide Chat"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
               <div className="flex-1 min-h-0">
-                <LiveChat liveClassId={liveClassId!} canModerate={true} className="h-full" />
+                <LiveChat liveClassId={liveClassId!} canModerate={true} className="h-full rounded-none border-0" />
               </div>
             </div>
           )}

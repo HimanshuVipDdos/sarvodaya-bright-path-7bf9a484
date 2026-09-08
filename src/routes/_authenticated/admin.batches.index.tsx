@@ -37,7 +37,7 @@ const fields: Field[] = [
   { name: "subjects", label: "Subjects", type: "array", helper: "Comma separated" },
   { name: "faculty", label: "Faculty", type: "array", helper: "Comma separated names" },
   { name: "features", label: "Features", type: "array", helper: "Comma separated" },
-  { name: "thumbnail_url", label: "Cover Photo", type: "image", bucket: "public", aspect: 16/9 },
+  { name: "thumbnail_url", label: "Cover Photo", type: "image", bucket: "batch-thumbnails", aspect: 16 / 9, helper: "Shown as a 16:9 banner everywhere on the site — crop matches that exactly." },
   { name: "demo_video_url", label: "Demo Video URL", type: "url" },
   { name: "starts_on", label: "Starts On", type: "date" },
   { name: "is_featured", label: "Featured", type: "boolean" },

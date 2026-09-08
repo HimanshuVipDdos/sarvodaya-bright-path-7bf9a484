@@ -624,6 +624,26 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+// Supabase's upload() call succeeding only means the bytes were written — it
+// says nothing about whether the bucket is actually set to Public. If it
+// isn't, getPublicUrl() still hands back a URL, it just 403s the moment a
+// browser tries to load it — which is exactly what was happening: the admin
+// preview and every page showing that batch would silently fail to load the
+// image (each <img> has an onError fallback that swaps in a plain gradient
+// instead of showing a broken-image icon), so the cover photo looked like it
+// "never uploaded" even though it technically had. This actually loads the
+// URL before trusting it, so a private/misconfigured bucket gets skipped in
+// favor of the next candidate instead of silently failing later.
+function verifyImageUrlLoads(url: string, timeoutMs = 6000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    img.onload = () => { clearTimeout(timer); resolve(true); };
+    img.onerror = () => { clearTimeout(timer); resolve(false); };
+    img.src = url;
+  });
+}
+
 function ImageUploadField({
   value, bucket, aspect, onChange,
 }: {
@@ -689,7 +709,7 @@ function ImageUploadField({
           });
           if (!error) {
             const { data } = supabase.storage.from(b).getPublicUrl(path);
-            if (data?.publicUrl) {
+            if (data?.publicUrl && (await verifyImageUrlLoads(data.publicUrl))) {
               uploadedUrl = data.publicUrl;
               break;
             }

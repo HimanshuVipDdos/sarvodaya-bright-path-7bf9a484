@@ -146,15 +146,13 @@ function ResultPage() {
           <h1 className="mt-3 text-2xl font-bold">{a.test?.title}</h1>
           <div className="mt-1 text-sm text-muted-foreground">Report Card</div>
 
-          <div className="mt-6 grid grid-cols-4 gap-3">
-            <Stat label="Total Qs" value={String(a.total_questions)} />
-            <Stat label="Max Marks" value={String(a.max_score)} />
-            <Stat label="My Score" value={String(formatScore(a.score))} accent="text-primary" />
-            <Stat label="Rank" value={`#${data.rank}`} />
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <Stat label="Score" value={`${formatScore(a.score)}/${a.max_score}`} />
+            <Stat label="Percentage" value={`${percent}%`} />
+            <Stat label="Rank" value={`#${data.rank} / ${data.total_participants}`} />
           </div>
 
-          <div className="mt-6 grid grid-cols-4 gap-3 text-sm">
-            <Stat label="Percentage" value={`${percent}%`} />
+          <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
             <Stat label="Correct" value={String(a.correct_count)} accent="text-emerald-600" />
             <Stat label="Wrong" value={String(a.wrong_count)} accent="text-destructive" />
             <Stat label="Unanswered" value={String(a.unanswered_count)} accent="text-muted-foreground" />
@@ -164,7 +162,7 @@ function ResultPage() {
             <Button onClick={downloadCertificate} className="gap-2">
               <Award className="h-4 w-4" /> Download Certificate
             </Button>
-            <a href={`/cbt/${testId}/mistakes?attempt=${effectiveAttemptId}`}>
+            <a href={`/cbt/${testId}/mistakes?attempt=${attemptId}`}>
               <Button variant="outline" className="gap-2">
                 <Search className="h-4 w-4" /> Review My Mistakes
               </Button>
