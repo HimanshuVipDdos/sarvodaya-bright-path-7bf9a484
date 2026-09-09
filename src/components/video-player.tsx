@@ -200,6 +200,7 @@ function CustomYouTubePlayer({
   canShowChat,
   chatOpen,
   onChatToggle,
+  isLive = false,
 }: {
   videoId: string;
   title?: string;
@@ -207,6 +208,7 @@ function CustomYouTubePlayer({
   canShowChat: boolean;
   chatOpen: boolean;
   onChatToggle?: () => void;
+  isLive?: boolean;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -230,6 +232,7 @@ function CustomYouTubePlayer({
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
   const [embeddingDisabled, setEmbeddingDisabled] = useState(false);
+  const [isEnded, setIsEnded] = useState(false);
 
   // Send postMessage command to YouTube iframe
   const sendCommand = useCallback((func: string, args: any[] = []) => {
@@ -309,7 +312,12 @@ function CustomYouTubePlayer({
           if (typeof d.info.playerState === "number") {
             // 1 = playing, 2 = paused, 0 = ended, 3 = buffering
             setPlaying(d.info.playerState === 1);
-            if (d.info.playerState === 1) setReady(true);
+            if (d.info.playerState === 1) {
+              setReady(true);
+              setIsEnded(false);
+            } else if (d.info.playerState === 0) {
+              setIsEnded(true);
+            }
           }
         }
 
@@ -347,6 +355,8 @@ function CustomYouTubePlayer({
             },
             onStateChange: (e: any) => {
               setPlaying(e.data === 1);
+              if (e.data === 1) setIsEnded(false);
+              else if (e.data === 0) setIsEnded(true);
               const d = e.target.getDuration?.();
               if (d) setDuration(d);
             },
@@ -568,7 +578,7 @@ function CustomYouTubePlayer({
         }
       }}
     >
-      {/* Real YouTube iframe with controls=0 permanently enforced */}
+      {/* Real YouTube iframe with controls=0 permanently enforced & cropped edges */}
       <iframe
         ref={iframeRef}
         src={embedSrc}
@@ -577,52 +587,55 @@ function CustomYouTubePlayer({
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
-        className="pointer-events-none absolute inset-0 h-full w-full border-0"
+        className="pointer-events-none absolute -inset-x-[2%] -inset-y-[4%] h-[108%] w-[104%] border-0"
       />
 
       {/* Transparent surface over the iframe to catch clicks & toggle play/pause */}
       <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={togglePlay} />
 
-      {/* Top Bar: Circular Chat Toggle (Top Left) + Title/Subtitle + Live Clock (Top Right) */}
+      {/* Smart Pause Mask: Completely blocks YouTube's "More videos" carousel & thumbnail cards on pause */}
+      {!playing && ready && !isEnded && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-44 sm:h-52 bg-gradient-to-t from-black via-black/95 to-transparent" />
+      )}
+
+      {/* End of Lecture Overlay — prevents YouTube's 12-grid suggestions */}
+      {isEnded && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 text-white p-6 text-center select-none">
+          <h3 className="text-lg font-bold">Lecture Completed</h3>
+          <p className="text-xs text-white/70 mt-1">You have reached the end of this lecture.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsEnded(false);
+              seekBy(-duration);
+              togglePlay();
+            }}
+            className="mt-4 flex items-center gap-2 rounded-full bg-red-600 hover:bg-red-700 text-white px-5 py-2 text-xs font-bold transition shadow-lg active:scale-95"
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span>Replay Lecture</span>
+          </button>
+        </div>
+      )}
+
+      {/* Top Bar: Title/Subtitle + Live Clock */}
       <div
         className={cn(
           "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3 sm:p-4 transition-opacity duration-300",
-          controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+          controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
-        <div className="flex items-center gap-3 min-w-0 pr-3">
-          {canShowChat && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChatToggle?.();
-              }}
-              title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
-              aria-label="Toggle Live Chat"
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition backdrop-blur-md shadow-md",
-                chatOpen
-                  ? "bg-red-600 border-red-400 text-white shadow-red-600/30 ring-2 ring-red-400/40"
-                  : "bg-black/50 border-white/25 text-white hover:bg-black/80 hover:border-white/50"
-              )}
-            >
-              <MessageCircle className="h-4 w-4" />
-            </button>
+        <div className="min-w-0 flex flex-col justify-center pr-3">
+          {title && (
+            <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
+              {title}
+            </h2>
           )}
-
-          <div className="min-w-0 flex flex-col justify-center">
-            {title && (
-              <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
-                {title}
-              </h2>
-            )}
-            {subtitle && (
-              <p className="truncate text-[10px] sm:text-[11px] font-normal text-white/75 drop-shadow-sm leading-tight mt-0.5">
-                {subtitle}
-              </p>
-            )}
-          </div>
+          {subtitle && (
+            <p className="truncate text-[10px] sm:text-[11px] font-normal text-white/75 drop-shadow-sm leading-tight mt-0.5">
+              {subtitle}
+            </p>
+          )}
         </div>
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
@@ -666,8 +679,8 @@ function CustomYouTubePlayer({
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2 pt-6 sm:px-4 transition-opacity duration-300",
-          controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-2.5 pt-10 sm:px-4 transition-opacity duration-300",
+          controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -750,6 +763,28 @@ function CustomYouTubePlayer({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Chat Toggle Button — strictly visible only for Live classes */}
+            {isLive && canShowChat && onChatToggle && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChatToggle();
+                }}
+                title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
+                aria-label="Toggle Live Chat"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition active:scale-95 shadow-sm",
+                  chatOpen
+                    ? "bg-red-600 text-white shadow-red-600/30 ring-1 ring-red-400/40"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                )}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-bold">Chat</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setShowRemainingTime((v) => !v)}
@@ -826,6 +861,7 @@ function CustomHtml5Player({
   canShowChat,
   chatOpen,
   onChatToggle,
+  isLive = false,
 }: {
   src: string;
   poster?: string;
@@ -834,6 +870,7 @@ function CustomHtml5Player({
   canShowChat: boolean;
   chatOpen: boolean;
   onChatToggle?: () => void;
+  isLive?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -1004,45 +1041,24 @@ function CustomHtml5Player({
         className="h-full w-full object-contain bg-black"
       />
 
-      {/* Top Bar: Circular Chat Toggle (Top Left) + Title/Subtitle + Live Clock (Top Right) */}
+      {/* Top Bar: Title/Subtitle + Live Clock */}
       <div
         className={cn(
           "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3 sm:p-4 transition-opacity duration-300",
-          controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+          controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
-        <div className="flex items-center gap-3 min-w-0 pr-3">
-          {canShowChat && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChatToggle?.();
-              }}
-              title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition backdrop-blur-md shadow-md",
-                chatOpen
-                  ? "bg-red-600 border-red-400 text-white shadow-red-600/30 ring-2 ring-red-400/40"
-                  : "bg-black/50 border-white/25 text-white hover:bg-black/80 hover:border-white/50"
-              )}
-            >
-              <MessageCircle className="h-4 w-4" />
-            </button>
+        <div className="min-w-0 flex flex-col justify-center pr-3">
+          {title && (
+            <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
+              {title}
+            </h2>
           )}
-
-          <div className="min-w-0 flex flex-col justify-center">
-            {title && (
-              <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
-                {title}
-              </h2>
-            )}
-            {subtitle && (
-              <p className="truncate text-[10px] sm:text-[11px] font-normal text-white/75 drop-shadow-sm leading-tight mt-0.5">
-                {subtitle}
-              </p>
-            )}
-          </div>
+          {subtitle && (
+            <p className="truncate text-[10px] sm:text-[11px] font-normal text-white/75 drop-shadow-sm leading-tight mt-0.5">
+              {subtitle}
+            </p>
+          )}
         </div>
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
@@ -1076,11 +1092,11 @@ function CustomHtml5Player({
         )}
       </AnimatePresence>
 
-      {/* Bottom Controls */}
+      {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2 pt-6 sm:px-4 transition-opacity duration-300",
-          controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-2.5 pt-10 sm:px-4 transition-opacity duration-300",
+          controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1113,17 +1129,6 @@ function CustomHtml5Player({
               className="rounded-full p-1.5 hover:bg-white/15 transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-            </button>
-
-            {/* Link button matching reference screenshot */}
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              title="Copy lecture link"
-              aria-label="Copy lecture link"
-              className="rounded-full p-1.5 text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
-            >
-              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Link2 className="h-4 w-4" />}
             </button>
 
             <div className="flex items-center gap-1 group/vol">
@@ -1170,6 +1175,28 @@ function CustomHtml5Player({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Chat Toggle Button — strictly visible only for Live classes */}
+            {isLive && canShowChat && onChatToggle && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChatToggle();
+                }}
+                title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
+                aria-label="Toggle Live Chat"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition active:scale-95 shadow-sm",
+                  chatOpen
+                    ? "bg-red-600 text-white shadow-red-600/30 ring-1 ring-red-400/40"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                )}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-bold">Chat</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setShowRemainingTime((v) => !v)}
@@ -1294,6 +1321,7 @@ export function VideoPlayer({
             canShowChat={canShowChat}
             chatOpen={chatVisible}
             onChatToggle={handleChatToggle}
+            isLive={isLive}
           />
         ) : embedInfo.type === "youtube" ? (
           <iframe
@@ -1315,6 +1343,7 @@ export function VideoPlayer({
             canShowChat={canShowChat}
             chatOpen={chatVisible}
             onChatToggle={handleChatToggle}
+            isLive={isLive}
           />
         )}
       </div>
