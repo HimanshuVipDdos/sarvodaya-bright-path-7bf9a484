@@ -1,21 +1,42 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { useSuspenseQuery, queryOptions, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { ArrowRight, Search, BookOpen, Layers } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { ArrowRight, Search, BookOpen, Layers, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn, getStorageUrl } from "@/lib/utils";
+import { cn, getStorageUrl, isClassLiveNow } from "@/lib/utils";
 
 const batchesQuery = queryOptions({
   queryKey: ["batches", "all"],
   queryFn: async () => {
-    const { data } = await supabase.from("batches").select("*").eq("is_active", true).order("is_featured", { ascending: false }).order("title");
-    const { data: live } = await supabase.from("live_classes").select("batch_id").eq("is_live", true);
-    const liveSet = new Set((live ?? []).map((l) => l.batch_id));
-    return (data ?? []).map((b) => ({ ...b, _isLive: liveSet.has(b.id) }));
+    try {
+      await supabase.rpc("tick_live_classes" as never);
+    } catch {}
+
+    const [batchesRes, liveRes] = await Promise.all([
+      supabase.from("batches").select("*").eq("is_active", true).order("is_featured", { ascending: false }).order("title"),
+      supabase.from("live_classes").select("id, batch_id, title, is_live, status, scheduled_at, end_at, duration_minutes, recorded_lecture_id"),
+    ]);
+
+    const nowMs = Date.now();
+    const liveMap = new Map<string, any>();
+    (liveRes.data ?? []).forEach((lc: any) => {
+      if (!lc.batch_id) return;
+      if (isClassLiveNow(lc, nowMs)) {
+        if (!liveMap.has(lc.batch_id)) {
+          liveMap.set(lc.batch_id, lc);
+        }
+      }
+    });
+
+    return (batchesRes.data ?? []).map((b) => ({
+      ...b,
+      _isLive: liveMap.has(b.id),
+      _liveClass: liveMap.get(b.id) ?? null,
+    }));
   },
 });
 
@@ -34,6 +55,32 @@ function BatchesPage() {
   const { data: batches } = useSuspenseQuery(batchesQuery);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("All");
+  const queryClient = useQueryClient();
+
+  // Dynamic real-time timer every 5s
+  const [nowTime, setNowTime] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Supabase realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("all-batches-live-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_classes" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["batches", "all"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const categories = ["All", ...Array.from(new Set(batches.map((b) => b.exam_category)))];
   const filtered = batches.filter((b) => {
@@ -123,7 +170,16 @@ function BatchesPage() {
             transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.3) }}
           >
             <Link to="/batches/$slug" params={{ slug: b.slug }} className="block h-full">
-              <div className="group flex h-full flex-col overflow-hidden rounded-[20px] bg-white border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 relative">
+              <div className={cn(
+                "group flex h-full flex-col overflow-hidden rounded-[20px] bg-white transition-all duration-300 relative",
+                b._isLive
+                  ? "border-2 border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.22)] ring-2 ring-red-500/30 hover:shadow-[0_0_35px_rgba(239,68,68,0.38)]"
+                  : "border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
+              )}>
+                {/* Top ambient glowing bar when Live */}
+                {b._isLive && (
+                  <div className="h-1 w-full bg-gradient-to-r from-red-500 via-rose-500 to-red-600 animate-pulse" />
+                )}
                 
                 {/* Image Section */}
                 <div className="relative w-full aspect-video overflow-hidden bg-slate-100">
@@ -152,10 +208,15 @@ function BatchesPage() {
                      <div className="flex gap-1.5 flex-wrap">
                        {b.is_featured && <span className="rounded bg-yellow-400 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-900 shadow-sm">Featured</span>}
                        {b._isLive && (
-                        <span className="inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
-                          <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span>
-                          Live
-                        </span>
+                        <div className="relative overflow-hidden flex items-center gap-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/50 shadow-sm pointer-events-none">
+                          <span className="live-shimmer" />
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                          </span>
+                          <Radio className="h-3 w-3 text-white animate-pulse" />
+                          <span>LIVE</span>
+                        </div>
                       )}
                      </div>
                   </div>
@@ -177,7 +238,17 @@ function BatchesPage() {
                      </div>
                      <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                         <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-green-600 font-semibold">{b._isLive ? "Ongoing" : "Available"}</span>
+                        {b._isLive ? (
+                          <span className="text-red-600 font-bold flex items-center gap-1.5 animate-pulse">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                            </span>
+                            <Radio className="h-3 w-3" /> Live Class Ongoing
+                          </span>
+                        ) : (
+                          <span className="text-green-600 font-semibold">Available</span>
+                        )}
                         <span className="text-slate-400">|</span> 
                         <span className="truncate">{b.duration}</span>
                      </div>

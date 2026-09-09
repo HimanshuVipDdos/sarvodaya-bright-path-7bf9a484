@@ -35,3 +35,36 @@ export function getStorageUrl(path: string | null | undefined, defaultBucket: st
   return `${supabaseUrl}/storage/v1/object/public/${defaultBucket}/${cleanPath}`;
 }
 
+/**
+ * Determine logically if a live class is currently active/running.
+ * Checks explicit is_live flag, scheduled timeframe window (scheduled_at to end_at / duration),
+ * and ensures it hasn't ended or been archived to recorded lectures.
+ */
+export function isClassLiveNow(
+  cl: {
+    is_live?: boolean | null;
+    status?: string | null;
+    scheduled_at?: string | null;
+    end_at?: string | null;
+    duration_minutes?: number | null;
+    recorded_lecture_id?: string | null;
+  } | null | undefined,
+  nowMs: number = Date.now()
+): boolean {
+  if (!cl) return false;
+  // If already recorded/archived, it is not live anymore
+  if (cl.recorded_lecture_id || cl.status === "ended") return false;
+  // If explicit is_live boolean flag is true, or status is explicitly 'live'
+  if (cl.is_live === true || cl.status === "live") return true;
+  // If scheduled time exists, check if currently inside the live broadcast window
+  if (!cl.scheduled_at) return false;
+  const startMs = new Date(cl.scheduled_at).getTime();
+  if (isNaN(startMs)) return false;
+  const endMs = cl.end_at
+    ? new Date(cl.end_at).getTime()
+    : cl.duration_minutes && cl.duration_minutes > 0
+    ? startMs + cl.duration_minutes * 60000
+    : startMs + 90 * 60000;
+  return nowMs >= startMs && nowMs <= endMs;
+}
+

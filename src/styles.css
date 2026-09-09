@@ -260,3 +260,47 @@
     border-color: color-mix(in oklab, var(--primary-glow) 40%, transparent);
   }
 }
+
+/* Shining & Glowing Live Animations */
+@keyframes live-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.9), 0 0 22px rgba(239, 68, 68, 0.55), 0 0 35px rgba(239, 68, 68, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(239, 68, 68, 1), 0 0 32px rgba(239, 68, 68, 0.85), 0 0 45px rgba(239, 68, 68, 0.5);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes live-shimmer-sweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  60%, 100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+@utility live-badge-glow {
+  animation: live-pulse-glow 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@utility live-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    animation: live-shimmer-sweep 2.2s infinite;
+  }
+}
