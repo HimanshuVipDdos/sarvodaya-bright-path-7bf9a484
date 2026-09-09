@@ -17,16 +17,21 @@ export default defineNitroPlugin((nitroApp) => {
     // 5. Referrer-Policy - Do not leak referrers to external sites
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin';
 
-    // 6. Content-Security-Policy (CSP) — strict, but with the specific
+    // 6. Permissions-Policy - explicitly allow autoplay, fullscreen, encrypted-media
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=(), browsing-topics=(), autoplay=*, fullscreen=*, encrypted-media=*, picture-in-picture=*';
+
+    // 7. Content-Security-Policy (CSP) — strict, but with the specific
     // exceptions the video player genuinely needs.
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://*.youtube.com https://*.ytimg.com https://s.ytimg.com https://www.youtube-nocookie.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https: blob:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.youtube.com",
-      "frame-src 'self' https://www.google.com/maps/ https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://player.vimeo.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.youtube.com https://*.youtube.com https://*.googlevideo.com https://*.google.com",
+      "media-src 'self' https: blob: data:",
+      "frame-src 'self' https://www.google.com/maps/ https://www.youtube.com https://*.youtube.com https://www.youtube-nocookie.com https://*.youtube-nocookie.com https://drive.google.com https://player.vimeo.com blob:",
+      "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

@@ -136,22 +136,47 @@ const batchPortalQuery = (slug: string) =>
 export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(batchPortalQuery(params.slug)),
   component: BatchPortal,
-  errorComponent: ({ error, reset }: any) => (
-    <div className="flex min-h-screen w-full items-center justify-center p-4 bg-slate-50">
-      <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold mb-2">This page didn't load</h2>
-        <p className="text-slate-500 text-sm mb-2">{error?.message || "Something went wrong."}</p>
-        <p className="text-xs text-slate-400 mb-6">Try again or head back home.</p>
-        <div className="flex justify-center gap-3">
-          <Button onClick={() => (reset ? reset() : window.location.reload())}>Try Again</Button>
-          <Button variant="outline" asChild>
-            <Link to="/dashboard">Go Home</Link>
-          </Button>
+  errorComponent: ({ error, reset }: any) => {
+    const isChunkError =
+      error?.message?.includes("dynamically imported module") ||
+      error?.message?.includes("Failed to fetch") ||
+      error?.message?.includes("Loading chunk");
+
+    const handleRetry = () => {
+      if (isChunkError) {
+        window.location.reload();
+      } else if (reset) {
+        reset();
+      } else {
+        window.location.reload();
+      }
+    };
+
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center p-4 bg-slate-50">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">This page didn't load</h2>
+          <p className="text-slate-500 text-sm mb-2">
+            {isChunkError
+              ? "A new update was deployed. Reloading will fetch the latest version."
+              : error?.message || "Something went wrong."}
+          </p>
+          <p className="text-xs text-slate-400 mb-6">
+            {isChunkError ? "Click below to refresh and load the class." : "Try again or head back home."}
+          </p>
+          <div className="flex justify-center gap-3">
+            <Button onClick={handleRetry}>
+              {isChunkError ? "Reload Page" : "Try Again"}
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/dashboard">Go Home</Link>
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
-  ),
+    );
+  },
 });
 
 type MainTab = "All Classes" | "Description" | "Tests" | "Notice Board";

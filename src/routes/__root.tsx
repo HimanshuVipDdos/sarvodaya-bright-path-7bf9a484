@@ -55,18 +55,37 @@ function PendingComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const isChunkError =
+    error?.message?.includes("dynamically imported module") ||
+    error?.message?.includes("Failed to fetch") ||
+    error?.message?.includes("Loading chunk") ||
+    error?.message?.includes("error loading dynamically imported module");
+
+  const handleRetry = () => {
+    if (isChunkError) {
+      window.location.reload();
+    } else {
+      router.invalidate();
+      reset();
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="glass-strong max-w-md rounded-3xl p-8 text-center">
         <h1 className="text-xl font-semibold">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong. Try again or head back home.
+          {isChunkError
+            ? "A new version of the app is available. Reloading will fetch the latest update."
+            : "Something went wrong. Try again or head back home."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={handleRetry}
             className="rounded-full bg-gradient-to-br from-primary to-primary-glow px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-elegant"
-          >Try again</button>
+          >
+            {isChunkError ? "Reload Page" : "Try again"}
+          </button>
           <a href="/" className="rounded-full border border-border bg-background px-5 py-2.5 text-sm font-medium">Go home</a>
         </div>
       </div>
@@ -140,6 +159,30 @@ function RootShell({ children }: { children: ReactNode }) {
             to { transform: rotate(360deg); }
           }
         `}</style>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('vite:preloadError', function(e) {
+                if (e) e.preventDefault();
+                window.location.reload();
+              });
+              window.addEventListener('error', function(e) {
+                var msg = (e && (e.message || (e.error && e.error.message))) || '';
+                if (
+                  msg.indexOf('dynamically imported module') !== -1 ||
+                  msg.indexOf('Importing a module script failed') !== -1 ||
+                  msg.indexOf('Loading chunk') !== -1
+                ) {
+                  var key = '__chunk_reload_' + window.location.pathname;
+                  if (!sessionStorage.getItem(key)) {
+                    sessionStorage.setItem(key, '1');
+                    window.location.reload();
+                  }
+                }
+              });
+            `,
+          }}
+        />
       </head>
       <body>
         {children}
