@@ -172,7 +172,6 @@ export function TheaterModal({
           </div>
         </div>
 
-        {/* Right Action Icons: Live Chat Toggle (Only for Live) + Close Button */}
         <div className="flex items-center gap-2 shrink-0">
           {isLive && (
             <button
@@ -203,7 +202,6 @@ export function TheaterModal({
       <div className="w-full bg-slate-950 border-b border-slate-200 flex justify-center shrink-0">
         <div className="w-full max-w-[1920px] h-[54vw] max-h-[72vh] min-h-[340px] flex flex-row overflow-hidden relative">
           
-          {/* Left Video Container */}
           <div className="flex-1 min-w-0 h-full flex items-center justify-center bg-black relative transition-all duration-300 overflow-hidden">
             <div className="w-full h-full max-w-full max-h-full aspect-video relative flex items-center justify-center">
               <VideoPlayer
@@ -218,10 +216,6 @@ export function TheaterModal({
             </div>
           </div>
 
-          {/* Right Live Chat Panel (Visible for Live Classes) — dark,
-              PW-style panel. LiveChat itself already renders on a dark
-              (#0f0f0f) background; this wrapper now matches it instead of
-              boxing it in white chrome, so it reads as one seamless panel. */}
           {isLive && chatOpen && (
             <div className="w-[340px] sm:w-[380px] lg:w-[420px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200 z-10">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#181818]">
@@ -250,7 +244,6 @@ export function TheaterModal({
       <div className="flex-1 overflow-y-auto min-h-0 bg-[#F8F9FA]">
         <div className="mx-auto max-w-6xl p-4 sm:p-6 space-y-6">
 
-          {/* AUTO-RECOMMENDED RESOURCES FOR THIS LECTURE / CHAPTER */}
           <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -258,7 +251,6 @@ export function TheaterModal({
                 <span className="font-bold text-sm text-slate-900">Recommended Resources & Lectures</span>
               </div>
 
-              {/* Resource Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto">
                 <button
                   onClick={() => setRecommendTab("recommended")}
@@ -299,10 +291,8 @@ export function TheaterModal({
               </div>
             </div>
 
-            {/* TAB: Recommended Overview */}
             {recommendTab === "recommended" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Notes card */}
                 <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-blue-700 flex items-center gap-1.5">
@@ -324,7 +314,6 @@ export function TheaterModal({
                   )}
                 </div>
 
-                {/* DPP card */}
                 <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-amber-700 flex items-center gap-1.5">
@@ -346,7 +335,6 @@ export function TheaterModal({
                   )}
                 </div>
 
-                {/* Next Lectures in this chapter */}
                 <div className="col-span-1 md:col-span-2 rounded-xl bg-slate-50 p-4 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
@@ -379,7 +367,6 @@ export function TheaterModal({
               </div>
             )}
 
-            {/* TAB: Notes */}
             {recommendTab === "notes" && (
               <div className="space-y-2">
                 {chapterNotes.length === 0 ? (
@@ -401,7 +388,6 @@ export function TheaterModal({
               </div>
             )}
 
-            {/* TAB: DPP */}
             {recommendTab === "dpp" && (
               <div className="space-y-2">
                 {chapterDpps.length === 0 ? (
@@ -423,7 +409,6 @@ export function TheaterModal({
               </div>
             )}
 
-            {/* TAB: Full Batch Playlist */}
             {recommendTab === "playlist" && (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {lectures.map((l, i) => (
