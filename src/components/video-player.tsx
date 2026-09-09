@@ -233,23 +233,6 @@ function CustomYouTubePlayer({
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
   const [embeddingDisabled, setEmbeddingDisabled] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyLink = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopied(true);
-        toast.success("Class link copied to clipboard!");
-        setTimeout(() => setCopied(false), 2000);
-      }).catch(() => {
-        toast.info("Link: " + url);
-      });
-    } else {
-      toast.info("Link: " + url);
-    }
-  };
 
   // Send postMessage command to YouTube iframe
   const sendCommand = useCallback((func: string, args: any[] = []) => {
