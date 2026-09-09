@@ -33,13 +33,11 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
   if (!url || !url.trim()) return null;
   let target = url.trim();
 
-  // Extract src if iframe string
   const iframeMatch = target.match(/src=["']([^"']+)["']/i);
   if (iframeMatch && iframeMatch[1]) {
     target = iframeMatch[1];
   }
 
-  // Google Drive
   const driveMatch = target.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/i);
   if (driveMatch && driveMatch[1]) {
     return {
@@ -49,7 +47,6 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
     };
   }
 
-  // YouTube
   const ytId = extractYouTubeId(target);
   if (ytId) {
     return {
@@ -68,7 +65,6 @@ export function getEmbedableSource(url: string): { type: "youtube" | "drive" | "
     };
   }
 
-  // Direct video file
   const resolved = getStorageUrl(target) || target;
   return {
     type: "video",
@@ -82,10 +78,6 @@ export function getYouTubeEmbedUrl(url: string): string | null {
   return info?.type === "youtube" ? info.embedUrl : null;
 }
 
-// ---------------------------------------------------------------------------
-// YouTube IFrame API loader (singleton — the script + callback only ever get
-// set up once, no matter how many players are on the page over time).
-// ---------------------------------------------------------------------------
 let ytApiPromise: Promise<any> | null = null;
 function loadYouTubeIframeApi(): Promise<any> {
   if (typeof window === "undefined") return Promise.reject(new Error("no window"));
@@ -122,15 +114,6 @@ function formatTime(seconds: number) {
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-/**
- * Our own player chrome (play/pause, seek bar, volume, speed, fullscreen,
- * chat toggle) driven by the real YouTube IFrame Player API underneath —
- * the video itself still streams straight from YouTube, but YouTube's own
- * default UI (big logo button, suggested-videos panel, channel watermark,
- * etc.) is turned off via `controls:0`. YouTube's branding rules mean a
- * small "YouTube" mark stays visible in the corner — that part can't be
- * removed — everything else is ours.
- */
 function CustomYouTubePlayer({
   videoId,
   title,
@@ -192,7 +175,6 @@ function CustomYouTubePlayer({
             },
             onStateChange: (e: any) => {
               if (cancelled) return;
-              // 1 = playing, 2 = paused, 0 = ended
               setPlaying(e.data === 1);
               if (e.data === 1) setDuration(e.target.getDuration?.() || 0);
             },
@@ -214,7 +196,6 @@ function CustomYouTubePlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
-  // Poll current time while playing (YT API has no continuous timeupdate event)
   useEffect(() => {
     if (!ready) return;
     pollRef.current = window.setInterval(() => {
@@ -295,11 +276,8 @@ function CustomYouTubePlayer({
       onClick={(e) => { if (e.target === wrapRef.current || (e.target as HTMLElement).closest(".yt-click-surface")) togglePlay(); }}
     >
       <div ref={mountRef} className="pointer-events-none absolute inset-0 h-full w-full" />
-      {/* Transparent surface over the iframe so our own click-to-toggle-play works
-          (the underlying YT iframe would otherwise swallow the click) */}
       <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={togglePlay} />
 
-      {/* Top bar: title + chat toggle */}
       <div
         className={cn(
           "absolute inset-x-0 top-0 z-10 flex items-start justify-between bg-gradient-to-b from-black/70 to-transparent p-3 sm:p-4 transition-opacity duration-300",
@@ -322,7 +300,6 @@ function CustomYouTubePlayer({
         )}
       </div>
 
-      {/* Center play/pause button — shown paused, or briefly on tap */}
       <AnimatePresence>
         {(!playing || controlsVisible) && ready && (
           <motion.button
@@ -345,7 +322,6 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* Bottom control bar */}
       <div
         className={cn(
           "absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2 pt-6 sm:px-4 transition-opacity duration-300",
@@ -353,7 +329,6 @@ function CustomYouTubePlayer({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Seek bar */}
         <input
           type="range"
           min={0}
@@ -460,15 +435,6 @@ export function VideoPlayer({
 
   const canShowChat = Boolean(isLive && (chatComponent || externalOnChatToggle));
 
-  // Direct video files go through ReactPlayer (cookpete/react-player), with a
-  // plain <video> tag as a safety-net fallback if it ever errors.
-  //
-  // YouTube uses our own custom-skinned player (CustomYouTubePlayer, built on
-  // the real YouTube IFrame Player API) so the controls look like our site,
-  // not YouTube's stock UI. If the IFrame API ever fails to load or the
-  // player itself errors, we drop straight to a plain YouTube iframe embed
-  // as a guaranteed-play fallback — the class always plays, worst case with
-  // YouTube's own default controls instead of ours.
   const [playbackFailed, setPlaybackFailed] = useState(false);
   useEffect(() => {
     setPlaybackFailed(false);
@@ -487,9 +453,6 @@ export function VideoPlayer({
   return (
     <motion.div
       ref={outerWrapRef}
-      // One-time fade-in on mount — a single cheap opacity transition, not a
-      // continuous loop, so it adds a premium feel without costing anything
-      // once it's finished.
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
