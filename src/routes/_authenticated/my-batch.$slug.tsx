@@ -1207,7 +1207,14 @@ function BatchPortal() {
       )}
 
       {/* Document PDF Viewer */}
-      <DocumentViewer url={docUrl} title={docTitle} onClose={() => setDocUrl(null)} />
+      {docUrl && (
+        <DocumentViewer
+          url={docUrl}
+          title={docTitle || "Document Viewer"}
+          open={Boolean(docUrl)}
+          onClose={() => setDocUrl(null)}
+        />
+      )}
     </div>
   );
 }

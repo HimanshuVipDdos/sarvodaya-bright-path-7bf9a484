@@ -149,7 +149,12 @@ function LiveClock() {
   }, []);
 
   if (!timeStr) return null;
-  return <span className="text-xs sm:text-sm font-medium text-white/90 tabular-nums drop-shadow">{timeStr}</span>;
+  return (
+    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md text-[11px] font-mono font-medium text-white/90 shadow-xs">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      {timeStr}
+    </span>
+  );
 }
 
 function loadYouTubeIframeApi(): Promise<void> {
@@ -649,16 +654,16 @@ function CustomYouTubePlayer({
           <motion.button
             key="center-play-btn"
             type="button"
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.15 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             onClick={(e) => {
               e.stopPropagation();
               togglePlay();
             }}
             aria-label={playing ? "Pause" : "Play"}
-            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#e53935] hover:bg-[#d32f2f] text-white shadow-xl shadow-red-600/30 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_8px_30px_rgba(225,29,72,0.45)] ring-4 ring-white/20 hover:ring-white/40 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
           >
             {playing ? (
               <Pause className="h-7 w-7 fill-current" />
@@ -679,39 +684,39 @@ function CustomYouTubePlayer({
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-2.5 pt-10 sm:px-4 transition-opacity duration-300",
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-3 pt-12 sm:px-5 transition-opacity duration-300 backdrop-blur-[1px]",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Scrubber / Seek Bar matching reference screenshot */}
+        {/* Modern Scrubber / Seek Bar */}
         <div
           ref={seekbarRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="relative w-full py-2 cursor-pointer select-none group/seek touch-none"
+          className="relative w-full py-2.5 cursor-pointer select-none group/seek touch-none"
         >
-          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
+          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/20 backdrop-blur-xs transition-all">
             <div
-              className="absolute left-0 top-0 h-full rounded-full bg-white"
+              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
               style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-white shadow-md transition-transform group-hover/seek:scale-125"
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-md ring-2 ring-red-500/50 transition-transform group-hover/seek:scale-125"
               style={{ left: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
           </div>
         </div>
 
-        <div className="mt-1 flex items-center justify-between gap-2 text-white">
+        <div className="mt-1.5 flex items-center justify-between gap-2 text-white">
           <div className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
               onClick={togglePlay}
               aria-label={playing ? "Pause" : "Play"}
-              className="rounded-full p-1.5 hover:bg-white/15 transition active:scale-95"
+              className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
@@ -721,7 +726,7 @@ function CustomYouTubePlayer({
                 type="button"
                 onClick={toggleMute}
                 aria-label={muted ? "Unmute" : "Mute"}
-                className="rounded-full p-1.5 hover:bg-white/15 transition"
+                className="rounded-full p-2 hover:bg-white/15 text-white transition"
               >
                 {muted || volume === 0 ? (
                   <VolumeX className="h-4 w-4 text-red-400" />
@@ -737,7 +742,7 @@ function CustomYouTubePlayer({
                 max={100}
                 value={muted ? 0 : volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="hidden sm:block h-1 w-14 cursor-pointer appearance-none rounded-full bg-white/30 accent-white transition-opacity"
+                className="hidden sm:block h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-red-500 transition-opacity"
               />
             </div>
 
@@ -745,7 +750,7 @@ function CustomYouTubePlayer({
               type="button"
               onClick={() => seekBy(-10)}
               title="Rewind 10 seconds"
-              className="relative flex h-7 w-7 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
             >
               <RotateCcw className="h-4 w-4" />
               <span className="absolute text-[7px] font-extrabold leading-none select-none">10</span>
@@ -755,7 +760,7 @@ function CustomYouTubePlayer({
               type="button"
               onClick={() => seekBy(10)}
               title="Forward 10 seconds"
-              className="relative flex h-7 w-7 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
             >
               <RotateCw className="h-4 w-4" />
               <span className="absolute text-[7px] font-extrabold leading-none select-none">10</span>
@@ -774,10 +779,10 @@ function CustomYouTubePlayer({
                 title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
                 aria-label="Toggle Live Chat"
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition active:scale-95 shadow-sm",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md transition active:scale-95 border",
                   chatOpen
-                    ? "bg-red-600 text-white shadow-red-600/30 ring-1 ring-red-400/40"
-                    : "bg-white/15 text-white hover:bg-white/25"
+                    ? "bg-red-600 text-white border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]"
+                    : "bg-white/10 text-white/90 hover:bg-white/20 border-white/15"
                 )}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -788,7 +793,7 @@ function CustomYouTubePlayer({
             <button
               type="button"
               onClick={() => setShowRemainingTime((v) => !v)}
-              className="text-[11px] sm:text-xs font-mono tabular-nums text-white/90 hover:text-white transition"
+              className="flex items-center px-2.5 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] font-mono tabular-nums text-white/90 hover:text-white hover:bg-black/60 transition shadow-2xs"
             >
               {showRemainingTime ? (
                 `-${formatTime(remainingTime)}`
@@ -801,12 +806,12 @@ function CustomYouTubePlayer({
               <button
                 type="button"
                 onClick={() => setShowSpeedMenu((v) => !v)}
-                className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white/90 hover:text-white hover:bg-white/15 transition tabular-nums"
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white/90 hover:text-white bg-black/40 hover:bg-white/15 border border-white/10 hover:border-white/20 transition tabular-nums shadow-2xs"
               >
                 {rate}x
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-8 right-0 z-30 flex flex-col rounded-xl bg-zinc-900/95 border border-white/10 py-1 shadow-2xl backdrop-blur-md">
+                <div className="absolute bottom-9 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1 shadow-2xl backdrop-blur-xl ring-1 ring-black/50">
                   {SPEED_OPTIONS.map((s) => (
                     <button
                       key={s}
@@ -814,7 +819,7 @@ function CustomYouTubePlayer({
                       onClick={() => setSpeed(s)}
                       className={cn(
                         "px-4 py-1.5 text-left text-xs whitespace-nowrap transition",
-                        s === rate ? "bg-red-600/20 text-red-500 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
+                        s === rate ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
                       )}
                     >
                       {s}x
@@ -828,14 +833,14 @@ function CustomYouTubePlayer({
               type="button"
               onClick={toggleFullscreen}
               aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-              className="rounded-full p-1.5 hover:bg-white/15 transition active:scale-95"
+              className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
 
             {/* Non-clickable subtle YouTube branding badge — prevents URL leakage in paid batches */}
             <div
-              className="flex items-center gap-1 opacity-60 select-none pl-0.5 pointer-events-none cursor-default"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/10 opacity-70 select-none pointer-events-none cursor-default shadow-2xs"
             >
               <svg className="h-2.5 w-3.5 fill-red-600 shrink-0" viewBox="0 0 24 24">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
@@ -1072,16 +1077,16 @@ function CustomHtml5Player({
           <motion.button
             key="center-play-btn"
             type="button"
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.15 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             onClick={(e) => {
               e.stopPropagation();
               togglePlay();
             }}
             aria-label={playing ? "Pause" : "Play"}
-            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#e53935] hover:bg-[#d32f2f] text-white shadow-xl shadow-red-600/30 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_8px_30px_rgba(225,29,72,0.45)] ring-4 ring-white/20 hover:ring-white/40 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
           >
             {playing ? (
               <Pause className="h-7 w-7 fill-current" />
@@ -1095,38 +1100,38 @@ function CustomHtml5Player({
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-2.5 pt-10 sm:px-4 transition-opacity duration-300",
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-3 pt-12 sm:px-5 transition-opacity duration-300 backdrop-blur-[1px]",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Scrubber / Seek Bar matching reference screenshot */}
+        {/* Modern Scrubber / Seek Bar */}
         <div
           ref={seekbarRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="relative w-full py-2 cursor-pointer select-none group/seek touch-none"
+          className="relative w-full py-2.5 cursor-pointer select-none group/seek touch-none"
         >
-          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
+          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/20 backdrop-blur-xs transition-all">
             <div
-              className="absolute left-0 top-0 h-full rounded-full bg-white"
+              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
               style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-white shadow-md transition-transform group-hover/seek:scale-125"
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-md ring-2 ring-red-500/50 transition-transform group-hover/seek:scale-125"
               style={{ left: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
           </div>
         </div>
 
-        <div className="mt-1 flex items-center justify-between gap-2 text-white">
+        <div className="mt-1.5 flex items-center justify-between gap-2 text-white">
           <div className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
               onClick={togglePlay}
-              className="rounded-full p-1.5 hover:bg-white/15 transition active:scale-95"
+              className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
@@ -1135,7 +1140,7 @@ function CustomHtml5Player({
               <button
                 type="button"
                 onClick={toggleMute}
-                className="rounded-full p-1.5 hover:bg-white/15 transition"
+                className="rounded-full p-2 hover:bg-white/15 text-white transition"
               >
                 {muted || volume === 0 ? (
                   <VolumeX className="h-4 w-4 text-red-400" />
@@ -1149,7 +1154,7 @@ function CustomHtml5Player({
                 max={100}
                 value={muted ? 0 : volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="hidden sm:block h-1 w-14 cursor-pointer appearance-none rounded-full bg-white/30 accent-white transition-opacity"
+                className="hidden sm:block h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-red-500 transition-opacity"
               />
             </div>
 
@@ -1157,7 +1162,7 @@ function CustomHtml5Player({
               type="button"
               onClick={() => seekBy(-10)}
               title="Rewind 10 seconds"
-              className="relative flex h-7 w-7 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
             >
               <RotateCcw className="h-4 w-4" />
               <span className="absolute text-[7px] font-extrabold leading-none select-none">10</span>
@@ -1167,7 +1172,7 @@ function CustomHtml5Player({
               type="button"
               onClick={() => seekBy(10)}
               title="Forward 10 seconds"
-              className="relative flex h-7 w-7 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
             >
               <RotateCw className="h-4 w-4" />
               <span className="absolute text-[7px] font-extrabold leading-none select-none">10</span>
@@ -1186,10 +1191,10 @@ function CustomHtml5Player({
                 title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
                 aria-label="Toggle Live Chat"
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition active:scale-95 shadow-sm",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md transition active:scale-95 border",
                   chatOpen
-                    ? "bg-red-600 text-white shadow-red-600/30 ring-1 ring-red-400/40"
-                    : "bg-white/15 text-white hover:bg-white/25"
+                    ? "bg-red-600 text-white border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]"
+                    : "bg-white/10 text-white/90 hover:bg-white/20 border-white/15"
                 )}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -1200,7 +1205,7 @@ function CustomHtml5Player({
             <button
               type="button"
               onClick={() => setShowRemainingTime((v) => !v)}
-              className="text-[11px] sm:text-xs font-mono tabular-nums text-white/90 hover:text-white transition"
+              className="flex items-center px-2.5 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] font-mono tabular-nums text-white/90 hover:text-white hover:bg-black/60 transition shadow-2xs"
             >
               {showRemainingTime ? (
                 `-${formatTime(remainingTime)}`
@@ -1213,12 +1218,12 @@ function CustomHtml5Player({
               <button
                 type="button"
                 onClick={() => setShowSpeedMenu((v) => !v)}
-                className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white/90 hover:text-white hover:bg-white/15 transition tabular-nums"
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white/90 hover:text-white bg-black/40 hover:bg-white/15 border border-white/10 hover:border-white/20 transition tabular-nums shadow-2xs"
               >
                 {rate}x
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-8 right-0 z-30 flex flex-col rounded-xl bg-zinc-900/95 border border-white/10 py-1 shadow-2xl backdrop-blur-md">
+                <div className="absolute bottom-9 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1 shadow-2xl backdrop-blur-xl ring-1 ring-black/50">
                   {SPEED_OPTIONS.map((s) => (
                     <button
                       key={s}
@@ -1226,7 +1231,7 @@ function CustomHtml5Player({
                       onClick={() => setSpeed(s)}
                       className={cn(
                         "px-4 py-1.5 text-left text-xs whitespace-nowrap transition",
-                        s === rate ? "bg-red-600/20 text-red-500 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
+                        s === rate ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
                       )}
                     >
                       {s}x
@@ -1239,7 +1244,7 @@ function CustomHtml5Player({
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="rounded-full p-1.5 hover:bg-white/15 transition active:scale-95"
+              className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
