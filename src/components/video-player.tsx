@@ -87,7 +87,7 @@ export function getEmbedableSource(url: string): {
   if (ytId) {
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`,
+      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
       rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
       videoId: ytId,
     };
@@ -96,7 +96,9 @@ export function getEmbedableSource(url: string): {
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
     return {
       type: "youtube",
-      embedUrl: target.includes("?") ? `${target}&autoplay=1` : `${target}?autoplay=1`,
+      embedUrl: target.includes("?")
+        ? `${target}&autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`
+        : `${target}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
       rawUrl: target,
     };
   }
@@ -113,37 +115,6 @@ export function getEmbedableSource(url: string): {
 export function getYouTubeEmbedUrl(url: string): string | null {
   const info = getEmbedableSource(url);
   return info?.type === "youtube" ? info.embedUrl : null;
-}
-
-// ---------------------------------------------------------------------------
-// YouTube IFrame API loader (singleton — the script + callback only ever get
-// set up once, no matter how many players are on the page over time).
-// ---------------------------------------------------------------------------
-let ytApiPromise: Promise<any> | null = null;
-function loadYouTubeIframeApi(): Promise<any> {
-  if (typeof window === "undefined") return Promise.reject(new Error("no window"));
-  const w = window as any;
-  if (w.YT && w.YT.Player) return Promise.resolve(w.YT);
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("YouTube API load timeout")), 10000);
-    const prevCallback = w.onYouTubeIframeAPIReady;
-    w.onYouTubeIframeAPIReady = () => {
-      prevCallback?.();
-      clearTimeout(timeout);
-      resolve(w.YT);
-    };
-    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      tag.onerror = () => {
-        clearTimeout(timeout);
-        reject(new Error("YouTube API script failed"));
-      };
-      document.head.appendChild(tag);
-    }
-  });
-  return ytApiPromise;
 }
 
 function formatTime(seconds: number) {
@@ -182,7 +153,8 @@ function LiveClock() {
 }
 
 /**
- * Custom YouTube Player matching the uploaded screenshot:
+ * Custom YouTube Player matching the reference screenshot:
+ * - Direct iframe with controls=0 (native YouTube controls can never bleed through)
  * - Top-left: Circular translucent Chat toggle button + Lecture Title + Subtitle
  * - Top-right: Digital clock (10:01)
  * - Center: Red circular Play/Pause button
@@ -192,7 +164,6 @@ function CustomYouTubePlayer({
   videoId,
   title,
   subtitle = "IIT School",
-  onError,
   canShowChat,
   chatOpen,
   onChatToggle,
@@ -200,19 +171,18 @@ function CustomYouTubePlayer({
   videoId: string;
   title?: string;
   subtitle?: string;
-  onError: () => void;
   canShowChat: boolean;
   chatOpen: boolean;
   onChatToggle?: () => void;
 }) {
-  const mountRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<any>(null);
-  const pollRef = useRef<number | null>(null);
+  const ytPlayerRef = useRef<any>(null);
   const hideControlsTimer = useRef<number | null>(null);
+  const timeTickerRef = useRef<number | null>(null);
 
   const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
@@ -226,94 +196,123 @@ function CustomYouTubePlayer({
   const [showRemainingTime, setShowRemainingTime] = useState(true);
   const [embeddingDisabled, setEmbeddingDisabled] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setEmbeddingDisabled(false);
+  // Send postMessage command to YouTube iframe
+  const sendCommand = useCallback((func: string, args: any[] = []) => {
+    try {
+      if (ytPlayerRef.current && typeof ytPlayerRef.current[func] === "function") {
+        ytPlayerRef.current[func](...args);
+        return;
+      }
+    } catch {}
 
-    loadYouTubeIframeApi()
-      .then((YT) => {
-        if (cancelled || !mountRef.current) return;
-        playerRef.current = new YT.Player(mountRef.current, {
-          videoId,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            disablekb: 1,
-            modestbranding: 1,
-            rel: 0,
-            iv_load_policy: 3,
-            fs: 0,
-            playsinline: 1,
-            enablejsapi: 1,
-            origin: typeof window !== "undefined" ? window.location.origin : undefined,
-            widget_referrer: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
+    try {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func, args }),
+        "*"
+      );
+    } catch {}
+  }, []);
+
+  // Listen for YouTube postMessage events (onReady, infoDelivery, stateChange)
+  useEffect(() => {
+    const handleMsg = (e: MessageEvent) => {
+      try {
+        const d = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        if (!d) return;
+
+        if (d.event === "onReady" || d.event === "ready") {
+          setReady(true);
+          sendCommand("listening");
+        }
+
+        if (d.event === "infoDelivery" && d.info) {
+          setReady(true);
+          if (typeof d.info.currentTime === "number" && !seeking) {
+            setCurrentTime(d.info.currentTime);
+          }
+          if (typeof d.info.duration === "number" && d.info.duration > 0) {
+            setDuration(d.info.duration);
+          }
+          if (typeof d.info.playerState === "number") {
+            // 1 = playing, 2 = paused, 0 = ended, 3 = buffering
+            setPlaying(d.info.playerState === 1);
+            if (d.info.playerState === 1) setReady(true);
+          }
+        }
+
+        if (d.event === "onError") {
+          if (d.data === 101 || d.data === 150) {
+            setEmbeddingDisabled(true);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener("message", handleMsg);
+    return () => window.removeEventListener("message", handleMsg);
+  }, [sendCommand, seeking]);
+
+  // Try attaching YT.Player if YouTube iframe API script is available
+  const handleIframeLoad = () => {
+    setReady(true);
+    sendCommand("listening");
+
+    const w = typeof window !== "undefined" ? (window as any) : null;
+    if (w && w.YT && w.YT.Player && iframeRef.current) {
+      try {
+        ytPlayerRef.current = new w.YT.Player(iframeRef.current, {
           events: {
             onReady: (e: any) => {
-              if (cancelled) return;
               setReady(true);
-              setDuration(e.target.getDuration?.() || 0);
-              try {
-                e.target.playVideo?.();
-              } catch {
-                // browser autoplay policy handled by center play button
-              }
+              const d = e.target.getDuration?.();
+              if (d) setDuration(d);
             },
             onStateChange: (e: any) => {
-              if (cancelled) return;
-              // 1 = playing, 2 = paused, 0 = ended
               setPlaying(e.data === 1);
-              if (e.data === 1) {
-                setDuration(e.target.getDuration?.() || 0);
-              }
+              const d = e.target.getDuration?.();
+              if (d) setDuration(d);
             },
             onError: (e: any) => {
-              if (cancelled) return;
-              // 101 or 150 = embedding disabled by owner
               if (e?.data === 101 || e?.data === 150) {
                 setEmbeddingDisabled(true);
-              } else {
-                onError();
               }
             },
           },
         });
-      })
-      .catch(() => {
-        if (!cancelled) onError();
-      });
+      } catch {}
+    }
+  };
 
-    return () => {
-      cancelled = true;
-      try {
-        playerRef.current?.destroy?.();
-      } catch {
-        /* noop */
-      }
-      playerRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId]);
-
-  // Poll current time while playing (YT API has no continuous timeupdate event)
+  // Keep time ticking smoothly while playing
   useEffect(() => {
-    if (!ready) return;
-    pollRef.current = window.setInterval(() => {
-      const p = playerRef.current;
-      if (!p || seeking) return;
-      try {
-        setCurrentTime(p.getCurrentTime?.() || 0);
-        const d = p.getDuration?.() || 0;
-        if (d && d !== duration) setDuration(d);
-      } catch {
-        /* player not ready yet */
-      }
-    }, 300);
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    };
-  }, [ready, seeking, duration]);
+    if (!playing || seeking) {
+      if (timeTickerRef.current) clearInterval(timeTickerRef.current);
+      return;
+    }
 
+    timeTickerRef.current = window.setInterval(() => {
+      try {
+        if (ytPlayerRef.current?.getCurrentTime) {
+          const t = ytPlayerRef.current.getCurrentTime();
+          if (typeof t === "number" && !seeking) {
+            setCurrentTime(t);
+            const d = ytPlayerRef.current.getDuration?.();
+            if (d && d > 0) setDuration(d);
+            return;
+          }
+        }
+      } catch {}
+
+      // Smooth fallback tick
+      setCurrentTime((prev) => (duration > 0 ? Math.min(duration, prev + 0.5) : prev + 0.5));
+    }, 500);
+
+    return () => {
+      if (timeTickerRef.current) clearInterval(timeTickerRef.current);
+    };
+  }, [playing, seeking, duration]);
+
+  // Fullscreen change detection
   useEffect(() => {
     const handler = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
     document.addEventListener("fullscreenchange", handler);
@@ -336,42 +335,34 @@ function CustomYouTubePlayer({
   }, [resetHideTimer]);
 
   const togglePlay = () => {
-    const p = playerRef.current;
-    if (!p) return;
-    try {
-      if (playing) {
-        p.pauseVideo?.();
-      } else {
-        p.playVideo?.();
-      }
-    } catch {
-      // noop
+    if (playing) {
+      sendCommand("pauseVideo");
+      setPlaying(false);
+    } else {
+      sendCommand("playVideo");
+      setPlaying(true);
     }
     resetHideTimer();
   };
 
   const seekTo = (t: number) => {
     const targetTime = Math.max(0, Math.min(duration || 0, t));
-    playerRef.current?.seekTo?.(targetTime, true);
+    sendCommand("seekTo", [targetTime, true]);
     setCurrentTime(targetTime);
   };
 
   const seekBy = (deltaSeconds: number) => {
-    const p = playerRef.current;
-    if (!p) return;
-    const curr = p.getCurrentTime?.() || currentTime;
-    seekTo(curr + deltaSeconds);
+    const targetTime = Math.max(0, Math.min(duration || 0, currentTime + deltaSeconds));
+    seekTo(targetTime);
     resetHideTimer();
   };
 
   const toggleMute = () => {
-    const p = playerRef.current;
-    if (!p) return;
     if (muted) {
-      p.unMute?.();
+      sendCommand("unMute");
       setMuted(false);
     } else {
-      p.mute?.();
+      sendCommand("mute");
       setMuted(true);
     }
     resetHideTimer();
@@ -379,14 +370,12 @@ function CustomYouTubePlayer({
 
   const onVolumeChange = (v: number) => {
     setVolume(v);
-    const p = playerRef.current;
-    if (!p) return;
-    p.setVolume?.(v);
+    sendCommand("setVolume", [v]);
     if (v === 0) {
-      p.mute?.();
+      sendCommand("mute");
       setMuted(true);
     } else if (muted) {
-      p.unMute?.();
+      sendCommand("unMute");
       setMuted(false);
     }
     resetHideTimer();
@@ -394,7 +383,7 @@ function CustomYouTubePlayer({
 
   const setSpeed = (r: number) => {
     setRate(r);
-    playerRef.current?.setPlaybackRate?.(r);
+    sendCommand("setPlaybackRate", [r]);
     setShowSpeedMenu(false);
     resetHideTimer();
   };
@@ -456,6 +445,9 @@ function CustomYouTubePlayer({
   const displayTime = seeking ? seekPreview : currentTime;
   const remainingTime = Math.max(0, duration - displayTime);
 
+  const originParam = typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
+  const embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0${originParam ? `&origin=${originParam}` : ""}`;
+
   if (embeddingDisabled) {
     return (
       <div className="relative flex h-full w-full flex-col items-center justify-center bg-zinc-950 p-6 text-center text-white select-none">
@@ -487,8 +479,17 @@ function CustomYouTubePlayer({
         }
       }}
     >
-      {/* YouTube iframe container */}
-      <div ref={mountRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+      {/* Real YouTube iframe with controls=0 permanently enforced */}
+      <iframe
+        ref={iframeRef}
+        src={embedSrc}
+        title={title || "Video Lecture"}
+        onLoad={handleIframeLoad}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+        className="pointer-events-none absolute inset-0 h-full w-full border-0"
+      />
 
       {/* Transparent surface over the iframe to catch clicks & toggle play/pause */}
       <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={togglePlay} />
@@ -501,7 +502,6 @@ function CustomYouTubePlayer({
         )}
       >
         <div className="flex items-center gap-3 min-w-0 pr-3">
-          {/* Circular Chat Toggle Button matching screenshot */}
           {canShowChat && (
             <button
               type="button"
@@ -522,7 +522,6 @@ function CustomYouTubePlayer({
             </button>
           )}
 
-          {/* Lecture Title & Subtitle */}
           <div className="min-w-0 flex flex-col justify-center">
             {title && (
               <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
@@ -537,7 +536,6 @@ function CustomYouTubePlayer({
           </div>
         </div>
 
-        {/* Top Right: Real-time clock (10:01) */}
         <div className="shrink-0 flex items-center gap-2 pl-2">
           <LiveClock />
         </div>
@@ -584,7 +582,6 @@ function CustomYouTubePlayer({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Scrubber / Seek Bar */}
         <div className="relative group/seek w-full py-1">
           <input
             type="range"
@@ -613,11 +610,8 @@ function CustomYouTubePlayer({
           />
         </div>
 
-        {/* Controls Row */}
         <div className="mt-1.5 flex items-center justify-between gap-2 text-white">
-          {/* Left Controls: Play/Pause, Volume, -10s Rewind, +10s Forward */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Play/Pause */}
             <button
               type="button"
               onClick={togglePlay}
@@ -627,7 +621,6 @@ function CustomYouTubePlayer({
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
 
-            {/* Volume + Slider */}
             <div className="flex items-center gap-1 group/vol">
               <button
                 type="button"
@@ -653,24 +646,20 @@ function CustomYouTubePlayer({
               />
             </div>
 
-            {/* Rewind 10 Seconds */}
             <button
               type="button"
               onClick={() => seekBy(-10)}
               title="Rewind 10 seconds"
-              aria-label="Rewind 10 seconds"
               className="relative flex h-7 w-7 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
             >
               <RotateCcw className="h-4 w-4" />
               <span className="absolute text-[7px] font-extrabold leading-none select-none">10</span>
             </button>
 
-            {/* Forward 10 Seconds */}
             <button
               type="button"
               onClick={() => seekBy(10)}
               title="Forward 10 seconds"
-              aria-label="Forward 10 seconds"
               className="relative flex h-7 w-7 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
             >
               <RotateCw className="h-4 w-4" />
@@ -678,13 +667,10 @@ function CustomYouTubePlayer({
             </button>
           </div>
 
-          {/* Right Controls: Remaining Time, Speed, Fullscreen, Tiny YouTube logo */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Time display: clicking toggles remaining (-1:42:49) vs elapsed / total */}
             <button
               type="button"
               onClick={() => setShowRemainingTime((v) => !v)}
-              title="Toggle elapsed / remaining time"
               className="text-[11px] sm:text-xs font-mono tabular-nums text-white/90 hover:text-white transition"
             >
               {showRemainingTime ? (
@@ -694,7 +680,6 @@ function CustomYouTubePlayer({
               )}
             </button>
 
-            {/* Playback Speed */}
             <div className="relative">
               <button
                 type="button"
@@ -722,7 +707,6 @@ function CustomYouTubePlayer({
               )}
             </div>
 
-            {/* Fullscreen Toggle */}
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -732,7 +716,6 @@ function CustomYouTubePlayer({
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
 
-            {/* Tiny discreet YouTube logo matching screenshot */}
             <a
               href={`https://www.youtube.com/watch?v=${videoId}`}
               target="_blank"
@@ -1146,11 +1129,6 @@ export function VideoPlayer({
 
   const canShowChat = Boolean(isLive && (chatComponent || externalOnChatToggle));
 
-  const [playbackFailed, setPlaybackFailed] = useState(false);
-  useEffect(() => {
-    setPlaybackFailed(false);
-  }, [src]);
-
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
@@ -1182,7 +1160,17 @@ export function VideoPlayer({
             referrerPolicy="strict-origin-when-cross-origin"
             className="w-full h-full border-0"
           />
-        ) : embedInfo.type === "youtube" && (playbackFailed || !embedInfo.videoId) ? (
+        ) : embedInfo.type === "youtube" && embedInfo.videoId ? (
+          <CustomYouTubePlayer
+            key={embedInfo.videoId}
+            videoId={embedInfo.videoId}
+            title={title}
+            subtitle={subtitle}
+            canShowChat={canShowChat}
+            chatOpen={chatVisible}
+            onChatToggle={handleChatToggle}
+          />
+        ) : embedInfo.type === "youtube" ? (
           <iframe
             key={embedInfo.embedUrl}
             src={embedInfo.embedUrl}
@@ -1191,26 +1179,6 @@ export function VideoPlayer({
             allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin"
             className="w-full h-full border-0"
-          />
-        ) : embedInfo.type === "youtube" ? (
-          <CustomYouTubePlayer
-            key={embedInfo.videoId}
-            videoId={embedInfo.videoId!}
-            title={title}
-            subtitle={subtitle}
-            onError={() => setPlaybackFailed(true)}
-            canShowChat={canShowChat}
-            chatOpen={chatVisible}
-            onChatToggle={handleChatToggle}
-          />
-        ) : playbackFailed ? (
-          <video
-            src={embedInfo.embedUrl}
-            poster={poster}
-            controls
-            autoPlay
-            playsInline
-            className="w-full h-full object-contain bg-black"
           />
         ) : (
           <CustomHtml5Player
