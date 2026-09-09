@@ -12,9 +12,6 @@ import {
   MessageCircle,
   RotateCcw,
   RotateCw,
-  ExternalLink,
-  Link2,
-  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getStorageUrl } from "@/lib/utils";
@@ -550,7 +547,7 @@ function CustomYouTubePlayer({
         <AlertTriangle className="h-10 w-10 text-amber-400 mb-3" />
         <h3 className="text-base font-bold text-white">Playback Restricted by Creator</h3>
         <p className="mt-1 max-w-md text-xs text-white/70">
-          This YouTube video owner has disabled external website embedding. You can still watch this lecture directly on YouTube.
+          This video has embedding restrictions enabled by the instructor.
         </p>
         <p className="mt-4 text-xs text-white/60">
           Please contact your instructor or batch admin to verify playback permissions.
