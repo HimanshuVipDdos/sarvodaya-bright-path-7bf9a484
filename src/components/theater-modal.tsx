@@ -78,10 +78,11 @@ export function TheaterModal({
 
     // Try entering native full screen
     try {
-      if (modalRef.current && !document.fullscreenElement) {
-        modalRef.current.requestFullscreen?.().catch(() => {
-          // Native fullscreen may require explicit gesture on some browsers
-        });
+      const doc = document as any;
+      const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+      if (modalRef.current && !fsEl) {
+        const el = modalRef.current as any;
+        (el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen)?.call(el)?.catch?.(() => {});
       }
     } catch {
       // ignore
@@ -95,16 +96,20 @@ export function TheaterModal({
     document.addEventListener("keydown", onKey);
 
     const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const doc = document as any;
+      const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+      setIsFullscreen(Boolean(fsEl));
     };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
+
+    const fsEvents = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"];
+    fsEvents.forEach((evt) => document.addEventListener(evt, onFullscreenChange));
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      fsEvents.forEach((evt) => document.removeEventListener(evt, onFullscreenChange));
       document.body.style.overflow = prevOverflow;
     };
   }, [open]);
@@ -118,16 +123,21 @@ export function TheaterModal({
   if (!open) return null;
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      modalRef.current?.requestFullscreen?.().catch(() => {});
+    const doc = document as any;
+    const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+    if (!fsEl) {
+      const el = modalRef.current as any;
+      (el?.requestFullscreen || el?.webkitRequestFullscreen || el?.mozRequestFullScreen || el?.msRequestFullscreen)?.call(el)?.catch?.(() => {});
     } else {
-      document.exitFullscreen?.().catch(() => {});
+      (doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen)?.call(doc)?.catch?.(() => {});
     }
   };
 
   const handleClose = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
+    const doc = document as any;
+    const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+    if (fsEl) {
+      (doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen)?.call(doc)?.catch?.(() => {});
     }
     onClose();
   };
@@ -213,6 +223,7 @@ export function TheaterModal({
             isLive={isLive}
             chatVisible={chatOpen}
             onChatToggle={() => setChatOpen(!chatOpen)}
+            fullscreenTargetRef={modalRef}
             className="h-full w-full"
           />
         </div>

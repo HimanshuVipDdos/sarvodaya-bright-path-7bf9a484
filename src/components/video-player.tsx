@@ -15,6 +15,9 @@ import {
   RotateCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import Hls from "hls.js";
+import { resolveVideoStream } from "@/lib/stream-resolver";
+import { useVideoFullscreen } from "@/hooks/use-video-fullscreen";
 import { cn, getStorageUrl } from "@/lib/utils";
 
 export function extractYouTubeId(url: string): string | null {
@@ -207,6 +210,8 @@ function CustomYouTubePlayer({
   chatOpen,
   onChatToggle,
   isLive = false,
+  fullscreenTargetRef,
+  initialTime = 0,
 }: {
   videoId: string;
   title?: string;
@@ -215,6 +220,8 @@ function CustomYouTubePlayer({
   chatOpen: boolean;
   onChatToggle?: () => void;
   isLive?: boolean;
+  fullscreenTargetRef?: RefObject<HTMLElement | null>;
+  initialTime?: number;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -224,6 +231,12 @@ function CustomYouTubePlayer({
   const timeTickerRef = useRef<number | null>(null);
   const seekingRef = useRef(false);
 
+  const targetFullscreenRef = (fullscreenTargetRef?.current ? fullscreenTargetRef : wrapRef) as RefObject<HTMLElement | null>;
+  const { isFullscreen, isPseudoFullscreen, toggleFullscreen } = useVideoFullscreen({
+    containerRef: targetFullscreenRef,
+    lockOrientationOnMobile: true,
+  });
+
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -232,7 +245,6 @@ function CustomYouTubePlayer({
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
@@ -497,15 +509,6 @@ function CustomYouTubePlayer({
     resetHideTimer();
   };
 
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.();
-    } else {
-      wrapRef.current?.requestFullscreen?.();
-    }
-    resetHideTimer();
-  };
-
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -555,7 +558,7 @@ function CustomYouTubePlayer({
   const remainingTime = Math.max(0, duration - displayTime);
 
   const originParam = typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
-  const embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0${originParam ? `&origin=${originParam}` : ""}`;
+  const embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0${initialTime && initialTime > 0 ? `&start=${Math.floor(initialTime)}` : ""}${originParam ? `&origin=${originParam}` : ""}`;
 
   if (embeddingDisabled) {
     return (
@@ -576,7 +579,10 @@ function CustomYouTubePlayer({
     <div
       ref={wrapRef}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative h-full w-full bg-black select-none overflow-hidden group"
+      className={cn(
+        "relative h-full w-full bg-black select-none overflow-hidden group",
+        isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
+      )}
       onMouseMove={resetHideTimer}
       onClick={(e) => {
         if (e.target === wrapRef.current || (e.target as HTMLElement).closest(".yt-click-surface")) {
@@ -875,6 +881,11 @@ function CustomHtml5Player({
   chatOpen,
   onChatToggle,
   isLive = false,
+  fullscreenTargetRef,
+  streamType,
+  onError,
+  onTimeProgress,
+  initialTime = 0,
 }: {
   src: string;
   poster?: string;
@@ -884,12 +895,24 @@ function CustomHtml5Player({
   chatOpen: boolean;
   onChatToggle?: () => void;
   isLive?: boolean;
+  fullscreenTargetRef?: RefObject<HTMLElement | null>;
+  streamType?: "hls" | "mp4";
+  onError?: (err: string) => void;
+  onTimeProgress?: (time: number) => void;
+  initialTime?: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const seekbarRef = useRef<HTMLDivElement>(null);
   const hideControlsTimer = useRef<number | null>(null);
   const seekingRef = useRef(false);
+
+  const targetFullscreenRef = (fullscreenTargetRef?.current ? fullscreenTargetRef : wrapRef) as RefObject<HTMLElement | null>;
+  const { isFullscreen, isPseudoFullscreen, toggleFullscreen } = useVideoFullscreen({
+    containerRef: targetFullscreenRef,
+    videoRef,
+    lockOrientationOnMobile: true,
+  });
 
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -899,11 +922,73 @@ function CustomHtml5Player({
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
+
+  // HLS stream engine setup
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !src) return;
+
+    let hls: Hls | null = null;
+    const isHls = streamType === "hls" || src.includes(".m3u8") || src.includes("/manifest/hls");
+
+    if (isHls) {
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+        });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setReady(true);
+          if (initialTime && initialTime > 0) {
+            video.currentTime = initialTime;
+          }
+          video.play().catch(() => {});
+        });
+
+        hls.on(Hls.Events.ERROR, (_evt, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls?.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls?.recoverMediaError();
+                break;
+              default:
+                onError?.("Fatal HLS playback error");
+                break;
+            }
+          }
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src;
+        if (initialTime && initialTime > 0) {
+          video.currentTime = initialTime;
+        }
+      } else {
+        onError?.("HLS not supported in this browser");
+      }
+    } else {
+      video.src = src;
+      if (initialTime && initialTime > 0) {
+        video.currentTime = initialTime;
+      }
+    }
+
+    return () => {
+      if (hls) {
+        hls.destroy();
+      }
+    };
+  }, [src, streamType, initialTime, onError]);
 
   const handleSeekFromPointer = (clientX: number) => {
     if (!seekbarRef.current) return;
@@ -943,12 +1028,6 @@ function CustomHtml5Player({
       } catch {}
     }
   };
-
-  useEffect(() => {
-    const handler = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
 
   const resetHideTimer = useCallback(() => {
     setControlsVisible(true);
@@ -1014,15 +1093,6 @@ function CustomHtml5Player({
     resetHideTimer();
   };
 
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.();
-    } else {
-      wrapRef.current?.requestFullscreen?.();
-    }
-    resetHideTimer();
-  };
-
   const displayTime = seeking ? seekPreview : currentTime;
   const remainingTime = Math.max(0, duration - displayTime);
 
@@ -1030,25 +1100,35 @@ function CustomHtml5Player({
     <div
       ref={wrapRef}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative h-full w-full bg-black select-none overflow-hidden group"
+      className={cn(
+        "relative h-full w-full bg-black select-none overflow-hidden group",
+        isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
+      )}
       onMouseMove={resetHideTimer}
       onClick={togglePlay}
     >
       <video
         ref={videoRef}
-        src={src}
         poster={poster}
         playsInline
         autoPlay
         onLoadedMetadata={() => {
           setReady(true);
-          if (videoRef.current) setDuration(videoRef.current.duration);
+          if (videoRef.current) {
+            setDuration(videoRef.current.duration);
+            if (initialTime && initialTime > 0) {
+              videoRef.current.currentTime = initialTime;
+            }
+          }
         }}
         onTimeUpdate={() => {
           if (!seeking && videoRef.current) {
-            setCurrentTime(videoRef.current.currentTime);
+            const t = videoRef.current.currentTime;
+            setCurrentTime(t);
+            onTimeProgress?.(t);
           }
         }}
+        onError={() => onError?.("HTML5 video error")}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         className="h-full w-full object-contain bg-black"
@@ -1299,6 +1379,7 @@ export function VideoPlayer({
   title,
   subtitle,
   className,
+  fullscreenTargetRef,
   chatComponent,
   isLive = false,
   chatVisible: externalChatVisible,
@@ -1311,15 +1392,54 @@ export function VideoPlayer({
 
   const canShowChat = Boolean(chatComponent || externalOnChatToggle);
 
+  const embedInfo = getEmbedableSource(src);
+
+  // YouTube stream resolution state
+  const [streamResolution, setStreamResolution] = useState<{
+    status: "resolving" | "resolved" | "fallback";
+    streamUrl?: string;
+    streamType?: "hls" | "mp4";
+  }>({ status: "resolving" });
+
+  const lastPlaybackTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!embedInfo || embedInfo.type !== "youtube" || !embedInfo.videoId) {
+      setStreamResolution({ status: "fallback" });
+      return;
+    }
+
+    setStreamResolution({ status: "resolving" });
+
+    resolveVideoStream(embedInfo.videoId, 2800)
+      .then((res) => {
+        if (cancelled) return;
+        setStreamResolution({
+          status: "resolved",
+          streamUrl: res.streamUrl,
+          streamType: res.type,
+        });
+      })
+      .catch((_err) => {
+        if (cancelled) return;
+        setStreamResolution({ status: "fallback" });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [embedInfo?.type, (embedInfo as any)?.videoId]);
+
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
 
-  const embedInfo = getEmbedableSource(src);
-
   if (!embedInfo) {
     return <VideoUnavailable message="Invalid video URL format." className={className} />;
   }
+
+  const effectiveFullscreenRef = (fullscreenTargetRef?.current ? fullscreenTargetRef : outerWrapRef) as RefObject<HTMLElement | null>;
 
   return (
     <motion.div
@@ -1343,16 +1463,49 @@ export function VideoPlayer({
             className="w-full h-full border-0"
           />
         ) : embedInfo.type === "youtube" && embedInfo.videoId ? (
-          <CustomYouTubePlayer
-            key={embedInfo.videoId}
-            videoId={embedInfo.videoId}
-            title={title}
-            subtitle={subtitle}
-            canShowChat={canShowChat}
-            chatOpen={chatVisible}
-            onChatToggle={handleChatToggle}
-            isLive={isLive}
-          />
+          streamResolution.status === "resolved" && streamResolution.streamUrl ? (
+            /* 100% Zero YouTube UI: Native HTML5 / HLS Player with identical custom controls & seekbar */
+            <CustomHtml5Player
+              key={streamResolution.streamUrl}
+              src={streamResolution.streamUrl}
+              streamType={streamResolution.streamType}
+              poster={poster}
+              title={title}
+              subtitle={subtitle}
+              canShowChat={canShowChat}
+              chatOpen={chatVisible}
+              onChatToggle={handleChatToggle}
+              isLive={isLive}
+              fullscreenTargetRef={effectiveFullscreenRef}
+              initialTime={lastPlaybackTimeRef.current}
+              onTimeProgress={(t) => {
+                lastPlaybackTimeRef.current = t;
+              }}
+              onError={() => {
+                setStreamResolution({ status: "fallback" });
+              }}
+            />
+          ) : streamResolution.status === "resolving" ? (
+            /* Sleek connecting animation for ~1-2s while resolving stream proxy */
+            <div className="flex flex-col items-center justify-center gap-3 text-white select-none">
+              <div className="h-8 w-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+              <span className="text-xs font-semibold tracking-wide text-white/80">Connecting secure lecture stream...</span>
+            </div>
+          ) : (
+            /* Seamless Fallback: Custom masked YouTube player if stream proxy timed out or was blocked */
+            <CustomYouTubePlayer
+              key={embedInfo.videoId}
+              videoId={embedInfo.videoId}
+              title={title}
+              subtitle={subtitle}
+              canShowChat={canShowChat}
+              chatOpen={chatVisible}
+              onChatToggle={handleChatToggle}
+              isLive={isLive}
+              fullscreenTargetRef={effectiveFullscreenRef}
+              initialTime={lastPlaybackTimeRef.current}
+            />
+          )
         ) : embedInfo.type === "youtube" ? (
           <iframe
             key={embedInfo.embedUrl}
@@ -1374,6 +1527,7 @@ export function VideoPlayer({
             chatOpen={chatVisible}
             onChatToggle={handleChatToggle}
             isLive={isLive}
+            fullscreenTargetRef={effectiveFullscreenRef}
           />
         )}
       </div>
