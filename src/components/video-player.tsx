@@ -16,6 +16,7 @@ import {
   Check,
   Zap,
   Settings,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Hls from "hls.js";

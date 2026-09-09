@@ -3,6 +3,7 @@ import {
   X,
   GraduationCap,
   MessageCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { VideoPlayer } from "@/components/video-player";
 import { LiveChat } from "@/components/live-chat";
@@ -47,6 +48,8 @@ type Props = {
   notes?: TheaterMaterial[];
   dpp?: TheaterMaterial[];
   currentLecture?: any;
+  isCompleted?: boolean;
+  onToggleComplete?: () => void;
 };
 
 export function TheaterModal({
@@ -64,6 +67,8 @@ export function TheaterModal({
   notes: _notes = [],
   dpp: _dpp = [],
   currentLecture,
+  isCompleted,
+  onToggleComplete,
 }: Props) {
   const isLive = Boolean(liveClassId || currentLecture?.isLive);
   const [chatOpen, setChatOpen] = useState(isLive);
@@ -197,6 +202,23 @@ export function TheaterModal({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onToggleComplete && (
+            <button
+              type="button"
+              onClick={onToggleComplete}
+              title={isCompleted ? "Mark as Incomplete" : "Mark as Complete"}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 shadow-xs border",
+                isCompleted
+                  ? "bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-700"
+                  : "bg-white/10 text-zinc-200 hover:bg-emerald-600/80 hover:text-white border-white/10"
+              )}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+              <span>{isCompleted ? "Completed ✓" : "Mark as Complete"}</span>
+            </button>
+          )}
+
           {isLive && (
             <button
               onClick={() => setChatOpen(!chatOpen)}

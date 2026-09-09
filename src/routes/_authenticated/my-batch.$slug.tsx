@@ -56,6 +56,7 @@ const batchPortalQuery = (slug: string) =>
 
       if (!enrollment && !isAdmin) {
         return {
+          userId,
           batch,
           enrolled: false,
           lectures: [],
@@ -121,6 +122,7 @@ const batchPortalQuery = (slug: string) =>
       }));
 
       return {
+        userId,
         batch,
         enrolled: true,
         lectures: lectures.data ?? [],
@@ -398,6 +400,62 @@ function BatchPortal() {
     [materials]
   );
 
+  // Completion Tracking for Lectures & Classes (PW Style)
+  const userId = data.userId || "user";
+  const storageKey = `sarvodaya_completed_lectures_${userId}_${batch.id}`;
+
+  const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem(`sarvodaya_completed_lectures_${userId}_${batch.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return new Set(parsed);
+      }
+    } catch {
+      // ignore
+    }
+    return new Set();
+  });
+
+  const toggleComplete = (lectureId: string, lectureTitle?: string) => {
+    setCompletedIds((prev) => {
+      const next = new Set(prev);
+      const isNowCompleted = !next.has(lectureId);
+      if (isNowCompleted) {
+        next.add(lectureId);
+        toast.success(
+          lectureTitle
+            ? `Marked "${lectureTitle}" as completed! 🎉`
+            : "Class marked as completed! 🎉"
+        );
+      } else {
+        next.delete(lectureId);
+        toast.info(
+          lectureTitle
+            ? `Marked "${lectureTitle}" as incomplete`
+            : "Class marked as incomplete"
+        );
+      }
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const totalLecturesCount = allBatchLectures.length;
+  const completedCount = useMemo(
+    () => allBatchLectures.filter((l: any) => completedIds.has(l.id)).length,
+    [allBatchLectures, completedIds]
+  );
+  const progressPercent =
+    totalLecturesCount > 0
+      ? Math.round((completedCount / totalLecturesCount) * 100)
+      : 0;
+
   const playVideo = (item: any) => {
     const isLive = Boolean(
       item.is_live ?? item.isLive ?? (item.scheduled_at && !item.recorded_lecture_id)
@@ -465,13 +523,33 @@ function BatchPortal() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-3 shrink-0 flex-wrap">
+              {totalLecturesCount > 0 && (
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 min-w-[200px]">
+                  <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+                    <span className="flex items-center gap-1.5 text-white">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Course Progress
+                    </span>
+                    <span className="text-emerald-300 font-mono">{progressPercent}%</span>
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden mb-1">
+                    <div
+                      className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-white/75 font-medium flex items-center justify-between">
+                    <span>{completedCount} of {totalLecturesCount} Completed</span>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={() => {
                   navigator.clipboard?.writeText(window.location.href);
                   toast.success("Batch link copied to clipboard!");
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-sm transition"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-sm transition h-fit"
               >
                 <Share2 className="w-3.5 h-3.5" /> Share
               </button>
@@ -561,6 +639,12 @@ function BatchPortal() {
                                     {timingText}
                                   </span>
                                 )}
+
+                                {completedIds.has(item.id) && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                                    <CheckCircle2 className="w-3 h-3" /> Completed
+                                  </span>
+                                )}
                               </div>
 
                               <span className="text-xs font-semibold text-slate-400 shrink-0">
@@ -578,30 +662,55 @@ function BatchPortal() {
                             )}
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-500 truncate">
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                            <span className="text-xs text-slate-500 truncate max-w-[130px]">
                               By {item.faculty || "Faculty"}
                             </span>
-                            {canJoin ? (
-                              <Button
-                                size="sm"
-                                onClick={() => playVideo(item)}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleComplete(item.id, item.title);
+                                }}
+                                title={completedIds.has(item.id) ? "Mark as Incomplete" : "Mark as Complete"}
                                 className={cn(
-                                  "rounded-xl font-bold gap-1.5 shadow-sm shrink-0",
-                                  isCurrentlyLive
-                                    ? "bg-rose-600 hover:bg-rose-700 text-white"
-                                    : "bg-[#6043ED] hover:bg-[#4E36C2] text-white"
+                                  "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border",
+                                  completedIds.has(item.id)
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                    : "bg-slate-50 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 border-slate-200"
                                 )}
                               >
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                                {isCurrentlyLive ? "Watch Live" : "Join Class"}
-                              </Button>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-bold shrink-0 shadow-2xs">
-                                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                Starts at {startText}
-                              </span>
-                            )}
+                                <CheckCircle2
+                                  className={cn(
+                                    "w-3.5 h-3.5",
+                                    completedIds.has(item.id) ? "text-emerald-600 fill-emerald-100" : "text-slate-400"
+                                  )}
+                                />
+                                <span>{completedIds.has(item.id) ? "Completed" : "Complete"}</span>
+                              </button>
+
+                              {canJoin ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => playVideo(item)}
+                                  className={cn(
+                                    "rounded-xl font-bold gap-1.5 shadow-sm shrink-0",
+                                    isCurrentlyLive
+                                      ? "bg-rose-600 hover:bg-rose-700 text-white"
+                                      : "bg-[#6043ED] hover:bg-[#4E36C2] text-white"
+                                  )}
+                                >
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                  {isCurrentlyLive ? "Watch Live" : "Join Class"}
+                                </Button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-bold shrink-0 shadow-2xs">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  Starts at {startText}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -869,6 +978,8 @@ function BatchPortal() {
             liveClassId={playingVideo.isLive ? playingVideo.id : undefined}
             currentLecture={playingVideo}
             activeLectureId={playingVideo.id}
+            isCompleted={completedIds.has(playingVideo.id)}
+            onToggleComplete={() => toggleComplete(playingVideo.id, playingVideo.title)}
             lectures={allBatchLectures}
             notes={allNotes}
             dpp={allDpps}
@@ -942,6 +1053,20 @@ function BatchPortal() {
                     m.material_type === "dpp"
                 ).length;
 
+                const chapterAll = [
+                  ...lectures.filter(
+                    (l) =>
+                      (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
+                      (l.chapter === c || (!l.chapter && c === "Overview & Lectures"))
+                  ),
+                  ...liveClasses.filter(
+                    (l) =>
+                      (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
+                      (l.chapter === c || (!l.chapter && c === "Overview & Lectures"))
+                  ),
+                ];
+                const completedInChapter = chapterAll.filter((l: any) => completedIds.has(l.id)).length;
+
                 return (
                   <button
                     key={c}
@@ -957,7 +1082,7 @@ function BatchPortal() {
                       </h3>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 mt-4 pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 mt-4 pt-3 border-t border-slate-100 flex-wrap">
                       <span className="flex items-center gap-1">
                         <Video className="w-3.5 h-3.5 text-[#6043ED]" /> {vids} Videos
                       </span>
@@ -967,6 +1092,19 @@ function BatchPortal() {
                       <span className="flex items-center gap-1">
                         <ClipboardList className="w-3.5 h-3.5 text-amber-500" /> {dppCount} DPPs
                       </span>
+                      {chapterAll.length > 0 && (
+                        <span
+                          className={cn(
+                            "flex items-center gap-1 ml-auto font-bold text-[11px] px-2 py-0.5 rounded-md",
+                            completedInChapter === chapterAll.length
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-slate-100 text-slate-600"
+                          )}
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          {completedInChapter}/{chapterAll.length} Done
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -1059,9 +1197,16 @@ function BatchPortal() {
                     {/* Top Thumbnail / Card Header */}
                     <div className="bg-gradient-to-br from-[#F5F3FF] to-[#EDE9FE] p-4 relative h-40 flex flex-col justify-between">
                       <div className="pr-16">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-[#6043ED] bg-white px-2 py-0.5 rounded-full shadow-xs">
-                          {isLive ? "Live Class" : l.lecture_number ? `Lec ${l.lecture_number}` : "Lecture"}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#6043ED] bg-white px-2 py-0.5 rounded-full shadow-xs">
+                            {isLive ? "Live Class" : l.lecture_number ? `Lec ${l.lecture_number}` : "Lecture"}
+                          </span>
+                          {completedIds.has(l.id) && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                              <CheckCircle2 className="w-3 h-3" /> Completed
+                            </span>
+                          )}
+                        </div>
                         <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 mt-2">
                           {l.title}
                         </h4>
@@ -1116,13 +1261,37 @@ function BatchPortal() {
                         {l.description || `${activeChapter} - Comprehensive Class`}
                       </p>
 
-                      <Button
-                        size="sm"
-                        onClick={() => playVideo(l)}
-                        className="w-full rounded-xl bg-[#6043ED] hover:bg-[#4E36C2] text-white text-xs font-bold gap-1.5 shadow-sm"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" /> Watch Lecture
-                      </Button>
+                      <div className="space-y-2 mt-auto">
+                        <Button
+                          size="sm"
+                          onClick={() => playVideo(l)}
+                          className="w-full rounded-xl bg-[#6043ED] hover:bg-[#4E36C2] text-white text-xs font-bold gap-1.5 shadow-sm"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" /> Watch Lecture
+                        </Button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleComplete(l.id, l.title);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl border text-xs font-bold transition active:scale-95",
+                            completedIds.has(l.id)
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                              : "bg-white text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 border-slate-200"
+                          )}
+                        >
+                          <CheckCircle2
+                            className={cn(
+                              "w-3.5 h-3.5",
+                              completedIds.has(l.id) ? "text-emerald-600 fill-emerald-100" : "text-slate-400"
+                            )}
+                          />
+                          <span>{completedIds.has(l.id) ? "Completed (Click to undo)" : "Mark as Complete"}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1232,9 +1401,16 @@ function BatchPortal() {
                   className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-col justify-between hover:shadow-md transition-all"
                 >
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">
-                      DPP Video Solution
-                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">
+                        DPP Video Solution
+                      </span>
+                      {completedIds.has(l.id) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3" /> Completed
+                        </span>
+                      )}
+                    </div>
                     <h4 className="font-bold text-sm text-slate-900 line-clamp-2 mt-3 mb-1">
                       {l.title}
                     </h4>
@@ -1243,13 +1419,37 @@ function BatchPortal() {
                     </p>
                   </div>
 
-                  <Button
-                    size="sm"
-                    onClick={() => playVideo(l)}
-                    className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs gap-1.5 mt-4"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" /> Watch Solution
-                  </Button>
+                  <div className="space-y-2 mt-4">
+                    <Button
+                      size="sm"
+                      onClick={() => playVideo(l)}
+                      className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" /> Watch Solution
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleComplete(l.id, l.title);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl border text-xs font-bold transition active:scale-95",
+                        completedIds.has(l.id)
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-white text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 border-slate-200"
+                      )}
+                    >
+                      <CheckCircle2
+                        className={cn(
+                          "w-3.5 h-3.5",
+                          completedIds.has(l.id) ? "text-emerald-600 fill-emerald-100" : "text-slate-400"
+                        )}
+                      />
+                      <span>{completedIds.has(l.id) ? "Completed (Click to undo)" : "Mark as Complete"}</span>
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -1269,6 +1469,8 @@ function BatchPortal() {
           liveClassId={playingVideo.isLive ? playingVideo.id : undefined}
           currentLecture={playingVideo}
           activeLectureId={playingVideo.id}
+          isCompleted={completedIds.has(playingVideo.id)}
+          onToggleComplete={() => toggleComplete(playingVideo.id, playingVideo.title)}
           lectures={allBatchLectures}
           notes={allNotes}
           dpp={allDpps}
