@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Hls from "hls.js";
-import { resolveVideoStream } from "@/lib/stream-resolver";
 import { useVideoFullscreen } from "@/hooks/use-video-fullscreen";
 import { cn, getStorageUrl } from "@/lib/utils";
 
@@ -604,6 +603,12 @@ function CustomYouTubePlayer({
 
       {/* Transparent surface over the iframe to catch clicks & toggle play/pause */}
       <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={togglePlay} />
+
+      {/* Permanent top edge mask: completely covers YouTube's native title, channel avatar & share buttons */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-black via-black/85 to-transparent" />
+
+      {/* Permanent bottom-right watermark shield: conceals YouTube watermark */}
+      <div className="pointer-events-none absolute bottom-0 right-0 z-10 w-36 h-16 bg-gradient-to-tl from-black/85 to-transparent" />
 
       {/* Smart Pause Mask: Completely blocks YouTube's "More videos" carousel & thumbnail cards on pause */}
       {!playing && ready && !isEnded && (
@@ -1394,43 +1399,6 @@ export function VideoPlayer({
 
   const embedInfo = getEmbedableSource(src);
 
-  // YouTube stream resolution state
-  const [streamResolution, setStreamResolution] = useState<{
-    status: "resolving" | "resolved" | "fallback";
-    streamUrl?: string;
-    streamType?: "hls" | "mp4";
-  }>({ status: "resolving" });
-
-  const lastPlaybackTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!embedInfo || embedInfo.type !== "youtube" || !embedInfo.videoId) {
-      setStreamResolution({ status: "fallback" });
-      return;
-    }
-
-    setStreamResolution({ status: "resolving" });
-
-    resolveVideoStream(embedInfo.videoId, 2800)
-      .then((res) => {
-        if (cancelled) return;
-        setStreamResolution({
-          status: "resolved",
-          streamUrl: res.streamUrl,
-          streamType: res.type,
-        });
-      })
-      .catch((_err) => {
-        if (cancelled) return;
-        setStreamResolution({ status: "fallback" });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [embedInfo?.type, (embedInfo as any)?.videoId]);
-
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
@@ -1463,49 +1431,17 @@ export function VideoPlayer({
             className="w-full h-full border-0"
           />
         ) : embedInfo.type === "youtube" && embedInfo.videoId ? (
-          streamResolution.status === "resolved" && streamResolution.streamUrl ? (
-            /* 100% Zero YouTube UI: Native HTML5 / HLS Player with identical custom controls & seekbar */
-            <CustomHtml5Player
-              key={streamResolution.streamUrl}
-              src={streamResolution.streamUrl}
-              streamType={streamResolution.streamType}
-              poster={poster}
-              title={title}
-              subtitle={subtitle}
-              canShowChat={canShowChat}
-              chatOpen={chatVisible}
-              onChatToggle={handleChatToggle}
-              isLive={isLive}
-              fullscreenTargetRef={effectiveFullscreenRef}
-              initialTime={lastPlaybackTimeRef.current}
-              onTimeProgress={(t) => {
-                lastPlaybackTimeRef.current = t;
-              }}
-              onError={() => {
-                setStreamResolution({ status: "fallback" });
-              }}
-            />
-          ) : streamResolution.status === "resolving" ? (
-            /* Sleek connecting animation for ~1-2s while resolving stream proxy */
-            <div className="flex flex-col items-center justify-center gap-3 text-white select-none">
-              <div className="h-8 w-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-              <span className="text-xs font-semibold tracking-wide text-white/80">Connecting secure lecture stream...</span>
-            </div>
-          ) : (
-            /* Seamless Fallback: Custom masked YouTube player if stream proxy timed out or was blocked */
-            <CustomYouTubePlayer
-              key={embedInfo.videoId}
-              videoId={embedInfo.videoId}
-              title={title}
-              subtitle={subtitle}
-              canShowChat={canShowChat}
-              chatOpen={chatVisible}
-              onChatToggle={handleChatToggle}
-              isLive={isLive}
-              fullscreenTargetRef={effectiveFullscreenRef}
-              initialTime={lastPlaybackTimeRef.current}
-            />
-          )
+          <CustomYouTubePlayer
+            key={embedInfo.videoId}
+            videoId={embedInfo.videoId}
+            title={title}
+            subtitle={subtitle}
+            canShowChat={canShowChat}
+            chatOpen={chatVisible}
+            onChatToggle={handleChatToggle}
+            isLive={isLive}
+            fullscreenTargetRef={effectiveFullscreenRef}
+          />
         ) : embedInfo.type === "youtube" ? (
           <iframe
             key={embedInfo.embedUrl}
