@@ -207,7 +207,7 @@ export function TheaterModal({
               <VideoPlayer
                 src={videoSrc}
                 title={title}
-                subtitle={meta || currentLecture?.subject || currentLecture?.chapter || "Sarvodaya Classes"}
+                subtitle={currentLecture?.subject || currentLecture?.chapter || meta || "Sarvodaya Classes"}
                 poster={poster ?? undefined}
                 isLive={isLive}
                 chatVisible={chatOpen}
@@ -217,12 +217,14 @@ export function TheaterModal({
             </div>
           </div>
 
-          {isLive && chatOpen && (
+          {chatOpen && (
             <div className="w-[340px] sm:w-[380px] lg:w-[420px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200 z-10">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#181818]">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="font-bold text-xs uppercase tracking-wider text-white">Live Chat</span>
+                  <span className={cn("h-2 w-2 rounded-full", isLive ? "bg-red-500 animate-pulse" : "bg-zinc-500")} />
+                  <span className="font-bold text-xs uppercase tracking-wider text-white">
+                    {isLive ? "Live Chat" : "Discussion & Chat"}
+                  </span>
                 </div>
                 <button
                   onClick={() => setChatOpen(false)}
@@ -233,7 +235,17 @@ export function TheaterModal({
                 </button>
               </div>
               <div className="flex-1 min-h-0">
-                <LiveChat liveClassId={liveClassId!} canModerate={true} className="h-full rounded-none border-0" />
+                {isLive && liveClassId ? (
+                  <LiveChat liveClassId={liveClassId} canModerate={true} className="h-full rounded-none border-0" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center p-6 text-center text-zinc-400 select-none">
+                    <MessageCircle className="h-10 w-10 text-zinc-600 mb-3" />
+                    <p className="text-sm font-semibold text-zinc-200">Live Chat is Offline</p>
+                    <p className="text-xs text-zinc-400 mt-1 max-w-[240px]">
+                      Live chat is active only during live lectures. For recorded sessions, check out lecture notes and DPPs below.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

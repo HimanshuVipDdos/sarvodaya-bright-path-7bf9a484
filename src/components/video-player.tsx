@@ -152,6 +152,39 @@ function LiveClock() {
   return <span className="text-xs sm:text-sm font-medium text-white/90 tabular-nums drop-shadow">{timeStr}</span>;
 }
 
+function loadYouTubeIframeApi(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject();
+  const w = window as any;
+  if (w.YT && w.YT.Player) return Promise.resolve();
+  if (w.__ytApiPromise) return w.__ytApiPromise;
+
+  w.__ytApiPromise = new Promise<void>((resolve) => {
+    const existing = document.getElementById("yt-iframe-api");
+    if (!existing) {
+      const tag = document.createElement("script");
+      tag.id = "yt-iframe-api";
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+    }
+    const prevHandler = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      if (typeof prevHandler === "function") prevHandler();
+      resolve();
+    };
+    const checkInterval = setInterval(() => {
+      if (w.YT && w.YT.Player) {
+        clearInterval(checkInterval);
+        resolve();
+      }
+    }, 150);
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      resolve();
+    }, 4000);
+  });
+  return w.__ytApiPromise;
+}
+
 /**
  * Custom YouTube Player matching the reference screenshot:
  * - Direct iframe with controls=0 (native YouTube controls can never bleed through)
@@ -182,7 +215,7 @@ function CustomYouTubePlayer({
   const timeTickerRef = useRef<number | null>(null);
 
   const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
@@ -222,7 +255,9 @@ function CustomYouTubePlayer({
 
         if (d.event === "onReady" || d.event === "ready") {
           setReady(true);
-          sendCommand("listening");
+          try {
+            iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), "*");
+          } catch {}
         }
 
         if (d.event === "infoDelivery" && d.info) {
@@ -250,12 +285,13 @@ function CustomYouTubePlayer({
 
     window.addEventListener("message", handleMsg);
     return () => window.removeEventListener("message", handleMsg);
-  }, [sendCommand, seeking]);
+  }, [seeking]);
 
-  // Try attaching YT.Player if YouTube iframe API script is available
-  const handleIframeLoad = () => {
+  const initYTPlayer = useCallback(() => {
     setReady(true);
-    sendCommand("listening");
+    try {
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), "*");
+    } catch {}
 
     const w = typeof window !== "undefined" ? (window as any) : null;
     if (w && w.YT && w.YT.Player && iframeRef.current) {
@@ -266,6 +302,10 @@ function CustomYouTubePlayer({
               setReady(true);
               const d = e.target.getDuration?.();
               if (d) setDuration(d);
+              const state = e.target.getPlayerState?.();
+              if (typeof state === "number") {
+                setPlaying(state === 1);
+              }
             },
             onStateChange: (e: any) => {
               setPlaying(e.data === 1);
@@ -281,6 +321,22 @@ function CustomYouTubePlayer({
         });
       } catch {}
     }
+  }, []);
+
+  useEffect(() => {
+    let unmounted = false;
+    loadYouTubeIframeApi().then(() => {
+      if (!unmounted && iframeRef.current) {
+        initYTPlayer();
+      }
+    });
+    return () => {
+      unmounted = true;
+    };
+  }, [initYTPlayer]);
+
+  const handleIframeLoad = () => {
+    initYTPlayer();
   };
 
   // Keep time ticking smoothly while playing
@@ -543,7 +599,7 @@ function CustomYouTubePlayer({
 
       {/* Center Red Circular Play/Pause Button */}
       <AnimatePresence>
-        {(!playing || controlsVisible) && ready && (
+        {(!playing || controlsVisible) && (
           <motion.button
             key="center-play-btn"
             type="button"
@@ -568,7 +624,7 @@ function CustomYouTubePlayer({
       </AnimatePresence>
 
       {/* Loading Spinner */}
-      {!ready && (
+      {!ready && playing && (
         <div className="absolute inset-0 z-10 flex items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-3 border-white/20 border-t-red-600" />
         </div>
@@ -931,7 +987,7 @@ function CustomHtml5Player({
 
       {/* Center Red Circular Play/Pause Button */}
       <AnimatePresence>
-        {(!playing || controlsVisible) && ready && (
+        {(!playing || controlsVisible) && (
           <motion.button
             key="center-play-btn"
             type="button"
@@ -1127,7 +1183,7 @@ export function VideoPlayer({
   const chatVisible = externalChatVisible !== undefined ? externalChatVisible : internalChatVisible;
   const handleChatToggle = externalOnChatToggle ?? (() => setInternalChatVisible((v) => !v));
 
-  const canShowChat = Boolean(isLive && (chatComponent || externalOnChatToggle));
+  const canShowChat = Boolean(chatComponent || externalOnChatToggle);
 
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
