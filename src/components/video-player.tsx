@@ -552,14 +552,9 @@ function CustomYouTubePlayer({
         <p className="mt-1 max-w-md text-xs text-white/70">
           This YouTube video owner has disabled external website embedding. You can still watch this lecture directly on YouTube.
         </p>
-        <a
-          href={`https://www.youtube.com/watch?v=${videoId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-2 text-xs font-semibold text-white shadow-lg hover:bg-red-700 transition active:scale-95"
-        >
-          <ExternalLink className="h-4 w-4" /> Watch on YouTube
-        </a>
+        <p className="mt-4 text-xs text-white/60">
+          Please contact your instructor or batch admin to verify playback permissions.
+        </p>
       </div>
     );
   }
@@ -567,6 +562,7 @@ function CustomYouTubePlayer({
   return (
     <div
       ref={wrapRef}
+      onContextMenu={(e) => e.preventDefault()}
       className="relative h-full w-full bg-black select-none overflow-hidden group"
       onMouseMove={resetHideTimer}
       onClick={(e) => {
@@ -710,17 +706,6 @@ function CustomYouTubePlayer({
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
 
-            {/* Link button matching reference screenshot */}
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              title="Copy lecture link"
-              aria-label="Copy lecture link"
-              className="rounded-full p-1.5 text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
-            >
-              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Link2 className="h-4 w-4" />}
-            </button>
-
             <div className="flex items-center gap-1 group/vol">
               <button
                 type="button"
@@ -816,18 +801,15 @@ function CustomYouTubePlayer({
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
 
-            <a
-              href={`https://www.youtube.com/watch?v=${videoId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Watch on YouTube"
-              className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity pl-0.5 select-none"
+            {/* Non-clickable subtle YouTube branding badge — prevents URL leakage in paid batches */}
+            <div
+              className="flex items-center gap-1 opacity-60 select-none pl-0.5 pointer-events-none cursor-default"
             >
               <svg className="h-2.5 w-3.5 fill-red-600 shrink-0" viewBox="0 0 24 24">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
               </svg>
               <span className="text-[10px] font-bold text-white/90 tracking-tighter">YouTube</span>
-            </a>
+            </div>
           </div>
         </div>
       </div>
@@ -875,23 +857,6 @@ function CustomHtml5Player({
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyLink = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopied(true);
-        toast.success("Class link copied to clipboard!");
-        setTimeout(() => setCopied(false), 2000);
-      }).catch(() => {
-        toast.info("Link: " + url);
-      });
-    } else {
-      toast.info("Link: " + url);
-    }
-  };
 
   const handleSeekFromPointer = (clientX: number) => {
     if (!seekbarRef.current) return;
@@ -1017,6 +982,7 @@ function CustomHtml5Player({
   return (
     <div
       ref={wrapRef}
+      onContextMenu={(e) => e.preventDefault()}
       className="relative h-full w-full bg-black select-none overflow-hidden group"
       onMouseMove={resetHideTimer}
       onClick={togglePlay}
