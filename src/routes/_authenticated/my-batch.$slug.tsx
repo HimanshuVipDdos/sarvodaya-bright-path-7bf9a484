@@ -145,15 +145,14 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
     const isChunkError =
       error?.message?.includes("dynamically imported module") ||
       error?.message?.includes("Failed to fetch") ||
-      error?.message?.includes("Loading chunk");
+      error?.message?.includes("Loading chunk") ||
+      error?.message?.includes("is not defined");
 
     const handleRetry = () => {
-      if (isChunkError) {
+      if (typeof window !== "undefined") {
         window.location.reload();
       } else if (reset) {
         reset();
-      } else {
-        window.location.reload();
       }
     };
 
@@ -161,18 +160,20 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
       <div className="flex min-h-screen w-full items-center justify-center p-4 bg-slate-50">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">This page didn't load</h2>
+          <h2 className="text-xl font-bold mb-2">
+            {isChunkError ? "New Version Available" : "This page didn't load"}
+          </h2>
           <p className="text-slate-500 text-sm mb-2">
             {isChunkError
-              ? "A new update was deployed. Reloading will fetch the latest version."
+              ? "A fresh update was deployed. Please reload to load the latest video player."
               : error?.message || "Something went wrong."}
           </p>
           <p className="text-xs text-slate-400 mb-6">
-            {isChunkError ? "Click below to refresh and load the class." : "Try again or head back home."}
+            Click below to refresh and load the class.
           </p>
           <div className="flex justify-center gap-3">
-            <Button onClick={handleRetry}>
-              {isChunkError ? "Reload Page" : "Try Again"}
+            <Button onClick={handleRetry} className="bg-[#6043ED] hover:bg-[#4E36C2]">
+              Reload Page
             </Button>
             <Button variant="outline" asChild>
               <Link to="/dashboard">Go Home</Link>
