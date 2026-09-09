@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Loader2, Save, User, Phone, Mail, ShieldCheck } from "lucide-react";
+import { Loader2, Save, User, Phone, Mail, ShieldCheck, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -21,7 +21,12 @@ const profileQuery = queryOptions({
       .eq("id", userData.user.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return { userId: userData.user.id, email: userData.user.email ?? "", profile };
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userData.user.id);
+    const isAdmin = roles?.some((r) => r.role === "admin") ?? false;
+    return { userId: userData.user.id, email: userData.user.email ?? "", profile, isAdmin };
   },
 });
 
@@ -155,6 +160,25 @@ function ProfilePage() {
             )}
           </div>
         </div>
+
+        {data.isAdmin && (
+          <div className="mt-5 rounded-3xl border border-purple-200 bg-purple-50/80 p-5 dark:border-purple-900/60 dark:bg-purple-950/30 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-xs shrink-0">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Admin Privileges Active</h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Manage batches, live classes & students</p>
+                </div>
+              </div>
+              <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shrink-0 shadow-sm">
+                <Link to="/admin">Admin Panel →</Link>
+              </Button>
+            </div>
+          </div>
+        )}
       </motion.div>
     </Section>
   );

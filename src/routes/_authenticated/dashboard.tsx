@@ -244,23 +244,11 @@ function Dashboard() {
         </div>
       </div>
       
-      {isAdmin && (
-        <div className="mt-8">
-           <Button asChild variant="outline" className="w-full sm:w-auto">
-             <Link to="/admin"><Shield className="mr-2 h-4 w-4" /> Admin Panel</Link>
-           </Button>
-           <Button variant="ghost" onClick={handleSignOut} className="w-full sm:w-auto mt-2 sm:mt-0 sm:ml-2">
-             <LogOut className="mr-2 h-4 w-4" /> Sign out
-           </Button>
-        </div>
-      )}
-      {!isAdmin && (
-        <div className="mt-8 text-right">
-          <Button variant="ghost" onClick={handleSignOut} className="text-slate-500 hover:text-slate-700">
-            <LogOut className="mr-2 h-4 w-4" /> Sign out
-          </Button>
-        </div>
-      )}
+      <div className="mt-8 text-right">
+        <Button variant="ghost" onClick={handleSignOut} className="text-slate-500 hover:text-slate-700">
+          <LogOut className="mr-2 h-4 w-4" /> Sign out
+        </Button>
+      </div>
     </div>
   );
 }

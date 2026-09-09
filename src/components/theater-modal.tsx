@@ -68,9 +68,34 @@ export function TheaterModal({
   const isLive = Boolean(liveClassId || currentLecture?.isLive);
   const [chatOpen, setChatOpen] = useState(isLive);
   const modalRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
+  // Auto request full screen on open in 1 click (like 2nd image)
   useEffect(() => {
     if (!open) return;
+
+    const enterFs = () => {
+      try {
+        const doc = document as any;
+        const fsEl =
+          doc.fullscreenElement ||
+          doc.webkitFullscreenElement ||
+          doc.mozFullScreenElement ||
+          doc.msFullscreenElement;
+        if (!fsEl && stageRef.current) {
+          const el = stageRef.current as any;
+          const fn =
+            el.requestFullscreen ||
+            el.webkitRequestFullscreen ||
+            el.mozRequestFullScreen ||
+            el.msRequestFullscreen;
+          fn?.call(el)?.catch?.(() => {});
+        }
+      } catch {}
+    };
+
+    enterFs();
+    const timer = setTimeout(enterFs, 50);
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -83,6 +108,7 @@ export function TheaterModal({
     document.body.style.overflow = "hidden";
 
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
@@ -104,6 +130,39 @@ export function TheaterModal({
     }
     onClose();
   };
+
+  const chatNode = (
+    <div className="w-full h-full flex flex-col bg-[#0f0f0f]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#181818] shrink-0">
+        <div className="flex items-center gap-2">
+          <span className={cn("h-2 w-2 rounded-full", isLive ? "bg-red-500 animate-pulse" : "bg-zinc-500")} />
+          <span className="font-bold text-xs uppercase tracking-wider text-white">
+            {isLive ? "Live Chat" : "Discussion & Chat"}
+          </span>
+        </div>
+        <button
+          onClick={() => setChatOpen(false)}
+          className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition"
+          title="Hide Chat"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0">
+        {isLive && (liveClassId || currentLecture?.id) ? (
+          <LiveChat liveClassId={(liveClassId || currentLecture?.id)!} canModerate={true} className="h-full rounded-none border-0" />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center p-6 text-center text-zinc-400 select-none">
+            <MessageCircle className="h-10 w-10 text-zinc-600 mb-3" />
+            <p className="text-sm font-semibold text-zinc-200">Live Chat is Offline</p>
+            <p className="text-xs text-zinc-400 mt-1 max-w-[240px]">
+              Live chat is active only during live lectures.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -165,53 +224,22 @@ export function TheaterModal({
         </div>
       </div>
 
-      {/* Main Full-Screen Player Stage (Left: 100% Video, Right: Docked Live Chat) */}
-      <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-black">
-        <div className="flex-1 min-w-0 h-full flex items-center justify-center bg-black relative overflow-hidden">
-          <VideoPlayer
-            src={videoSrc}
-            title={title}
-            subtitle={currentLecture?.subject || currentLecture?.chapter || meta || "Sarvodaya Classes"}
-            poster={poster ?? undefined}
-            isLive={isLive}
-            chatVisible={chatOpen}
-            onChatToggle={() => setChatOpen(!chatOpen)}
-            className="h-full w-full"
-          />
-        </div>
-
-        {chatOpen && (
-          <div className="w-full sm:w-[360px] md:w-[400px] lg:w-[440px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200 z-10">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#181818]">
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", isLive ? "bg-red-500 animate-pulse" : "bg-zinc-500")} />
-                <span className="font-bold text-xs uppercase tracking-wider text-white">
-                  {isLive ? "Live Chat" : "Discussion & Chat"}
-                </span>
-              </div>
-              <button
-                onClick={() => setChatOpen(false)}
-                className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition"
-                title="Hide Chat"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex-1 min-h-0">
-              {isLive && (liveClassId || currentLecture?.id) ? (
-                <LiveChat liveClassId={(liveClassId || currentLecture?.id)!} canModerate={true} className="h-full rounded-none border-0" />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center p-6 text-center text-zinc-400 select-none">
-                  <MessageCircle className="h-10 w-10 text-zinc-600 mb-3" />
-                  <p className="text-sm font-semibold text-zinc-200">Live Chat is Offline</p>
-                  <p className="text-xs text-zinc-400 mt-1 max-w-[240px]">
-                    Live chat is active only during live lectures.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      {/* Main Full-Screen Player Stage (Contains Video + Live Chat in Fullscreen) */}
+      <div ref={stageRef} className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-black">
+        <VideoPlayer
+          src={videoSrc}
+          title={title}
+          subtitle={currentLecture?.subject || currentLecture?.chapter || meta || "Sarvodaya Classes"}
+          poster={poster ?? undefined}
+          isLive={isLive}
+          chatVisible={chatOpen}
+          onChatToggle={() => setChatOpen(!chatOpen)}
+          chatComponent={chatNode}
+          fullscreenTargetRef={stageRef}
+          hideTopTitleWhenNotFullscreen={true}
+          onClose={handleClose}
+          className="h-full w-full rounded-none border-0"
+        />
       </div>
     </div>
   );

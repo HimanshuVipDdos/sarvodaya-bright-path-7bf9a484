@@ -273,17 +273,53 @@ function BatchPortal() {
     return Array.from(subjectsMap.get(activeSubject)?.chapters || []).sort();
   }, [activeSubject, subjectsMap]);
 
+  const [nowTime, setNowTime] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Today's Live Classes (Active or Scheduled for today)
   const todayLiveClasses = useMemo(() => {
     const today = new Date().toDateString();
-    return liveClasses.filter((l: any) => {
+    const list = liveClasses.filter((l: any) => {
       if (l.status === "live" || l.is_live) return true;
       if (l.scheduled_at) {
         return new Date(l.scheduled_at).toDateString() === today;
       }
       return false;
     });
+
+    // Sequence logic:
+    // 1. Live classes first (sorted chronologically by scheduled time)
+    // 2. Upcoming classes sorted chronologically by scheduled_at asc (e.g. 10:00 AM, 12:00 PM, 04:00 PM, 07:00 PM)
+    return list.sort((a: any, b: any) => {
+      const aLive = a.status === "live" || a.is_live;
+      const bLive = b.status === "live" || b.is_live;
+      if (aLive && !bLive) return -1;
+      if (!aLive && bLive) return 1;
+
+      const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0;
+      const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
+      return aTime - bTime;
+    });
   }, [liveClasses]);
+
+  const formatClassTiming = (scheduledAt?: string | null, endAt?: string | null, durationMinutes?: number | null) => {
+    if (!scheduledAt) return null;
+    const start = new Date(scheduledAt);
+    const startStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (endAt) {
+      const end = new Date(endAt);
+      const endStr = end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return `${startStr} - ${endStr}`;
+    } else if (durationMinutes && durationMinutes > 0) {
+      const end = new Date(start.getTime() + durationMinutes * 60000);
+      const endStr = end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return `${startStr} - ${endStr}`;
+    }
+    return startStr;
+  };
 
   const chapterLectures = useMemo(() => {
     if (!activeSubject || !activeChapter) return [];
@@ -475,29 +511,44 @@ function BatchPortal() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {todayLiveClasses.map((item: any) => {
                       const isCurrentlyLive = item.status === "live" || item.is_live;
+                      const isScheduledTimeReached = !item.scheduled_at || new Date(item.scheduled_at).getTime() <= nowTime;
+                      const canJoin = isCurrentlyLive || isScheduledTimeReached;
+                      const timingText = formatClassTiming(item.scheduled_at, item.end_at, item.duration_minutes);
+                      const startText = item.scheduled_at
+                        ? new Date(item.scheduled_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Today";
+
                       return (
                         <div
                           key={item.id}
                           className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
                         >
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              {isCurrentlyLive ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
-                                  <Radio className="w-3 h-3" /> LIVE NOW
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                  <Clock className="w-3 h-3" />
-                                  {item.scheduled_at
-                                    ? new Date(item.scheduled_at).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : "Today"}
-                                </span>
-                              )}
-                              <span className="text-xs font-semibold text-slate-400">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {isCurrentlyLive ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse shadow-2xs">
+                                    <Radio className="w-3 h-3" /> LIVE NOW
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    <Clock className="w-3 h-3 text-amber-600" />
+                                    Starts at {startText}
+                                  </span>
+                                )}
+
+                                {timingText && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 font-mono">
+                                    <Clock className="w-3 h-3 text-slate-500" />
+                                    {timingText}
+                                  </span>
+                                )}
+                              </div>
+
+                              <span className="text-xs font-semibold text-slate-400 shrink-0">
                                 {item.subject || "Live Session"}
                               </span>
                             </div>
@@ -512,23 +563,30 @@ function BatchPortal() {
                             )}
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                            <span className="text-xs text-slate-500">
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-500 truncate">
                               By {item.faculty || "Faculty"}
                             </span>
-                            <Button
-                              size="sm"
-                              onClick={() => playVideo(item)}
-                              className={cn(
-                                "rounded-xl font-bold gap-1.5 shadow-sm",
-                                isCurrentlyLive
-                                  ? "bg-rose-600 hover:bg-rose-700 text-white"
-                                  : "bg-[#6043ED] hover:bg-[#4E36C2] text-white"
-                              )}
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              {isCurrentlyLive ? "Watch Live" : "Join Class"}
-                            </Button>
+                            {canJoin ? (
+                              <Button
+                                size="sm"
+                                onClick={() => playVideo(item)}
+                                className={cn(
+                                  "rounded-xl font-bold gap-1.5 shadow-sm shrink-0",
+                                  isCurrentlyLive
+                                    ? "bg-rose-600 hover:bg-rose-700 text-white"
+                                    : "bg-[#6043ED] hover:bg-[#4E36C2] text-white"
+                                )}
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                {isCurrentlyLive ? "Watch Live" : "Join Class"}
+                              </Button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-bold shrink-0 shadow-2xs">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                Starts at {startText}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );

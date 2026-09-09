@@ -13,6 +13,9 @@ import {
   MessageCircle,
   RotateCcw,
   RotateCw,
+  Check,
+  Zap,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import Hls from "hls.js";
@@ -130,7 +133,50 @@ function formatTime(seconds: number) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5];
+
+const STORAGE_KEY_SPEED = "sarvodaya_lecture_speed";
+const STORAGE_KEY_VOLUME = "sarvodaya_lecture_volume";
+
+function getStoredSpeed(): number {
+  if (typeof window === "undefined") return 1;
+  try {
+    const val = parseFloat(localStorage.getItem(STORAGE_KEY_SPEED) || "1");
+    return SPEED_OPTIONS.includes(val) ? val : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function getStoredVolume(): number {
+  if (typeof window === "undefined") return 100;
+  try {
+    const val = parseInt(localStorage.getItem(STORAGE_KEY_VOLUME) || "100", 10);
+    return !isNaN(val) && val >= 0 && val <= 100 ? val : 100;
+  } catch {
+    return 100;
+  }
+}
+
+const QUALITY_OPTIONS = [
+  { label: "1080p HD", ytQuality: "hd1080", height: 1080 },
+  { label: "720p HD", ytQuality: "hd720", height: 720 },
+  { label: "480p", ytQuality: "large", height: 480 },
+  { label: "360p", ytQuality: "medium", height: 360 },
+  { label: "240p", ytQuality: "small", height: 240 },
+  { label: "Auto", ytQuality: "auto", height: -1 },
+];
+
+const STORAGE_KEY_QUALITY = "sarvodaya_lecture_quality";
+
+function getStoredQuality(): string {
+  if (typeof window === "undefined") return "1080p HD";
+  try {
+    return localStorage.getItem(STORAGE_KEY_QUALITY) || "1080p HD";
+  } catch {
+    return "1080p HD";
+  }
+}
 
 /**
  * Real-time digital clock (e.g. "10:01") shown on top-right of player,
@@ -211,6 +257,8 @@ function CustomYouTubePlayer({
   isLive = false,
   fullscreenTargetRef,
   initialTime = 0,
+  hideTopTitleWhenNotFullscreen = false,
+  onClose,
 }: {
   videoId: string;
   title?: string;
@@ -221,6 +269,8 @@ function CustomYouTubePlayer({
   isLive?: boolean;
   fullscreenTargetRef?: RefObject<HTMLElement | null>;
   initialTime?: number;
+  hideTopTitleWhenNotFullscreen?: boolean;
+  onClose?: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -230,7 +280,7 @@ function CustomYouTubePlayer({
   const timeTickerRef = useRef<number | null>(null);
   const seekingRef = useRef(false);
 
-  const targetFullscreenRef = (fullscreenTargetRef?.current ? fullscreenTargetRef : wrapRef) as RefObject<HTMLElement | null>;
+  const targetFullscreenRef = (fullscreenTargetRef || wrapRef) as RefObject<HTMLElement | null>;
   const { isFullscreen, isPseudoFullscreen, toggleFullscreen } = useVideoFullscreen({
     containerRef: targetFullscreenRef,
     lockOrientationOnMobile: true,
@@ -240,16 +290,42 @@ function CustomYouTubePlayer({
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(100);
+  const [volume, setVolume] = useState(() => getStoredVolume());
   const [muted, setMuted] = useState(false);
-  const [rate, setRate] = useState(1);
+  const [rate, setRate] = useState(() => getStoredSpeed());
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [quality, setQuality] = useState(() => getStoredQuality());
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
   const [embeddingDisabled, setEmbeddingDisabled] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
+
+  // HUD Action Feedback
+  const [hud, setHud] = useState<{ id: number; text: string; icon?: React.ReactNode } | null>(null);
+  const hudTimerRef = useRef<number | null>(null);
+
+  const showHud = useCallback((text: string, icon?: React.ReactNode) => {
+    if (hudTimerRef.current) window.clearTimeout(hudTimerRef.current);
+    setHud({ id: Date.now(), text, icon });
+    hudTimerRef.current = window.setTimeout(() => {
+      setHud(null);
+    }, 1100);
+  }, []);
+
+  // Hover Tooltip on Seekbar
+  const [hoverTooltip, setHoverTooltip] = useState<{ visible: boolean; x: number; time: number }>({
+    visible: false,
+    x: 0,
+    time: 0,
+  });
+
+  // Double-tap / double-click gesture feedback
+  const [seekRipple, setSeekRipple] = useState<"left" | "right" | null>(null);
+  const clickTimerRef = useRef<number | null>(null);
+  const lastClickTimeRef = useRef(0);
 
   // Send postMessage command to YouTube iframe
   const sendCommand = useCallback((func: string, args: any[] = []) => {
@@ -432,13 +508,6 @@ function CustomYouTubePlayer({
     return () => clearInterval(pollInterval);
   }, []);
 
-  // Fullscreen change detection
-  useEffect(() => {
-    const handler = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
-
   const resetHideTimer = useCallback(() => {
     setControlsVisible(true);
     if (hideControlsTimer.current) window.clearTimeout(hideControlsTimer.current);
@@ -454,16 +523,18 @@ function CustomYouTubePlayer({
     };
   }, [resetHideTimer]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (playing) {
       sendCommand("pauseVideo");
       setPlaying(false);
+      showHud("Paused", <Pause className="h-3.5 w-3.5 text-zinc-300 fill-current" />);
     } else {
       sendCommand("playVideo");
       setPlaying(true);
+      showHud("Playing", <Play className="h-3.5 w-3.5 text-red-500 fill-current" />);
     }
     resetHideTimer();
-  };
+  }, [playing, sendCommand, resetHideTimer, showHud]);
 
   const seekTo = (t: number) => {
     const targetTime = Math.max(0, Math.min(duration || 0, t));
@@ -471,42 +542,175 @@ function CustomYouTubePlayer({
     setCurrentTime(targetTime);
   };
 
-  const seekBy = (deltaSeconds: number) => {
+  const seekBy = useCallback((deltaSeconds: number) => {
     const targetTime = Math.max(0, Math.min(duration || 0, currentTime + deltaSeconds));
     seekTo(targetTime);
     resetHideTimer();
-  };
+    showHud(
+      deltaSeconds > 0 ? "+10s Forward" : "-10s Rewind",
+      deltaSeconds > 0 ? <RotateCw className="h-3.5 w-3.5 text-emerald-400" /> : <RotateCcw className="h-3.5 w-3.5 text-emerald-400" />
+    );
+  }, [currentTime, duration, resetHideTimer, showHud]);
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     if (muted) {
       sendCommand("unMute");
       setMuted(false);
+      showHud(`Volume: ${volume}%`, <Volume2 className="h-3.5 w-3.5 text-blue-400" />);
     } else {
       sendCommand("mute");
       setMuted(true);
+      showHud("Muted", <VolumeX className="h-3.5 w-3.5 text-red-400" />);
     }
     resetHideTimer();
-  };
+  }, [muted, volume, sendCommand, resetHideTimer, showHud]);
 
-  const onVolumeChange = (v: number) => {
+  const onVolumeChange = useCallback((v: number) => {
     setVolume(v);
+    try {
+      localStorage.setItem(STORAGE_KEY_VOLUME, String(v));
+    } catch {}
     sendCommand("setVolume", [v]);
     if (v === 0) {
       sendCommand("mute");
       setMuted(true);
-    } else if (muted) {
-      sendCommand("unMute");
-      setMuted(false);
+      showHud("Muted", <VolumeX className="h-3.5 w-3.5 text-red-400" />);
+    } else {
+      if (muted) {
+        sendCommand("unMute");
+        setMuted(false);
+      }
+      showHud(`Volume: ${v}%`, <Volume2 className="h-3.5 w-3.5 text-blue-400" />);
     }
     resetHideTimer();
-  };
+  }, [muted, sendCommand, resetHideTimer, showHud]);
 
-  const setSpeed = (r: number) => {
+  const setSpeed = useCallback((r: number) => {
     setRate(r);
+    try {
+      localStorage.setItem(STORAGE_KEY_SPEED, String(r));
+    } catch {}
     sendCommand("setPlaybackRate", [r]);
+    try {
+      ytPlayerRef.current?.setPlaybackRate?.(r);
+    } catch {}
     setShowSpeedMenu(false);
     resetHideTimer();
+    showHud(`${r}x Speed`, <Zap className="h-3.5 w-3.5 text-amber-400" />);
+  }, [sendCommand, resetHideTimer, showHud]);
+
+  const stepSpeed = useCallback((direction: "up" | "down") => {
+    const currentIndex = SPEED_OPTIONS.findIndex((s) => s === rate);
+    let nextIndex: number;
+    if (direction === "up") {
+      nextIndex = currentIndex < SPEED_OPTIONS.length - 1 ? currentIndex + 1 : currentIndex;
+    } else {
+      nextIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+    }
+    const nextSpeed = SPEED_OPTIONS[nextIndex];
+    if (nextSpeed !== rate) {
+      setSpeed(nextSpeed);
+    }
+  }, [rate, setSpeed]);
+
+  const setVideoQuality = useCallback((opt: typeof QUALITY_OPTIONS[number]) => {
+    setQuality(opt.label);
+    try {
+      localStorage.setItem(STORAGE_KEY_QUALITY, opt.label);
+    } catch {}
+    if (opt.ytQuality !== "auto") {
+      sendCommand("setPlaybackQuality", [opt.ytQuality]);
+      sendCommand("setPlaybackQualityRange", [opt.ytQuality, opt.ytQuality]);
+      try {
+        ytPlayerRef.current?.setPlaybackQuality?.(opt.ytQuality);
+        ytPlayerRef.current?.setPlaybackQualityRange?.(opt.ytQuality, opt.ytQuality);
+      } catch {}
+    } else {
+      sendCommand("setPlaybackQuality", ["default"]);
+      try {
+        ytPlayerRef.current?.setPlaybackQuality?.("default");
+      } catch {}
+    }
+    setShowQualityMenu(false);
+    resetHideTimer();
+    showHud(`Quality: ${opt.label}`, <Settings className="h-3.5 w-3.5 text-indigo-400" />);
+  }, [sendCommand, resetHideTimer, showHud]);
+
+  // Click & Double-Click handler on video surface
+  const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("input") || target.closest(".speed-menu-container") || target.closest(".quality-menu-container")) {
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = rect.width > 0 ? clickX / rect.width : 0.5;
+    const now = Date.now();
+
+    if (now - lastClickTimeRef.current < 280) {
+      if (clickTimerRef.current) {
+        window.clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
+      lastClickTimeRef.current = 0;
+
+      if (pct < 0.35) {
+        seekBy(-10);
+        setSeekRipple("left");
+        setTimeout(() => setSeekRipple(null), 550);
+      } else if (pct > 0.65) {
+        seekBy(10);
+        setSeekRipple("right");
+        setTimeout(() => setSeekRipple(null), 550);
+      } else {
+        toggleFullscreen();
+      }
+      return;
+    }
+
+    lastClickTimeRef.current = now;
+    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = window.setTimeout(() => {
+      togglePlay();
+      clickTimerRef.current = null;
+    }, 240);
   };
+
+  const handleSeekbarHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!seekbarRef.current || duration <= 0) return;
+    const rect = seekbarRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const time = (x / rect.width) * duration;
+    setHoverTooltip({ visible: true, x, time });
+  };
+
+  const handleSeekbarLeave = () => {
+    setHoverTooltip((prev) => ({ ...prev, visible: false }));
+  };
+
+  // Click outside menus to auto-close
+  useEffect(() => {
+    if (!showSpeedMenu && !showQualityMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".speed-menu-container")) setShowSpeedMenu(false);
+      if (!target.closest(".quality-menu-container")) setShowQualityMenu(false);
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowSpeedMenu(false);
+        setShowQualityMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [showSpeedMenu, showQualityMenu]);
 
   // Keyboard controls
   useEffect(() => {
@@ -520,13 +724,13 @@ function CustomYouTubePlayer({
         return;
       }
 
-      if (e.code === "Space") {
+      if (e.code === "Space" || e.key === "k" || e.key === "K") {
         e.preventDefault();
         togglePlay();
-      } else if (e.code === "ArrowLeft") {
+      } else if (e.code === "ArrowLeft" || e.key === "j" || e.key === "J") {
         e.preventDefault();
         seekBy(-10);
-      } else if (e.code === "ArrowRight") {
+      } else if (e.code === "ArrowRight" || e.key === "l" || e.key === "L") {
         e.preventDefault();
         seekBy(10);
       } else if (e.code === "ArrowUp") {
@@ -541,6 +745,12 @@ function CustomYouTubePlayer({
       } else if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleFullscreen();
+      } else if (e.key === ">" || (e.shiftKey && e.key === ".")) {
+        e.preventDefault();
+        stepSpeed("up");
+      } else if (e.key === "<" || (e.shiftKey && e.key === ",")) {
+        e.preventDefault();
+        stepSpeed("down");
       } else if (e.key === "c" || e.key === "C") {
         if (canShowChat && onChatToggle) {
           e.preventDefault();
@@ -551,7 +761,7 @@ function CustomYouTubePlayer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, seekBy, volume, onVolumeChange, toggleMute, toggleFullscreen, canShowChat, onChatToggle]);
+  }, [togglePlay, seekBy, volume, onVolumeChange, toggleMute, toggleFullscreen, stepSpeed, canShowChat, onChatToggle]);
 
   const displayTime = seeking ? seekPreview : currentTime;
   const remainingTime = Math.max(0, duration - displayTime);
@@ -583,11 +793,6 @@ function CustomYouTubePlayer({
         isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
       )}
       onMouseMove={resetHideTimer}
-      onClick={(e) => {
-        if (e.target === wrapRef.current || (e.target as HTMLElement).closest(".yt-click-surface")) {
-          togglePlay();
-        }
-      }}
     >
       {/* Real YouTube iframe with controls=0 permanently enforced (full uncropped frame) */}
       <iframe
@@ -601,8 +806,36 @@ function CustomYouTubePlayer({
         className="pointer-events-none absolute inset-0 h-full w-full border-0"
       />
 
-      {/* Transparent surface over the iframe to catch clicks & toggle play/pause */}
-      <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={togglePlay} />
+      {/* Transparent surface over the iframe to catch clicks & gestures */}
+      <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={handleSurfaceClick} />
+
+      {/* Double Tap / Click Ripple Feedback */}
+      <AnimatePresence>
+        {seekRipple === "left" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.15 }}
+            transition={{ duration: 0.35 }}
+            className="pointer-events-none absolute left-8 sm:left-14 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center justify-center h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-black/70 border border-white/20 backdrop-blur-md text-white font-bold text-xs shadow-2xl"
+          >
+            <RotateCcw className="h-6 w-6 sm:h-8 sm:w-8 mb-1 text-emerald-400" />
+            <span className="text-[11px] font-mono font-bold">10s</span>
+          </motion.div>
+        )}
+        {seekRipple === "right" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.15 }}
+            transition={{ duration: 0.35 }}
+            className="pointer-events-none absolute right-8 sm:right-14 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center justify-center h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-black/70 border border-white/20 backdrop-blur-md text-white font-bold text-xs shadow-2xl"
+          >
+            <RotateCw className="h-6 w-6 sm:h-8 sm:w-8 mb-1 text-emerald-400" />
+            <span className="text-[11px] font-mono font-bold">10s</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Permanent top edge blackout: 100% blocks YouTube's title, avatar, Watch Later & Share icons */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-11 bg-black" />
@@ -614,8 +847,28 @@ function CustomYouTubePlayer({
 
       {/* Smart Pause Mask: Completely blocks YouTube's "More videos" carousel & thumbnail cards on pause */}
       {!playing && ready && !isEnded && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-44 sm:h-52 bg-gradient-to-t from-black via-black/95 to-transparent" />
+        <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-52 sm:h-64 bg-gradient-to-t from-black via-black/90 to-transparent" />
+          <div className="pointer-events-none absolute bottom-0 right-0 z-10 w-[500px] max-w-[60%] h-[440px] max-h-[80%] bg-gradient-to-tl from-black via-black/95 to-transparent" />
+        </>
       )}
+
+      {/* Action Feedback HUD */}
+      <AnimatePresence>
+        {hud && (
+          <motion.div
+            key={hud.id}
+            initial={{ opacity: 0, scale: 0.85, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="pointer-events-none absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 border border-white/20 backdrop-blur-xl text-white text-xs font-semibold shadow-2xl tracking-wide"
+          >
+            {hud.icon}
+            <span>{hud.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* End of Lecture Overlay — prevents YouTube's 12-grid suggestions */}
       {isEnded && (
@@ -645,12 +898,12 @@ function CustomYouTubePlayer({
         )}
       >
         <div className="min-w-0 flex flex-col justify-center pr-3">
-          {title && (
+          {(isFullscreen || !hideTopTitleWhenNotFullscreen) && title && (
             <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
               {title}
             </h2>
           )}
-          {subtitle && (
+          {(isFullscreen || !hideTopTitleWhenNotFullscreen) && subtitle && (
             <p className="truncate text-[10px] sm:text-[11px] font-normal text-white/75 drop-shadow-sm leading-tight mt-0.5">
               {subtitle}
             </p>
@@ -659,6 +912,17 @@ function CustomYouTubePlayer({
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
           <LiveClock />
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="Close Player (Esc)"
+              aria-label="Close Player"
+              className="rounded-full p-1.5 hover:bg-white/20 text-white/80 hover:text-white transition active:scale-95"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -703,15 +967,25 @@ function CustomYouTubePlayer({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modern Scrubber / Seek Bar */}
+        {/* Modern Scrubber / Seek Bar with hover timestamp tooltip */}
         <div
           ref={seekbarRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onMouseMove={handleSeekbarHover}
+          onMouseLeave={handleSeekbarLeave}
           className="relative w-full py-2.5 cursor-pointer select-none group/seek touch-none"
         >
+          {hoverTooltip.visible && duration > 0 && (
+            <div
+              className="pointer-events-none absolute -top-8 -translate-x-1/2 z-30 px-2 py-0.5 rounded-md bg-zinc-950/95 border border-white/20 text-[11px] font-mono font-medium text-white shadow-lg backdrop-blur-md whitespace-nowrap"
+              style={{ left: `${Math.max(20, Math.min(hoverTooltip.x, (seekbarRef.current?.getBoundingClientRect().width || 100) - 20))}px` }}
+            >
+              {formatTime(hoverTooltip.time)}
+            </div>
+          )}
           <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/20 backdrop-blur-xs transition-all">
             <div
               className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
@@ -833,29 +1107,89 @@ function CustomYouTubePlayer({
               )}
             </button>
 
-            <div className="relative">
+            {/* Quality Selector (Max 1080p) */}
+            <div className="relative quality-menu-container">
               <button
                 type="button"
-                onClick={() => setShowSpeedMenu((v) => !v)}
-                className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white/90 hover:text-white bg-black/40 hover:bg-white/15 border border-white/10 hover:border-white/20 transition tabular-nums shadow-2xs"
+                onClick={() => {
+                  setShowQualityMenu((v) => !v);
+                  setShowSpeedMenu(false);
+                }}
+                className={cn(
+                  "rounded-full px-2 py-1 text-[11px] font-bold border transition tabular-nums shadow-2xs flex items-center gap-1",
+                  showQualityMenu
+                    ? "bg-red-600 text-white border-red-500"
+                    : "bg-black/40 hover:bg-white/15 text-white/90 hover:text-white border-white/10 hover:border-white/20"
+                )}
+                title="Adjust Video Quality (Max 1080p)"
+              >
+                <Settings className="h-3 w-3" />
+                <span>{quality.replace(" HD", "")}</span>
+              </button>
+              {showQualityMenu && (
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                  <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                    Quality (Max 1080)
+                  </div>
+                  <div className="py-0.5">
+                    {QUALITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => setVideoQuality(opt)}
+                        className={cn(
+                          "w-full px-3.5 py-1.5 text-left text-xs font-medium flex items-center justify-between transition hover:bg-white/10",
+                          opt.label === quality ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:text-white"
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        {opt.label === quality && <Check className="h-3.5 w-3.5 text-red-400 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Speed Selector (Max 2.5x) */}
+            <div className="relative speed-menu-container">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSpeedMenu((v) => !v);
+                  setShowQualityMenu(false);
+                }}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[11px] font-bold border transition tabular-nums shadow-2xs",
+                  showSpeedMenu
+                    ? "bg-red-600 text-white border-red-500"
+                    : "bg-black/40 hover:bg-white/15 text-white/90 hover:text-white border-white/10 hover:border-white/20"
+                )}
+                title="Playback Speed (Max 2.5x)"
               >
                 {rate}x
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-9 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1 shadow-2xl backdrop-blur-xl ring-1 ring-black/50">
-                  {SPEED_OPTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSpeed(s)}
-                      className={cn(
-                        "px-4 py-1.5 text-left text-xs whitespace-nowrap transition",
-                        s === rate ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
-                      )}
-                    >
-                      {s}x
-                    </button>
-                  ))}
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                  <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                    Playback Speed
+                  </div>
+                  <div className="py-0.5">
+                    {SPEED_OPTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSpeed(s)}
+                        className={cn(
+                          "w-full px-3.5 py-1.5 text-left text-xs font-medium flex items-center justify-between transition hover:bg-white/10",
+                          s === rate ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:text-white"
+                        )}
+                      >
+                        <span>{s === 1 ? "1x (Normal)" : `${s}x`}</span>
+                        {s === rate && <Check className="h-3.5 w-3.5 text-red-400 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -893,6 +1227,8 @@ function CustomHtml5Player({
   onError,
   onTimeProgress,
   initialTime = 0,
+  hideTopTitleWhenNotFullscreen = false,
+  onClose,
 }: {
   src: string;
   poster?: string;
@@ -907,14 +1243,17 @@ function CustomHtml5Player({
   onError?: (err: string) => void;
   onTimeProgress?: (time: number) => void;
   initialTime?: number;
+  hideTopTitleWhenNotFullscreen?: boolean;
+  onClose?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const seekbarRef = useRef<HTMLDivElement>(null);
   const hideControlsTimer = useRef<number | null>(null);
   const seekingRef = useRef(false);
+  const hlsRef = useRef<Hls | null>(null);
 
-  const targetFullscreenRef = (fullscreenTargetRef?.current ? fullscreenTargetRef : wrapRef) as RefObject<HTMLElement | null>;
+  const targetFullscreenRef = (fullscreenTargetRef || wrapRef) as RefObject<HTMLElement | null>;
   const { isFullscreen, isPseudoFullscreen, toggleFullscreen } = useVideoFullscreen({
     containerRef: targetFullscreenRef,
     videoRef,
@@ -925,14 +1264,40 @@ function CustomHtml5Player({
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(100);
+  const [volume, setVolume] = useState(() => getStoredVolume());
   const [muted, setMuted] = useState(false);
-  const [rate, setRate] = useState(1);
+  const [rate, setRate] = useState(() => getStoredSpeed());
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [quality, setQuality] = useState(() => getStoredQuality());
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
+
+  // HUD Action Feedback
+  const [hud, setHud] = useState<{ id: number; text: string; icon?: React.ReactNode } | null>(null);
+  const hudTimerRef = useRef<number | null>(null);
+
+  const showHud = useCallback((text: string, icon?: React.ReactNode) => {
+    if (hudTimerRef.current) window.clearTimeout(hudTimerRef.current);
+    setHud({ id: Date.now(), text, icon });
+    hudTimerRef.current = window.setTimeout(() => {
+      setHud(null);
+    }, 1100);
+  }, []);
+
+  // Hover Tooltip on Seekbar
+  const [hoverTooltip, setHoverTooltip] = useState<{ visible: boolean; x: number; time: number }>({
+    visible: false,
+    x: 0,
+    time: 0,
+  });
+
+  // Double-tap / double-click gesture feedback
+  const [seekRipple, setSeekRipple] = useState<"left" | "right" | null>(null);
+  const clickTimerRef = useRef<number | null>(null);
+  const lastClickTimeRef = useRef(0);
 
   // HLS stream engine setup
   useEffect(() => {
@@ -949,6 +1314,7 @@ function CustomHtml5Player({
           lowLatencyMode: false,
           backBufferLength: 90,
         });
+        hlsRef.current = hls;
         hls.loadSource(src);
         hls.attachMedia(video);
 
@@ -956,6 +1322,9 @@ function CustomHtml5Player({
           setReady(true);
           if (initialTime && initialTime > 0) {
             video.currentTime = initialTime;
+          }
+          if (videoRef.current && rate !== 1) {
+            videoRef.current.playbackRate = rate;
           }
           video.play().catch(() => {});
         });
@@ -993,9 +1362,10 @@ function CustomHtml5Player({
     return () => {
       if (hls) {
         hls.destroy();
+        hlsRef.current = null;
       }
     };
-  }, [src, streamType, initialTime, onError]);
+  }, [src, streamType, initialTime, rate, onError]);
 
   const handleSeekFromPointer = (clientX: number) => {
     if (!seekbarRef.current) return;
@@ -1044,16 +1414,18 @@ function CustomHtml5Player({
     }, 2800);
   }, [playing]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
       v.play().catch(() => {});
+      showHud("Playing", <Play className="h-3.5 w-3.5 text-red-500 fill-current" />);
     } else {
       v.pause();
+      showHud("Paused", <Pause className="h-3.5 w-3.5 text-zinc-300 fill-current" />);
     }
     resetHideTimer();
-  };
+  }, [resetHideTimer, showHud]);
 
   const seekTo = (t: number) => {
     const v = videoRef.current;
@@ -1062,43 +1434,223 @@ function CustomHtml5Player({
     setCurrentTime(v.currentTime);
   };
 
-  const seekBy = (deltaSeconds: number) => {
+  const seekBy = useCallback((deltaSeconds: number) => {
     const v = videoRef.current;
     if (!v) return;
     seekTo(v.currentTime + deltaSeconds);
     resetHideTimer();
-  };
+    showHud(
+      deltaSeconds > 0 ? "+10s Forward" : "-10s Rewind",
+      deltaSeconds > 0 ? <RotateCw className="h-3.5 w-3.5 text-emerald-400" /> : <RotateCcw className="h-3.5 w-3.5 text-emerald-400" />
+    );
+  }, [duration, resetHideTimer, showHud]);
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = !v.muted;
     setMuted(v.muted);
+    if (v.muted) {
+      showHud("Muted", <VolumeX className="h-3.5 w-3.5 text-red-400" />);
+    } else {
+      showHud(`Volume: ${volume}%`, <Volume2 className="h-3.5 w-3.5 text-blue-400" />);
+    }
     resetHideTimer();
-  };
+  }, [volume, resetHideTimer, showHud]);
 
-  const onVolumeChange = (vol: number) => {
+  const onVolumeChange = useCallback((vol: number) => {
     const v = videoRef.current;
     setVolume(vol);
+    try {
+      localStorage.setItem(STORAGE_KEY_VOLUME, String(vol));
+    } catch {}
     if (!v) return;
     v.volume = vol / 100;
     if (vol === 0) {
       v.muted = true;
       setMuted(true);
-    } else if (muted) {
-      v.muted = false;
-      setMuted(false);
+      showHud("Muted", <VolumeX className="h-3.5 w-3.5 text-red-400" />);
+    } else {
+      if (muted) {
+        v.muted = false;
+        setMuted(false);
+      }
+      showHud(`Volume: ${vol}%`, <Volume2 className="h-3.5 w-3.5 text-blue-400" />);
     }
     resetHideTimer();
-  };
+  }, [muted, resetHideTimer, showHud]);
 
-  const setSpeed = (r: number) => {
+  const setSpeed = useCallback((r: number) => {
     const v = videoRef.current;
     setRate(r);
     if (v) v.playbackRate = r;
+    try {
+      localStorage.setItem(STORAGE_KEY_SPEED, String(r));
+    } catch {}
     setShowSpeedMenu(false);
     resetHideTimer();
+    showHud(`${r}x Speed`, <Zap className="h-3.5 w-3.5 text-amber-400" />);
+  }, [resetHideTimer, showHud]);
+
+  const stepSpeed = useCallback((direction: "up" | "down") => {
+    const currentIndex = SPEED_OPTIONS.findIndex((s) => s === rate);
+    let nextIndex: number;
+    if (direction === "up") {
+      nextIndex = currentIndex < SPEED_OPTIONS.length - 1 ? currentIndex + 1 : currentIndex;
+    } else {
+      nextIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+    }
+    const nextSpeed = SPEED_OPTIONS[nextIndex];
+    if (nextSpeed !== rate) {
+      setSpeed(nextSpeed);
+    }
+  }, [rate, setSpeed]);
+
+  const setVideoQuality = useCallback((opt: typeof QUALITY_OPTIONS[number]) => {
+    setQuality(opt.label);
+    try {
+      localStorage.setItem(STORAGE_KEY_QUALITY, opt.label);
+    } catch {}
+    if (hlsRef.current && hlsRef.current.levels && hlsRef.current.levels.length > 0) {
+      if (opt.height === -1) {
+        hlsRef.current.currentLevel = -1;
+      } else {
+        const idx = hlsRef.current.levels.findIndex((l) => l.height === opt.height);
+        if (idx !== -1) {
+          hlsRef.current.currentLevel = idx;
+        }
+      }
+    }
+    setShowQualityMenu(false);
+    resetHideTimer();
+    showHud(`Quality: ${opt.label}`, <Settings className="h-3.5 w-3.5 text-indigo-400" />);
+  }, [resetHideTimer, showHud]);
+
+  const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("input") || target.closest(".speed-menu-container") || target.closest(".quality-menu-container")) {
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = rect.width > 0 ? clickX / rect.width : 0.5;
+    const now = Date.now();
+
+    if (now - lastClickTimeRef.current < 280) {
+      if (clickTimerRef.current) {
+        window.clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
+      lastClickTimeRef.current = 0;
+
+      if (pct < 0.35) {
+        seekBy(-10);
+        setSeekRipple("left");
+        setTimeout(() => setSeekRipple(null), 550);
+      } else if (pct > 0.65) {
+        seekBy(10);
+        setSeekRipple("right");
+        setTimeout(() => setSeekRipple(null), 550);
+      } else {
+        toggleFullscreen();
+      }
+      return;
+    }
+
+    lastClickTimeRef.current = now;
+    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = window.setTimeout(() => {
+      togglePlay();
+      clickTimerRef.current = null;
+    }, 240);
   };
+
+  const handleSeekbarHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!seekbarRef.current || duration <= 0) return;
+    const rect = seekbarRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const time = (x / rect.width) * duration;
+    setHoverTooltip({ visible: true, x, time });
+  };
+
+  const handleSeekbarLeave = () => {
+    setHoverTooltip((prev) => ({ ...prev, visible: false }));
+  };
+
+  // Click outside menus to auto-close
+  useEffect(() => {
+    if (!showSpeedMenu && !showQualityMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".speed-menu-container")) setShowSpeedMenu(false);
+      if (!target.closest(".quality-menu-container")) setShowQualityMenu(false);
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowSpeedMenu(false);
+        setShowQualityMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [showSpeedMenu, showQualityMenu]);
+
+  // Keyboard controls for CustomHtml5Player
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl?.tagName === "INPUT" ||
+        activeEl?.tagName === "TEXTAREA" ||
+        (activeEl as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.code === "Space" || e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === "ArrowLeft" || e.key === "j" || e.key === "J") {
+        e.preventDefault();
+        seekBy(-10);
+      } else if (e.code === "ArrowRight" || e.key === "l" || e.key === "L") {
+        e.preventDefault();
+        seekBy(10);
+      } else if (e.code === "ArrowUp") {
+        e.preventDefault();
+        onVolumeChange(Math.min(100, volume + 10));
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        onVolumeChange(Math.max(0, volume - 10));
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        toggleMute();
+      } else if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === ">" || (e.shiftKey && e.key === ".")) {
+        e.preventDefault();
+        stepSpeed("up");
+      } else if (e.key === "<" || (e.shiftKey && e.key === ",")) {
+        e.preventDefault();
+        stepSpeed("down");
+      } else if (e.key === "c" || e.key === "C") {
+        if (canShowChat && onChatToggle) {
+          e.preventDefault();
+          onChatToggle();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlay, seekBy, volume, onVolumeChange, toggleMute, toggleFullscreen, stepSpeed, canShowChat, onChatToggle]);
 
   const displayTime = seeking ? seekPreview : currentTime;
   const remainingTime = Math.max(0, duration - displayTime);
@@ -1112,7 +1664,7 @@ function CustomHtml5Player({
         isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
       )}
       onMouseMove={resetHideTimer}
-      onClick={togglePlay}
+      onClick={handleSurfaceClick}
     >
       <video
         ref={videoRef}
@@ -1141,6 +1693,48 @@ function CustomHtml5Player({
         className="h-full w-full object-contain bg-black"
       />
 
+      {/* Gesture Ripple Animations (Double tap left/right) */}
+      <AnimatePresence>
+        {seekRipple === "left" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center h-24 w-24 rounded-full bg-black/60 border border-white/20 text-white backdrop-blur-md"
+          >
+            <RotateCcw className="h-7 w-7" />
+            <span className="text-xs font-bold mt-1">10s</span>
+          </motion.div>
+        )}
+        {seekRipple === "right" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center h-24 w-24 rounded-full bg-black/60 border border-white/20 text-white backdrop-blur-md"
+          >
+            <RotateCw className="h-7 w-7" />
+            <span className="text-xs font-bold mt-1">10s</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Action Feedback HUD Toast */}
+      <AnimatePresence>
+        {hud && (
+          <motion.div
+            key={hud.id}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="pointer-events-none absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 border border-white/20 backdrop-blur-xl text-white text-xs font-semibold shadow-2xl tracking-wide"
+          >
+            {hud.icon}
+            <span>{hud.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Top Bar: Title/Subtitle + Live Clock */}
       <div
         className={cn(
@@ -1149,12 +1743,12 @@ function CustomHtml5Player({
         )}
       >
         <div className="min-w-0 flex flex-col justify-center pr-3">
-          {title && (
+          {(isFullscreen || !hideTopTitleWhenNotFullscreen) && title && (
             <h2 className="truncate text-xs sm:text-sm font-bold text-white drop-shadow-md tracking-tight leading-tight">
               {title}
             </h2>
           )}
-          {subtitle && (
+          {(isFullscreen || !hideTopTitleWhenNotFullscreen) && subtitle && (
             <p className="truncate text-[10px] sm:text-[11px] font-normal text-white/75 drop-shadow-sm leading-tight mt-0.5">
               {subtitle}
             </p>
@@ -1163,6 +1757,17 @@ function CustomHtml5Player({
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
           <LiveClock />
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="Close Player (Esc)"
+              aria-label="Close Player"
+              className="rounded-full p-1.5 hover:bg-white/20 text-white/80 hover:text-white transition active:scale-95"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1207,8 +1812,19 @@ function CustomHtml5Player({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onMouseMove={handleSeekbarHover}
+          onMouseLeave={handleSeekbarLeave}
           className="relative w-full py-2.5 cursor-pointer select-none group/seek touch-none"
         >
+          {/* Hover Time Tooltip */}
+          {hoverTooltip.visible && (
+            <div
+              className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-md bg-black/90 border border-white/20 px-2 py-0.5 text-[10px] font-mono font-bold text-white shadow-lg backdrop-blur-xs"
+              style={{ left: `${hoverTooltip.x}px` }}
+            >
+              {formatTime(hoverTooltip.time)}
+            </div>
+          )}
           <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/20 backdrop-blur-xs transition-all">
             <div
               className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
@@ -1326,29 +1942,89 @@ function CustomHtml5Player({
               )}
             </button>
 
-            <div className="relative">
+            {/* Quality Selector (Max 1080p) */}
+            <div className="relative quality-menu-container">
               <button
                 type="button"
-                onClick={() => setShowSpeedMenu((v) => !v)}
-                className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white/90 hover:text-white bg-black/40 hover:bg-white/15 border border-white/10 hover:border-white/20 transition tabular-nums shadow-2xs"
+                onClick={() => {
+                  setShowQualityMenu((v) => !v);
+                  setShowSpeedMenu(false);
+                }}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[11px] font-bold border transition tabular-nums shadow-2xs flex items-center gap-1",
+                  showQualityMenu
+                    ? "bg-red-600 text-white border-red-500"
+                    : "bg-black/40 hover:bg-white/15 text-white/90 hover:text-white border-white/10 hover:border-white/20"
+                )}
+                title="Video Quality (Max 1080p)"
+              >
+                <Settings className="h-3 w-3" />
+                <span>{quality}</span>
+              </button>
+              {showQualityMenu && (
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                  <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                    Max Quality
+                  </div>
+                  <div className="py-0.5">
+                    {QUALITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => setVideoQuality(opt)}
+                        className={cn(
+                          "w-full px-3.5 py-1.5 text-left text-xs font-medium flex items-center justify-between transition hover:bg-white/10",
+                          opt.label === quality ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:text-white"
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        {opt.label === quality && <Check className="h-3.5 w-3.5 text-red-400 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Speed Selector (Max 2.5x) */}
+            <div className="relative speed-menu-container">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSpeedMenu((v) => !v);
+                  setShowQualityMenu(false);
+                }}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[11px] font-bold border transition tabular-nums shadow-2xs",
+                  showSpeedMenu
+                    ? "bg-red-600 text-white border-red-500"
+                    : "bg-black/40 hover:bg-white/15 text-white/90 hover:text-white border-white/10 hover:border-white/20"
+                )}
+                title="Playback Speed (Max 2.5x)"
               >
                 {rate}x
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-9 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1 shadow-2xl backdrop-blur-xl ring-1 ring-black/50">
-                  {SPEED_OPTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSpeed(s)}
-                      className={cn(
-                        "px-4 py-1.5 text-left text-xs whitespace-nowrap transition",
-                        s === rate ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
-                      )}
-                    >
-                      {s}x
-                    </button>
-                  ))}
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                  <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                    Playback Speed
+                  </div>
+                  <div className="py-0.5">
+                    {SPEED_OPTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSpeed(s)}
+                        className={cn(
+                          "w-full px-3.5 py-1.5 text-left text-xs font-medium flex items-center justify-between transition hover:bg-white/10",
+                          s === rate ? "bg-red-600/25 text-red-400 font-bold" : "text-white/80 hover:text-white"
+                        )}
+                      >
+                        <span>{s === 1 ? "1x (Normal)" : `${s}x`}</span>
+                        {s === rate && <Check className="h-3.5 w-3.5 text-red-400 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1356,6 +2032,7 @@ function CustomHtml5Player({
             <button
               type="button"
               onClick={toggleFullscreen}
+              aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
               className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
@@ -1378,6 +2055,8 @@ type Props = {
   isLive?: boolean;
   chatVisible?: boolean;
   onChatToggle?: () => void;
+  hideTopTitleWhenNotFullscreen?: boolean;
+  onClose?: () => void;
 };
 
 export function VideoPlayer({
@@ -1391,6 +2070,8 @@ export function VideoPlayer({
   isLive = false,
   chatVisible: externalChatVisible,
   onChatToggle: externalOnChatToggle,
+  hideTopTitleWhenNotFullscreen = false,
+  onClose,
 }: Props) {
   const outerWrapRef = useRef<HTMLDivElement>(null);
   const [internalChatVisible, setInternalChatVisible] = useState(true);
@@ -1409,7 +2090,7 @@ export function VideoPlayer({
     return <VideoUnavailable message="Invalid video URL format." className={className} />;
   }
 
-  const effectiveFullscreenRef = (fullscreenTargetRef?.current ? fullscreenTargetRef : outerWrapRef) as RefObject<HTMLElement | null>;
+  const effectiveFullscreenRef = (fullscreenTargetRef || outerWrapRef) as RefObject<HTMLElement | null>;
 
   return (
     <motion.div
@@ -1418,7 +2099,7 @@ export function VideoPlayer({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
-        "group relative flex bg-black overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-zinc-800 shadow-xl",
+        "group relative flex flex-row bg-black overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-zinc-800 shadow-xl",
         className
       )}
     >
@@ -1443,6 +2124,8 @@ export function VideoPlayer({
             onChatToggle={handleChatToggle}
             isLive={isLive}
             fullscreenTargetRef={effectiveFullscreenRef}
+            hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
+            onClose={onClose}
           />
         ) : embedInfo.type === "youtube" ? (
           <iframe
@@ -1466,12 +2149,14 @@ export function VideoPlayer({
             onChatToggle={handleChatToggle}
             isLive={isLive}
             fullscreenTargetRef={effectiveFullscreenRef}
+            hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
+            onClose={onClose}
           />
         )}
       </div>
 
       {chatComponent && chatVisible && canShowChat && (
-        <div className="w-[300px] sm:w-[350px] lg:w-[380px] shrink-0 border-l border-zinc-800 h-full flex flex-col bg-zinc-950 animate-in slide-in-from-right duration-200">
+        <div className="w-[320px] sm:w-[360px] md:w-[400px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200 z-30 shadow-2xl">
           {chatComponent}
         </div>
       )}

@@ -20,6 +20,8 @@ import {
   Sun,
   ChevronDown,
   Target,
+  User,
+  LogOut,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SITE } from "@/lib/site";
@@ -122,10 +124,31 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [profileGoal]);
 
   // Close dropdown on outside click
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Fetch student/admin email
+  const { data: userEmail = "" } = useQuery({
+    queryKey: ["auth", "user-email-layout"],
+    queryFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      return userData?.user?.email || "";
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (goalRef.current && !goalRef.current.contains(e.target as Node)) {
         setGoalOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -209,21 +232,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <NavItem to="/contact" icon={MapPin} label="Centres" active={pathname.startsWith("/contact")} onClick={() => setSidebarOpen(false)} />
             </nav>
           </div>
-
-          {/* ADMIN PORTAL: VISIBLE ONLY TO REGISTERED ADMINS */}
-          {isAdmin && (
-            <div className="mb-7 pt-4 border-t border-slate-200/80">
-              <div className="px-3 mb-2.5 text-[11px] font-bold uppercase tracking-widest text-red-600 flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5" /> Registered Admin
-              </div>
-              <nav className="space-y-0.5">
-                <NavItem to="/admin" icon={Shield} label="Admin Dashboard" active={pathname === "/admin"} onClick={() => setSidebarOpen(false)} />
-                <NavItem to="/admin/students" icon={Users} label="Student Directory" active={pathname.startsWith("/admin/students")} onClick={() => setSidebarOpen(false)} />
-                <NavItem to="/admin/batches" icon={Layers} label="Manage Batches" active={pathname.startsWith("/admin/batches")} onClick={() => setSidebarOpen(false)} />
-                <NavItem to="/admin/enrollments" icon={BookOpen} label="Grant Batch Access" active={pathname.startsWith("/admin/enrollments")} onClick={() => setSidebarOpen(false)} />
-              </nav>
-            </div>
-          )}
         </div>
       </aside>
 
@@ -284,17 +292,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </div>
                 )}
               </div>
-
-              {/* Admin Badge button if admin */}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-red-50 hover:bg-red-100 border border-red-200/80 px-3.5 py-1 text-xs font-bold text-red-700 transition-colors shadow-sm"
-                >
-                  <Shield className="h-3.5 w-3.5 text-red-600" />
-                  Admin Panel
-                </Link>
-              )}
             </div>
 
             {/* Right Header Area */}
@@ -317,21 +314,90 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
 
-              {/* Student Avatar + Name */}
-              <Link to="/profile" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity pl-3 lg:border-l lg:border-slate-200">
-                {/* Cartoon student avatar using DiceBear adventurer style */}
-                <div className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden border-2 border-white shadow-md bg-gradient-to-br from-amber-300 to-orange-400">
-                  <img
-                    src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(firstName)}&backgroundColor=ffd700,ffb300,ff8c00&backgroundType=gradientLinear&radius=50`}
-                    alt={firstName}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="hidden sm:flex flex-col leading-tight">
-                  <span className="text-[11px] text-slate-400 font-medium">Hi,</span>
-                  <span className="text-[13px] font-bold text-slate-800 truncate max-w-[80px]">{firstName}</span>
-                </div>
-              </Link>
+              {/* Student Avatar + Profile Menu Dropdown */}
+              <div ref={profileRef} className="relative pl-3 lg:border-l lg:border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((o) => !o)}
+                  aria-expanded={profileOpen}
+                  className="flex items-center gap-2.5 hover:opacity-85 transition active:scale-95 focus:outline-none cursor-pointer"
+                >
+                  {/* Cartoon student avatar using DiceBear adventurer style */}
+                  <div className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden border-2 border-white shadow-md bg-gradient-to-br from-amber-300 to-orange-400">
+                    <img
+                      src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(firstName)}&backgroundColor=ffd700,ffb300,ff8c00&backgroundType=gradientLinear&radius=50`}
+                      alt={firstName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="hidden sm:flex flex-col text-left leading-tight">
+                    <span className="text-[11px] text-slate-400 font-medium">Hi,</span>
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[80px]">
+                      {firstName}
+                    </span>
+                  </div>
+                  <ChevronDown className={cn("hidden sm:block h-3.5 w-3.5 text-slate-400 transition-transform", profileOpen && "rotate-180")} />
+                </button>
+
+                {profileOpen && (
+                  <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in-50 zoom-in-95 duration-150">
+                    {/* User Info Header */}
+                    <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                          {studentName}
+                        </p>
+                        {isAdmin ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 border border-purple-200/80">
+                            <Shield className="h-3 w-3 text-purple-600" /> Admin
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            Student
+                          </span>
+                        )}
+                      </div>
+                      {userEmail && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          {userEmail}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="py-1.5 space-y-1">
+                      {/* ONLY SHOWN IF THE LOGGED IN USER IS AN ADMIN */}
+                      {isAdmin && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setProfileOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 dark:text-purple-200 border border-purple-200/80 transition-colors shadow-2xs"
+                        >
+                          <Shield className="h-4 w-4 text-purple-600 shrink-0" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                      )}
+
+                      <Link
+                        to="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <User className="h-4 w-4 text-slate-400 shrink-0" />
+                        <span>My Profile</span>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors text-left"
+                      >
+                        <LogOut className="h-4 w-4 text-rose-500 shrink-0" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>

@@ -94,9 +94,22 @@ function LiveClassesAdmin() {
         ? await client.from("live_classes").update(payload).eq("id", editing.id)
         : await client.from("live_classes").insert(payload);
       if (result.error) throw result.error;
+
+      if (form.faculty.trim()) {
+        try {
+          const raw = localStorage.getItem("sarvodaya_custom_faculties");
+          const arr: string[] = raw ? JSON.parse(raw) : [];
+          const name = form.faculty.trim();
+          if (!arr.some((n) => n.toLowerCase() === name.toLowerCase())) {
+            arr.unshift(name);
+            localStorage.setItem("sarvodaya_custom_faculties", JSON.stringify(arr.slice(0, 50)));
+          }
+        } catch {}
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "live_classes"] });
+      qc.invalidateQueries({ queryKey: ["admin-live-faculty-options"] });
       setOpen(false);
       toast.success(editing ? "Class timing updated" : "Live class scheduled");
     },
@@ -351,21 +364,55 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
   const { data: facultyList = [] } = useQuery({
     queryKey: ["admin-live-faculty-options", form.batch_id],
     queryFn: async () => {
-      const { data: facs } = await supabase.from("faculty").select("name, photo_url, subject").eq("is_active", true).order("name");
-      const list: { name: string; photo_url: string | null; subject?: string | null }[] = (facs ?? []).map((f) => ({
-        name: f.name, photo_url: f.photo_url, subject: f.subject,
-      }));
+      const list: { name: string; photo_url: string | null; subject?: string | null }[] = [];
+      const seenNames = new Set<string>();
 
+      const addName = (name: string, photo_url: string | null = null, subject: string | null = null) => {
+        const trimmed = name?.trim();
+        if (!trimmed) return;
+        const lower = trimmed.toLowerCase();
+        if (seenNames.has(lower)) return;
+        seenNames.add(lower);
+        list.push({ name: trimmed, photo_url, subject });
+      };
+
+      // 1. Registered active faculty
+      const { data: facs } = await supabase.from("faculty").select("name, photo_url, subject").eq("is_active", true).order("name");
+      (facs ?? []).forEach((f) => addName(f.name, f.photo_url, f.subject));
+
+      // 2. Batch faculty array
       if (form.batch_id && form.batch_id !== "none") {
         const { data: b } = await supabase.from("batches").select("faculty").eq("id", form.batch_id as string).maybeSingle();
         if (b?.faculty && Array.isArray(b.faculty)) {
-          b.faculty.forEach((name: string) => {
-            if (name && !list.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
-              list.push({ name, photo_url: null });
-            }
-          });
+          b.faculty.forEach((name: string) => addName(name));
         }
       }
+
+      // 3. Previously entered live class faculty names
+      try {
+        const { data: pastLive } = await supabase.from("live_classes").select("faculty").not("faculty", "is", null).limit(100);
+        (pastLive ?? []).forEach((row: any) => {
+          if (row.faculty) addName(row.faculty);
+        });
+      } catch {}
+
+      // 4. Previously entered lecture faculty names
+      try {
+        const { data: pastLec } = await supabase.from("lectures").select("faculty").not("faculty", "is", null).limit(100);
+        (pastLec ?? []).forEach((row: any) => {
+          if (row.faculty) addName(row.faculty);
+        });
+      } catch {}
+
+      // 5. Custom faculty stored in localStorage
+      try {
+        const raw = localStorage.getItem("sarvodaya_custom_faculties");
+        if (raw) {
+          const arr: string[] = JSON.parse(raw);
+          arr.forEach((n) => addName(n));
+        }
+      } catch {}
+
       return list;
     },
   });
@@ -393,10 +440,18 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
           <User className="h-3.5 w-3.5 text-indigo-600" /> Faculty / Teacher Name
         </Label>
         <Input
+          list="recommended-faculty-list"
           value={form.faculty}
           onChange={(e) => set("faculty", e.target.value)}
           placeholder="Select or type teacher name (e.g. Anurag Sir)"
         />
+        <datalist id="recommended-faculty-list">
+          {facultyList.map((fac) => (
+            <option key={fac.name} value={fac.name}>
+              {fac.subject ? `${fac.name} (${fac.subject})` : fac.name}
+            </option>
+          ))}
+        </datalist>
         {facultyList.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900">
             <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider">
