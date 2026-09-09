@@ -250,62 +250,6 @@ export function TheaterModal({
       <div className="flex-1 overflow-y-auto min-h-0 bg-[#F8F9FA]">
         <div className="mx-auto max-w-6xl p-4 sm:p-6 space-y-6">
 
-          {/* Video Title & Subject/Chapter Breadcrumbs */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {currentLecture?.subject && (
-                <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 text-xs font-bold shadow-2xs">
-                  <FolderOpen className="h-3.5 w-3.5" /> {currentLecture.subject}
-                </span>
-              )}
-              {currentLecture?.chapter && (
-                <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 px-2.5 py-1 text-xs font-bold shadow-2xs">
-                  {currentLecture.chapter}
-                </span>
-              )}
-              {currentLecture?.lecture_number != null && (
-                <span className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 text-xs font-bold shadow-2xs">
-                  Lecture #{currentLecture.lecture_number}
-                </span>
-              )}
-            </div>
-
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
-              {title}
-            </h1>
-          </div>
-
-          {/* Instructor Row */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold shadow-xs">
-                SA
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-sm text-slate-900">Sarvodaya Adhyeta</span>
-                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                </div>
-                <div className="text-[11px] text-slate-500">Official Batch Content</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Description Box */}
-          <div className="rounded-2xl bg-white p-4 text-xs sm:text-sm text-slate-700 border border-slate-200 shadow-xs space-y-2">
-            <p className={cn("text-slate-700 leading-relaxed", !descExpanded && "line-clamp-2")}>
-              {description || "Join today's class by Sarvodaya Adhyeta. Keep your notebook and pen ready. Practice DPPs and review notes provided below."}
-            </p>
-            {description && description.length > 120 && (
-              <button
-                onClick={() => setDescExpanded(!descExpanded)}
-                className="font-bold text-indigo-600 hover:underline block text-xs"
-              >
-                {descExpanded ? "Show less" : "...more"}
-              </button>
-            )}
-          </div>
-
           {/* AUTO-RECOMMENDED RESOURCES FOR THIS LECTURE / CHAPTER */}
           <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">

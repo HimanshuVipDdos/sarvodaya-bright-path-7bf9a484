@@ -755,6 +755,31 @@ function BatchPortal() {
             </div>
           )}
         </div>
+
+        {/* Theater Modal — was missing from this view, which is why "Join
+            Class" here updated state but nothing ever appeared on screen.
+            It only worked once you'd drilled into a chapter's lecture list
+            (the other return block below, which already had it). */}
+        {theaterOpen && playingVideo && (
+          <TheaterModal
+            open={theaterOpen}
+            onClose={() => setTheaterOpen(false)}
+            videoSrc={playingVideo.src}
+            poster={playingVideo.poster}
+            title={playingVideo.title}
+            meta={playingVideo.isLive ? "Live Class" : "Recorded Lecture"}
+            liveClassId={playingVideo.isLive ? playingVideo.id : undefined}
+            currentLecture={playingVideo}
+            activeLectureId={playingVideo.id}
+            lectures={allBatchLectures}
+            notes={allNotes}
+            dpp={allDpps}
+            onSelectLecture={(id) => {
+              const found = allBatchLectures.find((l: any) => l.id === id);
+              if (found) playVideo(found);
+            }}
+          />
+        )}
       </div>
     );
   }
