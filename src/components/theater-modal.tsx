@@ -235,8 +235,8 @@ export function TheaterModal({
                 </button>
               </div>
               <div className="flex-1 min-h-0">
-                {isLive && liveClassId ? (
-                  <LiveChat liveClassId={liveClassId} canModerate={true} className="h-full rounded-none border-0" />
+                {isLive && (liveClassId || currentLecture?.id) ? (
+                  <LiveChat liveClassId={(liveClassId || currentLecture?.id)!} canModerate={true} className="h-full rounded-none border-0" />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center p-6 text-center text-zinc-400 select-none">
                     <MessageCircle className="h-10 w-10 text-zinc-600 mb-3" />

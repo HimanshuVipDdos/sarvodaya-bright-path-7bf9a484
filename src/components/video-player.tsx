@@ -875,7 +875,9 @@ function CustomHtml5Player({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const seekbarRef = useRef<HTMLDivElement>(null);
   const hideControlsTimer = useRef<number | null>(null);
+  const seekingRef = useRef(false);
 
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -890,6 +892,62 @@ function CustomHtml5Player({
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        toast.success("Class link copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        toast.info("Link: " + url);
+      });
+    } else {
+      toast.info("Link: " + url);
+    }
+  };
+
+  const handleSeekFromPointer = (clientX: number) => {
+    if (!seekbarRef.current) return;
+    const rect = seekbarRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const target = duration > 0 ? pct * duration : 0;
+    setSeekPreview(target);
+    setCurrentTime(target);
+    if (videoRef.current) {
+      videoRef.current.currentTime = target;
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    seekingRef.current = true;
+    setSeeking(true);
+    handleSeekFromPointer(e.clientX);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (seekingRef.current) {
+      handleSeekFromPointer(e.clientX);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (seekingRef.current) {
+      seekingRef.current = false;
+      setSeeking(false);
+      handleSeekFromPointer(e.clientX);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
 
   useEffect(() => {
     const handler = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
@@ -1080,35 +1138,28 @@ function CustomHtml5Player({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative group/seek w-full py-1">
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={displayTime}
-            onChange={(e) => {
-              setSeeking(true);
-              setSeekPreview(Number(e.target.value));
-            }}
-            onMouseUp={(e) => {
-              seekTo(Number((e.target as HTMLInputElement).value));
-              setSeeking(false);
-            }}
-            onTouchEnd={(e) => {
-              seekTo(Number((e.target as HTMLInputElement).value));
-              setSeeking(false);
-            }}
-            className="yt-seek h-1 group-hover/seek:h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-red-600 transition-all"
-            style={{
-              background: duration
-                ? `linear-gradient(to right, #ef4444 ${(displayTime / duration) * 100}%, rgba(255,255,255,0.25) ${(displayTime / duration) * 100}%)`
-                : undefined,
-            }}
-          />
+        {/* Scrubber / Seek Bar matching reference screenshot */}
+        <div
+          ref={seekbarRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className="relative w-full py-2 cursor-pointer select-none group/seek touch-none"
+        >
+          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
+            <div
+              className="absolute left-0 top-0 h-full rounded-full bg-white"
+              style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
+            />
+            <div
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-white shadow-md transition-transform group-hover/seek:scale-125"
+              style={{ left: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
+            />
+          </div>
         </div>
 
-        <div className="mt-1.5 flex items-center justify-between gap-2 text-white">
+        <div className="mt-1 flex items-center justify-between gap-2 text-white">
           <div className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
@@ -1116,6 +1167,17 @@ function CustomHtml5Player({
               className="rounded-full p-1.5 hover:bg-white/15 transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            </button>
+
+            {/* Link button matching reference screenshot */}
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              title="Copy lecture link"
+              aria-label="Copy lecture link"
+              className="rounded-full p-1.5 text-white/90 hover:text-white hover:bg-white/15 transition active:scale-95"
+            >
+              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Link2 className="h-4 w-4" />}
             </button>
 
             <div className="flex items-center gap-1 group/vol">
