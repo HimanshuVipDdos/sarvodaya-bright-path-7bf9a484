@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Play,
   Pause,
+  Link2,
   Volume2,
   Volume1,
   VolumeX,
@@ -583,7 +584,7 @@ function CustomYouTubePlayer({
         }
       }}
     >
-      {/* Real YouTube iframe with controls=0 permanently enforced & cropped edges */}
+      {/* Real YouTube iframe with controls=0 permanently enforced (full uncropped frame) */}
       <iframe
         ref={iframeRef}
         src={embedSrc}
@@ -592,7 +593,7 @@ function CustomYouTubePlayer({
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
-        className="pointer-events-none absolute -inset-x-[2%] -inset-y-[4%] h-[108%] w-[104%] border-0"
+        className="pointer-events-none absolute inset-0 h-full w-full border-0"
       />
 
       {/* Transparent surface over the iframe to catch clicks & toggle play/pause */}
@@ -721,6 +722,23 @@ function CustomYouTubePlayer({
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
 
+            {/* Share / Link Icon */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Class link copied to clipboard!");
+                }
+              }}
+              title="Copy class link"
+              aria-label="Copy class link"
+              className="rounded-full p-2 hover:bg-white/15 text-white/90 hover:text-white transition active:scale-95"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
+
             <div className="flex items-center gap-1 group/vol">
               <button
                 type="button"
@@ -829,6 +847,16 @@ function CustomYouTubePlayer({
               )}
             </div>
 
+            {/* Subtle YouTube branding badge — positioned before Fullscreen like reference */}
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/10 opacity-75 select-none pointer-events-none cursor-default shadow-2xs"
+            >
+              <svg className="h-2.5 w-3.5 fill-red-600 shrink-0" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+              </svg>
+              <span className="text-[10px] font-bold text-white/90 tracking-tighter">YouTube</span>
+            </div>
+
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -837,16 +865,6 @@ function CustomYouTubePlayer({
             >
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
-
-            {/* Non-clickable subtle YouTube branding badge — prevents URL leakage in paid batches */}
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/10 opacity-70 select-none pointer-events-none cursor-default shadow-2xs"
-            >
-              <svg className="h-2.5 w-3.5 fill-red-600 shrink-0" viewBox="0 0 24 24">
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-              </svg>
-              <span className="text-[10px] font-bold text-white/90 tracking-tighter">YouTube</span>
-            </div>
           </div>
         </div>
       </div>
@@ -1134,6 +1152,23 @@ function CustomHtml5Player({
               className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            </button>
+
+            {/* Share / Link Icon */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Class link copied to clipboard!");
+                }
+              }}
+              title="Copy class link"
+              aria-label="Copy class link"
+              className="rounded-full p-2 hover:bg-white/15 text-white/90 hover:text-white transition active:scale-95"
+            >
+              <Link2 className="h-4 w-4" />
             </button>
 
             <div className="flex items-center gap-1 group/vol">
