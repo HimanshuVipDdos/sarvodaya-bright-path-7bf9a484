@@ -5,17 +5,19 @@ export interface ResolvedStream {
 }
 
 const PIPED_INSTANCES = [
+  "https://pipedapi.kavin.rocks",
+  "https://api.piped.privacy.com.de",
   "https://piped-api.garudalinux.org",
   "https://pipedapi.tokhmi.xyz",
-  "https://api.piped.privacy.com.de",
-  "https://pipedapi.leptons.xyz",
-  "https://pipedapi.drgns.space",
+  "https://api-piped.mha.fi",
 ];
 
 const INVIDIOUS_INSTANCES = [
-  "https://inv.tux.pizza",
+  "https://inv.nadeko.net",
   "https://invidious.nerdvpn.de",
-  "https://invidious.drgns.space",
+  "https://yewtu.be",
+  "https://invidious.projectsegfau.lt",
+  "https://iv.ggtyler.dev",
   "https://vid.puffyan.us",
 ];
 
@@ -86,8 +88,10 @@ export async function resolveVideoStream(
     const candidatePromises = [
       fetchFromPiped(PIPED_INSTANCES[0], videoId, controller.signal),
       fetchFromPiped(PIPED_INSTANCES[1], videoId, controller.signal),
+      fetchFromPiped(PIPED_INSTANCES[2], videoId, controller.signal),
       fetchFromInvidious(INVIDIOUS_INSTANCES[0], videoId, controller.signal),
       fetchFromInvidious(INVIDIOUS_INSTANCES[1], videoId, controller.signal),
+      fetchFromInvidious(INVIDIOUS_INSTANCES[2], videoId, controller.signal),
     ];
 
     const result = await Promise.any(candidatePromises);

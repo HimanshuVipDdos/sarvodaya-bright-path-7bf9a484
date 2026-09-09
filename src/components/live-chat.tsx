@@ -11,6 +11,7 @@ import {
   Lock,
   Unlock,
   UserX,
+  UserCheck,
   MoreVertical,
   X,
   AlertCircle,
@@ -47,6 +48,22 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
   const [pinned, setPinned] = useState<{ id: string; text: string; name: string } | null>(null);
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const [globalBlockedUsers, setGlobalBlockedUsers] = useState<Record<string, string>>({});
+
+  // Local/individual student-level blocked users (persisted in localStorage)
+  const [localBlockedUsers, setLocalBlockedUsers] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(`sarvodaya_blocked_students_${liveClassId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [targetBlockUser, setTargetBlockUser] = useState<{ id: string; name: string } | null>(null);
+  const [showBlockedUsersList, setShowBlockedUsersList] = useState(false);
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
   
@@ -107,6 +124,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
       let latestPin: { id: string; text: string; name: string } | null = null;
       let lockedState = false;
       const blockedSet = new Set<string>();
+      const globalBlockedMap: Record<string, string> = {};
 
       for (const row of rows) {
         // System state messages
@@ -126,8 +144,12 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
             const parsed = JSON.parse(row.message);
             if (parsed.unblock) {
               blockedSet.delete(parsed.userId);
+              delete globalBlockedMap[parsed.userId];
             } else if (parsed.userId) {
               blockedSet.add(parsed.userId);
+              if (parsed.userName) {
+                globalBlockedMap[parsed.userId] = parsed.userName;
+              }
             }
           } catch {}
         } else if (!row.user_id.startsWith("SYSTEM_")) {
@@ -139,6 +161,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
       setPinned(latestPin);
       setIsChatLocked(lockedState);
       setBlockedUserIds(Array.from(blockedSet));
+      setGlobalBlockedUsers(globalBlockedMap);
       setLoading(false);
     }
 
@@ -173,8 +196,17 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
               const p = JSON.parse(incoming.message);
               if (p.unblock) {
                 setBlockedUserIds((prev) => prev.filter((id) => id !== p.userId));
+                setGlobalBlockedUsers((prev) => {
+                  const next = { ...prev };
+                  delete next[p.userId];
+                  return next;
+                });
               } else if (p.userId) {
                 setBlockedUserIds((prev) => Array.from(new Set([...prev, p.userId])));
+                setGlobalBlockedUsers((prev) => ({
+                  ...prev,
+                  [p.userId]: p.userName || "Student",
+                }));
               }
             } catch {}
             return;
@@ -346,15 +378,40 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
     }
   }
 
-  // Block a user
-  async function blockUser(targetUserId: string, targetUserName: string | null) {
-    if (!effectiveModerator) return;
-    if (targetUserId === currentUserId) {
+  // Local student block/mute
+  function handleBlockLocal(targetId: string, targetName: string) {
+    if (targetId === currentUserId) {
       toast.error("You cannot block yourself.");
       return;
     }
+    setLocalBlockedUsers((prev) => {
+      const next = { ...prev, [targetId]: targetName };
+      try {
+        localStorage.setItem(`sarvodaya_blocked_students_${liveClassId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setTargetBlockUser(null);
+    toast.success(`Messages from ${targetName} are now hidden for you.`);
+  }
 
-    if (!window.confirm(`Are you sure you want to block ${targetUserName || "this user"} from the chat?`)) {
+  function handleUnblockLocal(targetId: string) {
+    setLocalBlockedUsers((prev) => {
+      const next = { ...prev };
+      delete next[targetId];
+      try {
+        localStorage.setItem(`sarvodaya_blocked_students_${liveClassId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    toast.success("Student unblocked. Messages will now be visible.");
+  }
+
+  // Moderator global ban/block
+  async function handleBlockGlobal(targetId: string, targetName: string) {
+    if (!effectiveModerator) return;
+    if (targetId === currentUserId) {
+      toast.error("You cannot block yourself.");
       return;
     }
 
@@ -363,13 +420,37 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
         live_class_id: liveClassId,
         user_id: "SYSTEM_BLOCK",
         user_name: "SYSTEM",
-        message: JSON.stringify({ userId: targetUserId, userName: targetUserName }),
+        message: JSON.stringify({ userId: targetId, userName: targetName, unblock: false }),
       } as never);
 
-      setBlockedUserIds((prev) => Array.from(new Set([...prev, targetUserId])));
-      toast.success(`User ${targetUserName || "Student"} has been blocked from chat.`);
+      setBlockedUserIds((prev) => Array.from(new Set([...prev, targetId])));
+      setGlobalBlockedUsers((prev) => ({ ...prev, [targetId]: targetName }));
+      setTargetBlockUser(null);
+      toast.success(`Student ${targetName} has been banned from chat.`);
     } catch {
       toast.error("Failed to block user");
+    }
+  }
+
+  async function handleUnblockGlobal(targetId: string) {
+    if (!effectiveModerator) return;
+    try {
+      await supabase.from("live_chat_messages").insert({
+        live_class_id: liveClassId,
+        user_id: "SYSTEM_BLOCK",
+        user_name: "SYSTEM",
+        message: JSON.stringify({ userId: targetId, unblock: true }),
+      } as never);
+
+      setBlockedUserIds((prev) => prev.filter((id) => id !== targetId));
+      setGlobalBlockedUsers((prev) => {
+        const next = { ...prev };
+        delete next[targetId];
+        return next;
+      });
+      toast.success("Student unbanned from live chat.");
+    } catch {
+      toast.error("Failed to unblock user");
     }
   }
 
@@ -405,9 +486,11 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
   }
 
   const visibleMessages = useMemo(() => {
-    // Hide messages from blocked users
-    return messages.filter((m) => !blockedUserIds.includes(m.user_id));
-  }, [messages, blockedUserIds]);
+    // Hide messages from blocked users (moderator banned OR locally muted)
+    return messages.filter((m) => !blockedUserIds.includes(m.user_id) && !localBlockedUsers[m.user_id]);
+  }, [messages, blockedUserIds, localBlockedUsers]);
+
+  const totalBlockedCount = Object.keys(localBlockedUsers).length + (effectiveModerator ? blockedUserIds.length : 0);
 
   return (
     <div
@@ -432,7 +515,18 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          {totalBlockedCount > 0 && (
+            <button
+              onClick={() => setShowBlockedUsersList(true)}
+              title="View & manage blocked/muted students"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-[10px] font-bold transition border border-red-500/30"
+            >
+              <UserX className="h-3 w-3" />
+              <span>{totalBlockedCount} Blocked</span>
+            </button>
+          )}
+
           {effectiveModerator && (
             <div className="relative">
               <button
@@ -446,7 +540,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
               </button>
 
               {showAdminMenu && (
-                <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-white/10 bg-[#1f1f1f] p-1.5 shadow-2xl z-30 text-xs">
+                <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl border border-white/10 bg-[#1f1f1f] p-1.5 shadow-2xl z-30 text-xs">
                   <div className="px-3 py-2 font-bold text-slate-300 border-b border-white/10 flex items-center justify-between">
                     <span>Moderator Tools</span>
                     <Shield className="h-3.5 w-3.5 text-blue-400" />
@@ -468,6 +562,17 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
                     )}
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setShowBlockedUsersList(true);
+                      setShowAdminMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10 transition text-red-400 font-medium"
+                  >
+                    <UserX className="h-4 w-4" />
+                    <span>Manage Blocked Students ({totalBlockedCount})</span>
+                  </button>
+
                   {pinned && (
                     <button
                       onClick={() => { unpin(); setShowAdminMenu(false); }}
@@ -480,7 +585,7 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
 
                   {blockedUserIds.length > 0 && (
                     <div className="px-3 py-1.5 text-[10px] text-slate-400 border-t border-white/10 mt-1">
-                      {blockedUserIds.length} user(s) currently blocked
+                      {blockedUserIds.length} user(s) currently banned
                     </div>
                   )}
                 </div>
@@ -582,6 +687,14 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
                       >
                         {name}
                       </button>
+                    ) : !isSelf ? (
+                      <button
+                        onClick={() => setTargetBlockUser({ id: m.user_id, name })}
+                        className="font-bold text-slate-300 hover:text-red-300 hover:underline text-[11px] text-left cursor-pointer"
+                        title={`Click to block or hide ${name}`}
+                      >
+                        {name}
+                      </button>
                     ) : (
                       <span className="font-bold text-slate-300 text-[11px]">{name}</span>
                     )}
@@ -602,28 +715,26 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
                   </p>
                 </div>
 
-                {/* Moderator / Self Actions */}
-                <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                {/* Moderator / Self / Student Actions */}
+                <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition focus-within:opacity-100">
                   {effectiveModerator && (
-                    <>
-                      <button
-                        onClick={() => togglePinMessage(m)}
-                        title="Pin this message"
-                        className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-white/10 transition"
-                      >
-                        <Pin className="h-3.5 w-3.5" />
-                      </button>
+                    <button
+                      onClick={() => togglePinMessage(m)}
+                      title="Pin this message"
+                      className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-white/10 transition"
+                    >
+                      <Pin className="h-3.5 w-3.5" />
+                    </button>
+                  )}
 
-                      {m.user_id !== currentUserId && (
-                        <button
-                          onClick={() => blockUser(m.user_id, name)}
-                          title="Block this user from chat"
-                          className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-white/10 transition"
-                        >
-                          <UserX className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </>
+                  {!isSelf && (
+                    <button
+                      onClick={() => setTargetBlockUser({ id: m.user_id, name })}
+                      title={effectiveModerator ? "Block / Ban student" : `Hide messages from ${name}`}
+                      className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-white/10 transition"
+                    >
+                      <UserX className="h-3.5 w-3.5" />
+                    </button>
                   )}
 
                   {(effectiveModerator || isSelf) && (
@@ -717,6 +828,151 @@ export function LiveChat({ liveClassId, canModerate = false, className, onViewSt
           </div>
         )}
       </div>
+
+      {/* Block Single Student Confirmation Modal */}
+      {targetBlockUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-zinc-900 p-5 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-red-500/20 text-red-400">
+                  <UserX className="h-4 w-4" />
+                </div>
+                <h3 className="font-bold text-sm">Block Student</h3>
+              </div>
+              <button
+                onClick={() => setTargetBlockUser(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="py-4">
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Choose what to do with <span className="font-bold text-white">"{targetBlockUser.name}"</span>:
+              </p>
+
+              <div className="mt-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleBlockLocal(targetBlockUser.id, targetBlockUser.name)}
+                  className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-left text-xs font-semibold cursor-pointer"
+                >
+                  <div>
+                    <div className="text-white font-bold">Mute for me only</div>
+                    <div className="text-[11px] text-slate-400 font-normal mt-0.5">Hide their messages on your screen only</div>
+                  </div>
+                  <UserX className="h-4 w-4 text-amber-400 shrink-0 ml-2" />
+                </button>
+
+                {effectiveModerator && (
+                  <button
+                    type="button"
+                    onClick={() => handleBlockGlobal(targetBlockUser.id, targetBlockUser.name)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition text-left text-xs font-semibold text-red-200 cursor-pointer"
+                  >
+                    <div>
+                      <div className="text-red-400 font-bold">Ban from Live Chat (Moderator)</div>
+                      <div className="text-[11px] text-red-300/70 font-normal mt-0.5">Block student from commenting for everyone</div>
+                    </div>
+                    <ShieldAlert className="h-4 w-4 text-red-400 shrink-0 ml-2" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTargetBlockUser(null)}
+                className="text-xs border-white/15 bg-transparent hover:bg-white/10 text-white"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Blocked Students List Modal */}
+      {showBlockedUsersList && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-zinc-900 p-5 shadow-2xl text-white max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-red-500/20 text-red-400">
+                  <UserX className="h-4 w-4" />
+                </div>
+                <h3 className="font-bold text-sm">Blocked Students ({totalBlockedCount})</h3>
+              </div>
+              <button
+                onClick={() => setShowBlockedUsersList(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="py-4 overflow-y-auto space-y-2 flex-1 min-h-0 divide-y divide-white/5">
+              {totalBlockedCount === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400">
+                  No blocked students yet.
+                </div>
+              ) : (
+                <>
+                  {/* Locally muted by current student */}
+                  {Object.entries(localBlockedUsers).map(([uid, uname]) => (
+                    <div key={uid} className="flex items-center justify-between py-2.5 px-2">
+                      <div className="min-w-0 pr-2">
+                        <div className="font-semibold text-xs text-white truncate">{uname}</div>
+                        <div className="text-[10px] text-amber-400 font-medium">Muted for you</div>
+                      </div>
+                      <button
+                        onClick={() => handleUnblockLocal(uid)}
+                        className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 transition cursor-pointer"
+                      >
+                        Unblock
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Moderator banned students (visible to moderator) */}
+                  {effectiveModerator &&
+                    blockedUserIds.map((uid) => (
+                      <div key={uid} className="flex items-center justify-between py-2.5 px-2">
+                        <div className="min-w-0 pr-2">
+                          <div className="font-semibold text-xs text-white truncate">
+                            {globalBlockedUsers[uid] || `Student (${uid.slice(0, 8)})`}
+                          </div>
+                          <div className="text-[10px] text-red-400 font-medium">Banned by Moderator</div>
+                        </div>
+                        <button
+                          onClick={() => handleUnblockGlobal(uid)}
+                          className="px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-xs font-semibold text-red-300 transition cursor-pointer"
+                        >
+                          Unban
+                        </button>
+                      </div>
+                    ))}
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-white/10 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBlockedUsersList(false)}
+                className="text-xs border-white/15 bg-transparent hover:bg-white/10 text-white"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

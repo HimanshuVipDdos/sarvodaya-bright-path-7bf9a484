@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import Hls from "hls.js";
 import { useVideoFullscreen } from "@/hooks/use-video-fullscreen";
 import { cn, getStorageUrl } from "@/lib/utils";
+import { resolveVideoStream, type ResolvedStream } from "@/lib/stream-resolver";
 
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
@@ -259,6 +260,7 @@ function CustomYouTubePlayer({
   initialTime = 0,
   hideTopTitleWhenNotFullscreen = false,
   onClose,
+  onTimeProgress,
 }: {
   videoId: string;
   title?: string;
@@ -271,6 +273,7 @@ function CustomYouTubePlayer({
   initialTime?: number;
   hideTopTitleWhenNotFullscreen?: boolean;
   onClose?: () => void;
+  onTimeProgress?: (time: number) => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -279,6 +282,7 @@ function CustomYouTubePlayer({
   const hideControlsTimer = useRef<number | null>(null);
   const timeTickerRef = useRef<number | null>(null);
   const seekingRef = useRef(false);
+  const hasSeekedLiveRef = useRef(false);
 
   const targetFullscreenRef = (fullscreenTargetRef || wrapRef) as RefObject<HTMLElement | null>;
   const { isFullscreen, isPseudoFullscreen, toggleFullscreen } = useVideoFullscreen({
@@ -493,6 +497,7 @@ function CustomYouTubePlayer({
             const t = ytPlayerRef.current.getCurrentTime();
             if (typeof t === "number" && !isNaN(t)) {
               setCurrentTime(t);
+              onTimeProgress?.(t);
             }
           }
           if (typeof ytPlayerRef.current.getDuration === "function") {
@@ -506,7 +511,33 @@ function CustomYouTubePlayer({
     }, 250);
 
     return () => clearInterval(pollInterval);
-  }, []);
+  }, [onTimeProgress]);
+
+  // Live class auto-sync on load: start seekbar at live edge
+  useEffect(() => {
+    if (isLive && duration > 0 && !hasSeekedLiveRef.current) {
+      hasSeekedLiveRef.current = true;
+      sendCommand("seekTo", [duration, true]);
+      setCurrentTime(duration);
+    }
+  }, [isLive, duration, sendCommand]);
+
+  const lagSeconds = isLive && duration > 0 ? Math.max(0, duration - currentTime) : 0;
+  const isAtLiveEdge = isLive ? lagSeconds <= 8 : true;
+
+  const handleGoLive = useCallback(() => {
+    if (duration > 0) {
+      sendCommand("seekTo", [duration, true]);
+      try {
+        ytPlayerRef.current?.seekTo?.(duration, true);
+      } catch {}
+      setCurrentTime(duration);
+      sendCommand("setPlaybackRate", [1]);
+      sendCommand("playVideo", []);
+      setRate(1);
+      showHud("Live Edge", <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />);
+    }
+  }, [duration, sendCommand, showHud]);
 
   const resetHideTimer = useCallback(() => {
     setControlsVisible(true);
@@ -841,17 +872,7 @@ function CustomYouTubePlayer({
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-11 bg-black" />
       <div className="pointer-events-none absolute inset-x-0 top-11 z-10 h-6 bg-gradient-to-b from-black to-transparent" />
 
-      {/* Permanent bottom-right watermark blackout */}
-      <div className="pointer-events-none absolute bottom-0 right-0 z-10 w-40 h-11 bg-black" />
-      <div className="pointer-events-none absolute bottom-11 right-0 z-10 w-40 h-6 bg-gradient-to-t from-black to-transparent" />
 
-      {/* Smart Pause Mask: Completely blocks YouTube's "More videos" carousel & thumbnail cards on pause */}
-      {!playing && ready && !isEnded && (
-        <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-52 sm:h-64 bg-gradient-to-t from-black via-black/90 to-transparent" />
-          <div className="pointer-events-none absolute bottom-0 right-0 z-10 w-[500px] max-w-[60%] h-[440px] max-h-[80%] bg-gradient-to-tl from-black via-black/95 to-transparent" />
-        </>
-      )}
 
       {/* Action Feedback HUD */}
       <AnimatePresence>
@@ -967,6 +988,24 @@ function CustomYouTubePlayer({
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Floating Return to Live button if student scrubbed back in live class */}
+        {isLive && !isAtLiveEdge && (
+          <div className="flex justify-center mb-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleGoLive();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg animate-pulse ring-2 ring-white/30 transition active:scale-95 cursor-pointer"
+            >
+              <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+              <span>Go Live</span>
+              <span className="text-[10px] font-normal opacity-85">(-{formatTime(lagSeconds)})</span>
+            </button>
+          </div>
+        )}
+
         {/* Modern Scrubber / Seek Bar with hover timestamp tooltip */}
         <div
           ref={seekbarRef}
@@ -1008,6 +1047,26 @@ function CustomYouTubePlayer({
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
+
+            {/* Live Indicator / Go Live Button */}
+            {isLive && (
+              isAtLiveEdge ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 text-white text-[11px] font-bold shadow-xs select-none">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  <span>LIVE</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGoLive}
+                  title="Jump to live edge"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold animate-pulse shadow-md transition active:scale-95 cursor-pointer ring-1 ring-white/40"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
+                  <span>🔴 Go Live</span>
+                </button>
+              )
+            )}
 
             {/* Share / Link Icon */}
             <button
@@ -1252,6 +1311,7 @@ function CustomHtml5Player({
   const hideControlsTimer = useRef<number | null>(null);
   const seekingRef = useRef(false);
   const hlsRef = useRef<Hls | null>(null);
+  const hasSeekedLiveRef = useRef(false);
 
   const targetFullscreenRef = (fullscreenTargetRef || wrapRef) as RefObject<HTMLElement | null>;
   const { isFullscreen, isPseudoFullscreen, toggleFullscreen } = useVideoFullscreen({
@@ -1274,6 +1334,40 @@ function CustomHtml5Player({
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
+
+  // Live class auto-sync on load: seek to duration / live edge
+  useEffect(() => {
+    if (isLive && duration > 0 && !hasSeekedLiveRef.current) {
+      hasSeekedLiveRef.current = true;
+      const v = videoRef.current;
+      if (v) {
+        let target = duration;
+        if (v.seekable && v.seekable.length > 0) {
+          target = v.seekable.end(v.seekable.length - 1);
+        }
+        v.currentTime = target;
+        setCurrentTime(target);
+      }
+    }
+  }, [isLive, duration]);
+
+  const lagSeconds = isLive && duration > 0 ? Math.max(0, duration - currentTime) : 0;
+  const isAtLiveEdge = isLive ? lagSeconds <= 8 : true;
+
+  const handleGoLive = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    let target = duration;
+    if (v.seekable && v.seekable.length > 0) {
+      target = v.seekable.end(v.seekable.length - 1);
+    }
+    v.currentTime = target;
+    setCurrentTime(target);
+    v.playbackRate = 1;
+    setRate(1);
+    v.play().catch(() => {});
+    showHud("Live Edge", <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />);
+  }, [duration, showHud]);
 
   // HUD Action Feedback
   const [hud, setHud] = useState<{ id: number; text: string; icon?: React.ReactNode } | null>(null);
@@ -1805,6 +1899,24 @@ function CustomHtml5Player({
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Floating Return to Live button if student scrubbed back in live class */}
+        {isLive && !isAtLiveEdge && (
+          <div className="flex justify-center mb-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleGoLive();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg animate-pulse ring-2 ring-white/30 transition active:scale-95 cursor-pointer"
+            >
+              <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+              <span>Go Live</span>
+              <span className="text-[10px] font-normal opacity-85">(-{formatTime(lagSeconds)})</span>
+            </button>
+          </div>
+        )}
+
         {/* Modern Scrubber / Seek Bar */}
         <div
           ref={seekbarRef}
@@ -1846,6 +1958,26 @@ function CustomHtml5Player({
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </button>
+
+            {/* Live Indicator / Go Live Button */}
+            {isLive && (
+              isAtLiveEdge ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 text-white text-[11px] font-bold shadow-xs select-none">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  <span>LIVE</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGoLive}
+                  title="Jump to live edge"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold animate-pulse shadow-md transition active:scale-95 cursor-pointer ring-1 ring-white/40"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
+                  <span>🔴 Go Live</span>
+                </button>
+              )
+            )}
 
             {/* Share / Link Icon */}
             <button
@@ -2082,6 +2214,38 @@ export function VideoPlayer({
 
   const embedInfo = getEmbedableSource(src);
 
+  // Direct Stream Extraction state (0.00% YouTube UI via native HTML5 video / HLS)
+  const [resolvedStream, setResolvedStream] = useState<ResolvedStream | null>(null);
+  const [streamResolveStatus, setStreamResolveStatus] = useState<"idle" | "resolving" | "resolved" | "fallback">("idle");
+  const [fallbackTime, setFallbackTime] = useState<number>(0);
+
+  useEffect(() => {
+    if (embedInfo?.type !== "youtube" || !embedInfo.videoId) {
+      setStreamResolveStatus("idle");
+      setResolvedStream(null);
+      return;
+    }
+
+    let isCancelled = false;
+    setStreamResolveStatus("resolving");
+
+    resolveVideoStream(embedInfo.videoId, 2800)
+      .then((stream) => {
+        if (isCancelled) return;
+        setResolvedStream(stream);
+        setStreamResolveStatus("resolved");
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        console.warn("[VideoPlayer] Direct stream resolution fallback to YouTube player:", err?.message || err);
+        setStreamResolveStatus("fallback");
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [embedInfo?.videoId]);
+
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
@@ -2114,19 +2278,50 @@ export function VideoPlayer({
             className="w-full h-full border-0"
           />
         ) : embedInfo.type === "youtube" && embedInfo.videoId ? (
-          <CustomYouTubePlayer
-            key={embedInfo.videoId}
-            videoId={embedInfo.videoId}
-            title={title}
-            subtitle={subtitle}
-            canShowChat={canShowChat}
-            chatOpen={chatVisible}
-            onChatToggle={handleChatToggle}
-            isLive={isLive}
-            fullscreenTargetRef={effectiveFullscreenRef}
-            hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
-            onClose={onClose}
-          />
+          streamResolveStatus === "resolved" && resolvedStream ? (
+            <CustomHtml5Player
+              key={`stream-${resolvedStream.streamUrl}`}
+              src={resolvedStream.streamUrl}
+              streamType={resolvedStream.type}
+              poster={poster}
+              title={title || resolvedStream.title}
+              subtitle={subtitle}
+              canShowChat={canShowChat}
+              chatOpen={chatVisible}
+              onChatToggle={handleChatToggle}
+              isLive={isLive}
+              initialTime={fallbackTime}
+              onTimeProgress={(t) => setFallbackTime(t)}
+              onError={(err) => {
+                console.warn("[VideoPlayer] Direct stream playback failed mid-stream, falling back to YouTube:", err);
+                setStreamResolveStatus("fallback");
+              }}
+              fullscreenTargetRef={effectiveFullscreenRef}
+              hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
+              onClose={onClose}
+            />
+          ) : streamResolveStatus === "resolving" ? (
+            <div className="relative flex h-full w-full flex-col items-center justify-center bg-black p-6 text-center text-white select-none">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-red-500 border-t-transparent mb-3" />
+              <p className="text-xs font-semibold text-white/90">Starting clean video stream…</p>
+            </div>
+          ) : (
+            <CustomYouTubePlayer
+              key={embedInfo.videoId}
+              videoId={embedInfo.videoId}
+              title={title}
+              subtitle={subtitle}
+              canShowChat={canShowChat}
+              chatOpen={chatVisible}
+              onChatToggle={handleChatToggle}
+              isLive={isLive}
+              initialTime={fallbackTime}
+              onTimeProgress={(t) => setFallbackTime(t)}
+              fullscreenTargetRef={effectiveFullscreenRef}
+              hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
+              onClose={onClose}
+            />
+          )
         ) : embedInfo.type === "youtube" ? (
           <iframe
             key={embedInfo.embedUrl}
