@@ -134,6 +134,9 @@ const batchPortalQuery = (slug: string) =>
   });
 
 export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    liveClassId: typeof search.liveClassId === "string" ? search.liveClassId : undefined,
+  }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(batchPortalQuery(params.slug)),
   component: BatchPortal,
   errorComponent: ({ error, reset }: any) => {
@@ -418,6 +421,18 @@ function BatchPortal() {
     setDocUrl(url);
     setDocTitle(title);
   };
+
+  // If student was redirected from Dashboard with ?liveClassId=..., automatically launch theater player
+  const search = Route.useSearch();
+  useEffect(() => {
+    const targetId = search?.liveClassId || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("liveClassId") : null);
+    if (targetId && liveClasses && liveClasses.length > 0) {
+      const target = liveClasses.find((lc: any) => lc.id === targetId);
+      if (target) {
+        playVideo(target);
+      }
+    }
+  }, [liveClasses, search?.liveClassId]);
 
   // ----------------------------------------------------
   // RENDER: LEVEL 1 (PW Purple Banner + Tabs + Subjects)

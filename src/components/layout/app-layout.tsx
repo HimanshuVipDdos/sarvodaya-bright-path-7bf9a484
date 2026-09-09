@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   BookOpen, 
   Library, 
@@ -22,10 +22,11 @@ import {
   Target,
   User,
   LogOut,
+  Radio,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SITE } from "@/lib/site";
-import { cn } from "@/lib/utils";
+import { cn, isClassLiveNow } from "@/lib/utils";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -63,6 +64,52 @@ export function AppLayout({ children }: { children: ReactNode }) {
     },
     staleTime: 1000 * 60 * 5,
   });
+
+  // Check if student has any active live classes in their enrolled batches
+  const { data: hasActiveLiveClass = false } = useQuery({
+    queryKey: ["auth", "has-active-live-class"],
+    queryFn: async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id;
+        if (!userId) return false;
+
+        const [enrollmentsRes, liveRes] = await Promise.all([
+          supabase.from("enrollments").select("batch_id").eq("user_id", userId),
+          supabase.from("live_classes").select("id, batch_id, is_live, status, scheduled_at, end_at, duration_minutes, recorded_lecture_id"),
+        ]);
+
+        const enrolledSet = new Set((enrollmentsRes.data ?? []).map((e) => e.batch_id));
+        if (enrolledSet.size === 0) return false;
+
+        const nowMs = Date.now();
+        return (liveRes.data ?? []).some(
+          (lc) => lc.batch_id && enrolledSet.has(lc.batch_id) && isClassLiveNow(lc, nowMs)
+        );
+      } catch {
+        return false;
+      }
+    },
+    refetchInterval: 10000,
+  });
+
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const channel = supabase
+      .channel("layout-live-class-watcher")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_classes" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["auth", "has-active-live-class"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Fetch student's real name
   const { data: studentName = "" } = useQuery({
@@ -204,8 +251,46 @@ export function AppLayout({ children }: { children: ReactNode }) {
               Learn Online
             </div>
             <nav className="space-y-0.5">
-              <NavItem to="/dashboard" icon={BookOpen} label="Study" active={pathname === "/dashboard"} onClick={() => setSidebarOpen(false)} />
-              <NavItem to="/my-batches" icon={Layers} label="My Batches" active={pathname.startsWith("/my-batches") || pathname.startsWith("/my-batch")} onClick={() => setSidebarOpen(false)} />
+              <NavItem
+                to="/dashboard"
+                icon={BookOpen}
+                label="Study"
+                active={pathname === "/dashboard"}
+                onClick={() => setSidebarOpen(false)}
+                badge={
+                  hasActiveLiveClass ? (
+                    <span className="relative overflow-hidden inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/40 shadow-xs">
+                      <span className="live-shimmer" />
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                      </span>
+                      <Radio className="h-2.5 w-2.5" />
+                      <span>LIVE</span>
+                    </span>
+                  ) : null
+                }
+              />
+              <NavItem
+                to="/my-batches"
+                icon={Layers}
+                label="My Batches"
+                active={pathname.startsWith("/my-batches") || pathname.startsWith("/my-batch")}
+                onClick={() => setSidebarOpen(false)}
+                badge={
+                  hasActiveLiveClass ? (
+                    <span className="relative overflow-hidden inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/40 shadow-xs">
+                      <span className="live-shimmer" />
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                      </span>
+                      <Radio className="h-2.5 w-2.5" />
+                      <span>LIVE</span>
+                    </span>
+                  ) : null
+                }
+              />
               <NavItem to="/free-study-material" icon={Library} label="Library" active={pathname.startsWith("/free-study-material")} onClick={() => setSidebarOpen(false)} />
               <NavItem to="/current-affairs" icon={Bell} label="Current Affairs" active={pathname.startsWith("/current-affairs")} onClick={() => setSidebarOpen(false)} />
             </nav>
@@ -411,7 +496,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function NavItem({ to, icon: Icon, label, active, onClick }: { to: string, icon: any, label: string, active: boolean, onClick: () => void }) {
+function NavItem({ to, icon: Icon, label, active, onClick, badge }: { to: string, icon: any, label: string, active: boolean, onClick: () => void, badge?: ReactNode }) {
   return (
     <Link
       to={to}
@@ -424,12 +509,15 @@ function NavItem({ to, icon: Icon, label, active, onClick }: { to: string, icon:
       )}
     >
       <Icon className={cn("h-[20px] w-[20px] shrink-0 transition-colors", active ? "text-[#7C3AED]" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={active ? 2.5 : 2} />
-      {label}
-      {active && (
+      <span>{label}</span>
+      {badge ? (
+        <div className="ml-auto flex items-center">{badge}</div>
+      ) : active ? (
         <div className="ml-auto flex items-center">
            <div className="w-1.5 h-1.5 rounded-full bg-[#7C3AED]" />
         </div>
-      )}
+      ) : null}
     </Link>
   );
 }
+
