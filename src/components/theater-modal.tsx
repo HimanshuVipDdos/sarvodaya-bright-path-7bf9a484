@@ -1,8 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import {
   X,
-  Maximize,
-  Minimize,
   GraduationCap,
   MessageCircle,
 } from "lucide-react";
@@ -69,24 +67,10 @@ export function TheaterModal({
 }: Props) {
   const isLive = Boolean(liveClassId || currentLecture?.isLive);
   const [chatOpen, setChatOpen] = useState(isLive);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Auto request full screen on open
   useEffect(() => {
     if (!open) return;
-
-    // Try entering native full screen
-    try {
-      const doc = document as any;
-      const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
-      if (modalRef.current && !fsEl) {
-        const el = modalRef.current as any;
-        (el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen)?.call(el)?.catch?.(() => {});
-      }
-    } catch {
-      // ignore
-    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -95,21 +79,11 @@ export function TheaterModal({
     };
     document.addEventListener("keydown", onKey);
 
-    const onFullscreenChange = () => {
-      const doc = document as any;
-      const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
-      setIsFullscreen(Boolean(fsEl));
-    };
-
-    const fsEvents = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"];
-    fsEvents.forEach((evt) => document.addEventListener(evt, onFullscreenChange));
-
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", onKey);
-      fsEvents.forEach((evt) => document.removeEventListener(evt, onFullscreenChange));
       document.body.style.overflow = prevOverflow;
     };
   }, [open]);
@@ -121,17 +95,6 @@ export function TheaterModal({
   }, [open, isLive]);
 
   if (!open) return null;
-
-  const toggleFullscreen = () => {
-    const doc = document as any;
-    const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
-    if (!fsEl) {
-      const el = modalRef.current as any;
-      (el?.requestFullscreen || el?.webkitRequestFullscreen || el?.mozRequestFullScreen || el?.msRequestFullscreen)?.call(el)?.catch?.(() => {});
-    } else {
-      (doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen)?.call(doc)?.catch?.(() => {});
-    }
-  };
 
   const handleClose = () => {
     const doc = document as any;
@@ -191,16 +154,6 @@ export function TheaterModal({
           )}
 
           <button
-            onClick={toggleFullscreen}
-            aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            title={isFullscreen ? "Exit Fullscreen" : "Full Screen"}
-            className="flex items-center gap-1 rounded-full bg-white/10 text-zinc-200 border border-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/20 transition active:scale-95 shadow-xs"
-          >
-            {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{isFullscreen ? "Exit Full" : "Full Screen"}</span>
-          </button>
-
-          <button
             onClick={handleClose}
             aria-label="Close player"
             title="Close player (Esc)"
@@ -223,7 +176,6 @@ export function TheaterModal({
             isLive={isLive}
             chatVisible={chatOpen}
             onChatToggle={() => setChatOpen(!chatOpen)}
-            fullscreenTargetRef={modalRef}
             className="h-full w-full"
           />
         </div>

@@ -604,11 +604,13 @@ function CustomYouTubePlayer({
       {/* Transparent surface over the iframe to catch clicks & toggle play/pause */}
       <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={togglePlay} />
 
-      {/* Permanent top edge mask: completely covers YouTube's native title, channel avatar & share buttons */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-black via-black/85 to-transparent" />
+      {/* Permanent top edge blackout: 100% blocks YouTube's title, avatar, Watch Later & Share icons */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-11 bg-black" />
+      <div className="pointer-events-none absolute inset-x-0 top-11 z-10 h-6 bg-gradient-to-b from-black to-transparent" />
 
-      {/* Permanent bottom-right watermark shield: conceals YouTube watermark */}
-      <div className="pointer-events-none absolute bottom-0 right-0 z-10 w-36 h-16 bg-gradient-to-tl from-black/85 to-transparent" />
+      {/* Permanent bottom-right watermark blackout */}
+      <div className="pointer-events-none absolute bottom-0 right-0 z-10 w-40 h-11 bg-black" />
+      <div className="pointer-events-none absolute bottom-11 right-0 z-10 w-40 h-6 bg-gradient-to-t from-black to-transparent" />
 
       {/* Smart Pause Mask: Completely blocks YouTube's "More videos" carousel & thumbnail cards on pause */}
       {!playing && ready && !isEnded && (
