@@ -209,6 +209,7 @@ export function TheaterModal({
               <VideoPlayer
                 src={videoSrc}
                 title={title}
+                subtitle={meta || currentLecture?.subject || currentLecture?.chapter || "Sarvodaya Classes"}
                 poster={poster ?? undefined}
                 isLive={isLive}
                 chatVisible={chatOpen}

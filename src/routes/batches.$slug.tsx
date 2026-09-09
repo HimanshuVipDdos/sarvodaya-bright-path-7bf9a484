@@ -133,7 +133,12 @@ function BatchDetail() {
             <div className="mt-8">
               <h2 className="text-lg font-semibold">Demo Lecture</h2>
               <div className="mt-3">
-                <VideoPlayer src={b.demo_video_url} poster={b.thumbnail_url ?? undefined} title={`${b.title} — Demo`} />
+                <VideoPlayer
+                  src={b.demo_video_url}
+                  poster={b.thumbnail_url ?? undefined}
+                  title={`${b.title} — Demo`}
+                  subtitle="Free Preview Class"
+                />
               </div>
             </div>
           )}
