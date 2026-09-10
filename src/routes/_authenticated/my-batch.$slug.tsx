@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Component, type ReactNode } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import {
@@ -157,11 +157,8 @@ function BatchPortalError({ error, reset }: { error: any; reset: () => void }) {
     !isNotFound &&
     Boolean(
       error?.message?.includes("dynamically imported module") ||
-        error?.message?.includes("Failed to fetch") ||
-        error?.message?.includes("Loading chunk") ||
-        error?.message?.includes("is not defined") ||
-        error?.message?.includes("before initialization") ||
-        error?.message?.includes("Cannot access")
+        error?.message?.includes("Failed to fetch dynamically imported module") ||
+        error?.message?.includes("Loading chunk")
     );
 
   // Automatically silent reload once if fresh deployment occurred
@@ -252,6 +249,29 @@ const pastelColors = [
   "bg-rose-50 text-rose-600 border-rose-200",
   "bg-cyan-50 text-cyan-600 border-cyan-200",
 ];
+
+// Safe boundary to prevent video player exceptions from crashing entire batch page
+class SafeTheaterErrorBoundary extends Component<
+  { onClose: () => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { onClose: () => void; children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("[SafeTheaterErrorBoundary] Player error caught:", error);
+    toast.error("Video player encountered an issue. Please try again.");
+    this.props.onClose();
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 
 function BatchPortal() {
   const { slug } = Route.useParams();
@@ -1630,26 +1650,28 @@ function BatchPortal() {
 
       {/* Theater Modal with Player and Live Chat overlay */}
       {theaterOpen && playingVideo && (
-        <TheaterModal
-          open={theaterOpen}
-          onClose={() => setTheaterOpen(false)}
-          videoSrc={playingVideo.src}
-          poster={playingVideo.poster}
-          title={playingVideo.title}
-          meta={playingVideo.isLive ? "Live Class" : "Recorded Lecture"}
-          liveClassId={playingVideo.isLive ? playingVideo.id : undefined}
-          currentLecture={playingVideo}
-          activeLectureId={playingVideo.id}
-          isCompleted={completedIds.has(playingVideo.id)}
-          onToggleComplete={() => toggleComplete(playingVideo.id, playingVideo.title)}
-          lectures={allBatchLectures}
-          notes={allNotes}
-          dpp={allDpps}
-          onSelectLecture={(id) => {
-            const found = allBatchLectures.find((l: any) => l.id === id);
-            if (found) playVideo(found);
-          }}
-        />
+        <SafeTheaterErrorBoundary onClose={() => setTheaterOpen(false)}>
+          <TheaterModal
+            open={theaterOpen}
+            onClose={() => setTheaterOpen(false)}
+            videoSrc={playingVideo.src}
+            poster={playingVideo.poster}
+            title={playingVideo.title}
+            meta={playingVideo.isLive ? "Live Class" : "Recorded Lecture"}
+            liveClassId={playingVideo.isLive ? playingVideo.id : undefined}
+            currentLecture={playingVideo}
+            activeLectureId={playingVideo.id}
+            isCompleted={completedIds.has(playingVideo.id)}
+            onToggleComplete={() => toggleComplete(playingVideo.id, playingVideo.title)}
+            lectures={allBatchLectures}
+            notes={allNotes}
+            dpp={allDpps}
+            onSelectLecture={(id) => {
+              const found = allBatchLectures.find((l: any) => l.id === id);
+              if (found) playVideo(found);
+            }}
+          />
+        </SafeTheaterErrorBoundary>
       )}
 
       {/* Document PDF Viewer */}

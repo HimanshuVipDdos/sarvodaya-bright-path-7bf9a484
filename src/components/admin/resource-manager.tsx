@@ -25,6 +25,7 @@ import {
 import { BatchFolderManager, getStoredPremadeFolders } from "@/components/admin/batch-folder-manager";
 import { cn, getStorageUrl } from "@/lib/utils";
 import { normalizePdfUrl, isGoogleDriveLink, toEmbeddableDocumentUrl } from "@/lib/document-utils";
+import { adminSaveResource, adminDeleteResource } from "@/lib/admin-resource.functions";
 
 export type Field = {
   name: string;
@@ -186,14 +187,31 @@ export function ResourceManager<T extends Record<string, unknown>>({
       }
       if (presetFilter) data[presetFilter.column] = presetFilter.value;
 
-      const anyClient = supabase as unknown as { from: (t: string) => any };
-      if (editing) {
-        const id = (editing as Record<string, unknown>)[rowKey];
-        const { error } = await anyClient.from(table).update(data).eq(rowKey, id);
-        if (error) throw error;
-      } else {
-        const { error } = await anyClient.from(table).insert(data);
-        if (error) throw error;
+      const editId = editing ? String((editing as Record<string, unknown>)[rowKey] ?? "") : undefined;
+
+      // Primary: execute via server function (service_role bypasses RLS safely)
+      try {
+        await adminSaveResource({
+          data: {
+            table: table as any,
+            data,
+            id: editId || null,
+            rowKey,
+          },
+        });
+        return;
+      } catch (srvErr: any) {
+        console.warn("[ResourceManager] server function error, attempting direct client fallback:", srvErr?.message || srvErr);
+        // Fallback: try client-side Supabase if server function could not be called
+        const anyClient = supabase as unknown as { from: (t: string) => any };
+        if (editing) {
+          const id = (editing as Record<string, unknown>)[rowKey];
+          const { error } = await anyClient.from(table).update(data).eq(rowKey, id);
+          if (error) throw new Error(error.message || srvErr?.message);
+        } else {
+          const { error } = await anyClient.from(table).insert(data);
+          if (error) throw new Error(error.message || srvErr?.message);
+        }
       }
     },
     onSuccess: () => {
@@ -206,10 +224,22 @@ export function ResourceManager<T extends Record<string, unknown>>({
 
   const deleteMutation = useMutation({
     mutationFn: async (row: T) => {
-      const anyClient = supabase as unknown as { from: (t: string) => any };
-      const id = (row as Record<string, unknown>)[rowKey];
-      const { error } = await anyClient.from(table).delete().eq(rowKey, id);
-      if (error) throw error;
+      const id = String((row as Record<string, unknown>)[rowKey] ?? "");
+      try {
+        await adminDeleteResource({
+          data: {
+            table: table as any,
+            id,
+            rowKey,
+          },
+        });
+        return;
+      } catch (srvErr: any) {
+        console.warn("[ResourceManager] server delete error, attempting direct client fallback:", srvErr?.message || srvErr);
+        const anyClient = supabase as unknown as { from: (t: string) => any };
+        const { error } = await anyClient.from(table).delete().eq(rowKey, id);
+        if (error) throw new Error(error.message || srvErr?.message);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey });

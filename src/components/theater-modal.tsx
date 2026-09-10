@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   X,
   GraduationCap,
@@ -118,6 +118,26 @@ export function TheaterModal({
 
   const totalMaterials = relevantNotes.length + relevantDpp.length;
 
+  const handleClose = useCallback(() => {
+    try {
+      const doc = document as any;
+      const fsEl =
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement;
+      if (fsEl) {
+        (
+          doc.exitFullscreen ||
+          doc.webkitExitFullscreen ||
+          doc.mozCancelFullScreen ||
+          doc.msExitFullscreen
+        )?.call(doc)?.catch?.(() => {});
+      }
+    } catch {}
+    onClose();
+  }, [onClose]);
+
   // Auto request full screen on open in 1 click (like 2nd image)
   useEffect(() => {
     if (!open) return;
@@ -166,7 +186,7 @@ export function TheaterModal({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, viewingDoc, shortcutsOpen]);
+  }, [open, viewingDoc, shortcutsOpen, handleClose]);
 
   useEffect(() => {
     if (open) {
@@ -180,15 +200,6 @@ export function TheaterModal({
   }, [open, isLive]);
 
   if (!open) return null;
-
-  const handleClose = () => {
-    const doc = document as any;
-    const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
-    if (fsEl) {
-      (doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen)?.call(doc)?.catch?.(() => {});
-    }
-    onClose();
-  };
 
   const sidePanelNode = (
     <div className="w-full h-full flex flex-col bg-[#0f0f0f]">

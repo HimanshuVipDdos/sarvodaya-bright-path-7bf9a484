@@ -2486,8 +2486,8 @@ export function VideoPlayer({
 
   const embedInfo = getEmbedableSource(src);
 
-  // Option A: Direct Stream Proxy State (/api/stream?v=...)
-  const [streamMode, setStreamMode] = useState<"direct" | "youtube">("direct");
+  // Default to clean YouTube player for 100% reliability and 0-delay playback
+  const [streamMode, setStreamMode] = useState<"direct" | "youtube">("youtube");
   const [fallbackTime, setFallbackTime] = useState<number>(0);
 
   const directStreamUrl = embedInfo?.type === "youtube" && embedInfo.videoId 
