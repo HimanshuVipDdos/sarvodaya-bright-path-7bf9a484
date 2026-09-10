@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Download, FileText } from "lucide-react";
+import { Eye, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
+import { DocumentViewer } from "@/components/document-viewer";
 
 const query = queryOptions({
   queryKey: ["materials", "free"],
@@ -45,9 +46,15 @@ function Page() {
               <h3 className="mt-2 font-semibold">{m.title}</h3>
               <div className="text-xs text-muted-foreground">{m.subject} {m.chapter ? `· ${m.chapter}` : ""}</div>
               {m.file_url && (
-                <a href={m.file_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
-                  <Download className="h-4 w-4" /> Download
-                </a>
+                <DocumentViewer
+                  url={m.file_url}
+                  title={m.title}
+                  trigger={
+                    <button type="button" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline">
+                      <Eye className="h-4 w-4" /> View in App
+                    </button>
+                  }
+                />
               )}
             </motion.div>
           ))}

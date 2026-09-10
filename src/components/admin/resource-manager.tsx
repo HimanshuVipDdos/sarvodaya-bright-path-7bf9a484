@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, Search, Loader2, Save, X, FolderPlus, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, Save, X, FolderPlus, FolderOpen, FileText, Sparkles, Eye, Check } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
@@ -24,11 +24,12 @@ import {
 } from "@/components/ui/select";
 import { BatchFolderManager, getStoredPremadeFolders } from "@/components/admin/batch-folder-manager";
 import { cn, getStorageUrl } from "@/lib/utils";
+import { normalizePdfUrl, isGoogleDriveLink, toEmbeddableDocumentUrl } from "@/lib/document-utils";
 
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image" | "file";
+  type: "text" | "textarea" | "number" | "boolean" | "date" | "array" | "select" | "url" | "batch" | "image" | "file" | "document";
   options?: { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
@@ -107,22 +108,37 @@ export function ResourceManager<T extends Record<string, unknown>>({
     },
   });
 
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>("ALL");
+
   const { data: batchOptions = [] } = useQuery({
     queryKey: ["admin", "batch-options"],
     queryFn: async () => {
       const { data } = await supabase.from("batches").select("id,title").order("title");
       return (data ?? []).map((b) => ({ value: b.id, label: b.title }));
     },
-    enabled: fields.some((f) => f.type === "batch"),
+    enabled: fields.some((f) => f.type === "batch" || f.name === "batch_id"),
   });
 
+  const batchMap = useMemo(() => {
+    return new Map(batchOptions.map((b) => [b.value, b.label]));
+  }, [batchOptions]);
+
+  const hasBatchField = useMemo(
+    () => fields.some((f) => f.type === "batch" || f.name === "batch_id"),
+    [fields]
+  );
+
   const filtered = useMemo(() => {
+    let list = rows;
+    if (selectedBatchFilter !== "ALL") {
+      list = list.filter((r) => (r as Record<string, unknown>).batch_id === selectedBatchFilter);
+    }
     const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((r) =>
+    if (!term) return list;
+    return list.filter((r) =>
       searchKeys.some((k) => String((r as Record<string, unknown>)[k] ?? "").toLowerCase().includes(term))
     );
-  }, [rows, search, searchKeys]);
+  }, [rows, search, searchKeys, selectedBatchFilter]);
 
   function openCreate() {
     setEditing(null);
@@ -163,6 +179,9 @@ export function ResourceManager<T extends Record<string, unknown>>({
         else if (f.type === "number") data[f.name] = v === "" || v == null ? null : Number(v);
         else if (f.type === "date") data[f.name] = v ? v : null;
         else if (f.type === "boolean") data[f.name] = Boolean(v);
+        else if ((f.type === "document" || f.type === "file" || f.name === "file_url") && typeof v === "string" && v.trim()) {
+          data[f.name] = normalizePdfUrl(v.trim());
+        }
         else data[f.name] = v === "" ? null : v;
       }
       if (presetFilter) data[presetFilter.column] = presetFilter.value;
@@ -221,8 +240,8 @@ export function ResourceManager<T extends Record<string, unknown>>({
       </div>
 
       <div className="glass-strong rounded-3xl p-4 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search…"
@@ -231,6 +250,24 @@ export function ResourceManager<T extends Record<string, unknown>>({
               className="pl-9"
             />
           </div>
+          {hasBatchField && batchOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden sm:inline font-medium">Batch:</span>
+              <Select value={selectedBatchFilter} onValueChange={setSelectedBatchFilter}>
+                <SelectTrigger className="w-[180px] sm:w-[220px] rounded-xl text-xs font-semibold">
+                  <SelectValue placeholder="All Batches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Batches ({rows.length})</SelectItem>
+                  {batchOptions.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="text-xs text-muted-foreground">{filtered.length} item{filtered.length === 1 ? "" : "s"}</div>
         </div>
 
@@ -263,11 +300,32 @@ export function ResourceManager<T extends Record<string, unknown>>({
                   transition={{ duration: 0.2, delay: Math.min(i * 0.01, 0.1) }}
                   className="border-b border-border/40 last:border-0 hover:bg-muted/30"
                 >
-                  {columns.map((c) => (
-                    <td key={c.key} className={"py-3 pr-3 align-top " + (c.className ?? "")}>
-                      {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "—")}
-                    </td>
-                  ))}
+                  {columns.map((c) => {
+                    let content: ReactNode = null;
+                    if (c.render) {
+                      content = c.render(row);
+                    } else if (c.key === "batch_id") {
+                      const bId = (row as Record<string, unknown>).batch_id as string | undefined;
+                      if (bId && batchMap.has(bId)) {
+                        content = (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800">
+                            {batchMap.get(bId)}
+                          </span>
+                        );
+                      } else if (bId) {
+                        content = <span className="text-xs font-medium text-foreground truncate max-w-[140px] block">{bId}</span>;
+                      } else {
+                        content = <span className="text-muted-foreground text-xs italic">All / None</span>;
+                      }
+                    } else {
+                      content = String((row as Record<string, unknown>)[c.key] ?? "—");
+                    }
+                    return (
+                      <td key={c.key} className={"py-3 pr-3 align-top " + (c.className ?? "")}>
+                        {content}
+                      </td>
+                    );
+                  })}
                   <td className="py-3 pl-3 text-right align-top">
                     <div className="inline-flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => openEdit(row)} aria-label="Edit">
@@ -412,11 +470,56 @@ function FieldsForm({
     enabled: fields.some((f) => f.name === "faculty"),
   });
 
+  const hasHierarchy = fields.some((f) => f.type === "batch" || f.name === "batch_id") &&
+    (fields.some((f) => f.name === "subject") || fields.some((f) => f.name === "chapter"));
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {hasHierarchy && (
+        <div className="sm:col-span-2 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-blue-50/90 p-3.5 dark:border-indigo-900/50 dark:from-indigo-950/40 dark:to-purple-950/30">
+          <div className="flex items-center justify-between gap-2 text-xs font-bold text-indigo-700 dark:text-indigo-300 mb-2">
+            <div className="flex items-center gap-1.5">
+              <FolderOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Material Placement & Organization</span>
+            </div>
+            <span className="text-[11px] font-medium text-indigo-600/80 dark:text-indigo-400/80 hidden sm:inline">
+              Student Portal Location
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div className="rounded-xl bg-white/95 p-2.5 shadow-2xs border border-indigo-100/80 dark:bg-slate-900 dark:border-slate-800">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                1. Target Batch
+              </span>
+              <span className="font-bold text-foreground truncate block">
+                {batchOptions.find((b) => b.value === form.batch_id)?.label || (form.batch_id ? "Linked Batch" : "⚠️ None (Select Batch Below)")}
+              </span>
+            </div>
+            <div className="rounded-xl bg-white/95 p-2.5 shadow-2xs border border-indigo-100/80 dark:bg-slate-900 dark:border-slate-800">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                2. Subject Folder
+              </span>
+              <span className="font-bold text-foreground truncate block">
+                {(form.subject as string)?.trim() || "⚠️ Unassigned (General)"}
+              </span>
+            </div>
+            <div className="rounded-xl bg-white/95 p-2.5 shadow-2xs border border-indigo-100/80 dark:bg-slate-900 dark:border-slate-800">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                3. Chapter / Topic
+              </span>
+              <span className="font-bold text-foreground truncate block">
+                {(form.chapter as string)?.trim() || "⚠️ Overview & Lectures"}
+              </span>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            💡 Students will find this material organized under this exact Batch, Subject folder, and Chapter in their portal.
+          </p>
+        </div>
+      )}
       {fields.map((f) => {
         const v = form[f.name];
-        const full = ["textarea", "array"].includes(f.type) || f.type === "text" && f.name === "title";
+        const full = ["textarea", "array"].includes(f.type) || f.type === "document" || (f.type === "text" && f.name === "title");
         return (
           <div key={f.name} className={full ? "sm:col-span-2" : ""}>
             <Label className="text-xs">{f.label}{f.required && " *"}</Label>
@@ -576,6 +679,14 @@ function FieldsForm({
               <FileUploadField
                 value={(v as string) ?? ""}
                 bucket={f.bucket ?? "materials"}
+                onChange={(url) => setForm({ ...form, [f.name]: url })}
+              />
+            )}
+            {f.type === "document" && (
+              <DocumentUploadField
+                value={(v as string) ?? ""}
+                bucket={f.bucket ?? "materials"}
+                placeholder={f.placeholder}
                 onChange={(url) => setForm({ ...form, [f.name]: url })}
               />
             )}
@@ -915,3 +1026,184 @@ function FileUploadField({
     </div>
   );
 }
+
+function DocumentUploadField({
+  value,
+  placeholder,
+  bucket = "materials",
+  onChange,
+}: {
+  value: string;
+  placeholder?: string;
+  bucket?: string;
+  onChange: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const isDrive = isGoogleDriveLink(value);
+  const embedUrl = value ? toEmbeddableDocumentUrl(value) : "";
+
+  function handleInputChange(rawText: string) {
+    const normalized = normalizePdfUrl(rawText);
+    onChange(normalized);
+  }
+
+  async function handleFileSelect(file: File) {
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error("File size must be under 30 MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "pdf";
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error } = await supabase.storage.from(bucket).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (error) {
+        // Try fallback bucket candidates if "materials" bucket is not configured
+        const fallbackBuckets = ["public", "documents", "pdfs"];
+        let successUrl: string | null = null;
+        for (const fb of fallbackBuckets) {
+          try {
+            const { error: fbErr } = await supabase.storage.from(fb).upload(path, file);
+            if (!fbErr) {
+              const { data: fbData } = supabase.storage.from(fb).getPublicUrl(path);
+              if (fbData?.publicUrl) {
+                successUrl = fbData.publicUrl;
+                break;
+              }
+            }
+          } catch {
+            // continue
+          }
+        }
+
+        if (successUrl) {
+          onChange(successUrl);
+          toast.success("Document uploaded successfully");
+          return;
+        }
+        throw error;
+      }
+
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      if (data?.publicUrl) {
+        onChange(data.publicUrl);
+        toast.success("Document uploaded successfully");
+      } else {
+        throw new Error("Failed to get public URL");
+      }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Upload failed. You can also paste a Google Drive link!"
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Input row */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <Input
+          value={value}
+          placeholder={placeholder || "Paste Google Drive share link (e.g. drive.google.com/file/d/...)"}
+          onChange={(e) => handleInputChange(e.target.value)}
+          className="flex-1 text-xs sm:text-sm font-mono"
+        />
+        <div className="flex items-center gap-2 shrink-0">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border/70 bg-background px-3 py-2 text-xs font-medium hover:bg-muted transition shrink-0">
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {uploading ? "Uploading…" : "Upload PDF"}
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.ppt,.pptx"
+              className="sr-only"
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFileSelect(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {value && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => onChange("")}
+              className="h-9 px-2 rounded-xl text-muted-foreground hover:text-destructive"
+              title="Clear link"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Google Drive Status & Help Badge */}
+      {isDrive && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs dark:border-emerald-900/60 dark:bg-emerald-950/30">
+          <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
+            <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Google Drive PDF Link Detected & Converted to In-App Viewer Format</span>
+          </div>
+          <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+            🔒 <strong>Important:</strong> In Google Drive, make sure link sharing is set to <strong>"Anyone with the link can view"</strong> so all enrolled students can view the PDF smoothly inside the app.
+          </p>
+        </div>
+      )}
+
+      {/* Action to preview */}
+      {value && (
+        <div className="flex items-center justify-between pt-0.5">
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span>{showPreview ? "Hide In-App Preview" : "Preview PDF inside web app"}</span>
+          </button>
+          <span className="text-[11px] text-muted-foreground truncate max-w-[220px]">
+            {value.split("/").pop()}
+          </span>
+        </div>
+      )}
+
+      {/* Embedded Live Preview Box */}
+      {value && showPreview && embedUrl && (
+        <div className="relative rounded-2xl border border-border/80 bg-slate-900 overflow-hidden shadow-sm animate-in fade-in duration-150">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800 text-slate-200 text-[11px] font-semibold border-b border-slate-700">
+            <span className="flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-indigo-400" />
+              In-App PDF Preview
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPreview(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <iframe
+            src={embedUrl}
+            title="In-App Document Preview"
+            className="w-full h-64 border-0 bg-white"
+            allow="autoplay"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+

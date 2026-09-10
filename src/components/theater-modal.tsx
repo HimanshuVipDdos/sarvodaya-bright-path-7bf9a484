@@ -6,8 +6,6 @@ import {
   CheckCircle2,
   FileText,
   Keyboard,
-  ExternalLink,
-  Download,
   Eye,
   BookOpen,
   Sparkles,
@@ -15,6 +13,7 @@ import {
 import { VideoPlayer } from "@/components/video-player";
 import { LiveChat } from "@/components/live-chat";
 import { cn } from "@/lib/utils";
+import { toEmbeddableDocumentUrl } from "@/lib/document-utils";
 
 export type TheaterLecture = {
   id: string;
@@ -315,24 +314,14 @@ export function TheaterModal({
                           </span>
                         </div>
                         {item.file_url && (
-                          <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                          <div className="pt-1 border-t border-white/5">
                             <button
                               onClick={() => setViewingDoc({ url: item.file_url!, title: item.title })}
-                              className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs"
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs"
                             >
-                              <Eye className="h-3 w-3" />
-                              <span>Preview</span>
+                              <Eye className="h-3.5 w-3.5" />
+                              <span>View Notes in App</span>
                             </button>
-                            <a
-                              href={item.file_url}
-                              download
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white text-xs font-semibold transition"
-                              title="Download PDF"
-                            >
-                              <Download className="h-3 w-3" />
-                            </a>
                           </div>
                         )}
                       </div>
@@ -360,24 +349,14 @@ export function TheaterModal({
                           </span>
                         </div>
                         {item.file_url && (
-                          <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                          <div className="pt-1 border-t border-white/5">
                             <button
                               onClick={() => setViewingDoc({ url: item.file_url!, title: item.title })}
-                              className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition shadow-xs"
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition shadow-xs"
                             >
-                              <Eye className="h-3 w-3" />
-                              <span>Practice</span>
+                              <Eye className="h-3.5 w-3.5" />
+                              <span>Solve DPP in App</span>
                             </button>
-                            <a
-                              href={item.file_url}
-                              download
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white text-xs font-semibold transition"
-                              title="Download DPP"
-                            >
-                              <Download className="h-3 w-3" />
-                            </a>
                           </div>
                         )}
                       </div>
@@ -599,15 +578,10 @@ export function TheaterModal({
                 <span className="font-semibold text-sm truncate text-white">{viewingDoc.title}</span>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={viewingDoc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-zinc-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg border border-white/10 transition"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  <span>Open Full Tab</span>
-                </a>
+                <span className="text-[11px] text-zinc-400 hidden sm:inline-flex items-center gap-1 bg-white/5 px-2.5 py-1 rounded-md border border-white/10">
+                  <Sparkles className="h-3 w-3 text-indigo-400" />
+                  In-App Document Viewer
+                </span>
                 <button
                   onClick={() => setViewingDoc(null)}
                   className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition"
@@ -619,9 +593,10 @@ export function TheaterModal({
             </div>
             <div className="flex-1 min-h-0 bg-zinc-900">
               <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(viewingDoc.url)}&embedded=true`}
+                src={toEmbeddableDocumentUrl(viewingDoc.url)}
                 title={viewingDoc.title}
                 className="w-full h-full border-0"
+                allow="autoplay"
               />
             </div>
           </div>
