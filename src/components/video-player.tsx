@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect, useCallback, type RefObject } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type RefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
   Play,
   Pause,
-  Link2,
   Volume2,
   Volume1,
   VolumeX,
@@ -23,6 +22,7 @@ import Hls from "hls.js";
 import { useVideoFullscreen } from "@/hooks/use-video-fullscreen";
 import { cn, getStorageUrl } from "@/lib/utils";
 import { resolveVideoStream, type ResolvedStream } from "@/lib/stream-resolver";
+import { useDevToolsGuard, DynamicWatermark, DevToolsSecurityOverlay } from "./video-security";
 
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
@@ -171,12 +171,32 @@ const QUALITY_OPTIONS = [
 
 const STORAGE_KEY_QUALITY = "sarvodaya_lecture_quality";
 
+export function getFilteredYtQualityOptions(availableLevels?: string[] | null) {
+  if (!availableLevels || availableLevels.length === 0) {
+    return QUALITY_OPTIONS;
+  }
+  const filtered = QUALITY_OPTIONS.filter((opt) => {
+    if (opt.ytQuality === "auto") return true;
+    return availableLevels.includes(opt.ytQuality);
+  });
+  return filtered.length > 0 ? filtered : QUALITY_OPTIONS;
+}
+
+export function getFilteredHtml5QualityOptions(videoHeight: number) {
+  if (!videoHeight || videoHeight <= 0) return QUALITY_OPTIONS;
+  const filtered = QUALITY_OPTIONS.filter((opt) => {
+    if (opt.height === -1) return true; // Auto
+    return opt.height <= videoHeight;
+  });
+  return filtered.length > 0 ? filtered : QUALITY_OPTIONS;
+}
+
 function getStoredQuality(): string {
-  if (typeof window === "undefined") return "1080p HD";
+  if (typeof window === "undefined") return "720p HD";
   try {
-    return localStorage.getItem(STORAGE_KEY_QUALITY) || "1080p HD";
+    return localStorage.getItem(STORAGE_KEY_QUALITY) || "720p HD";
   } catch {
-    return "1080p HD";
+    return "720p HD";
   }
 }
 
@@ -305,6 +325,7 @@ function CustomYouTubePlayer({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [quality, setQuality] = useState(() => getStoredQuality());
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [availableLevels, setAvailableLevels] = useState<string[] | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
@@ -351,6 +372,48 @@ function CustomYouTubePlayer({
       );
     } catch {}
   }, []);
+
+  const updateAvailableLevels = useCallback(() => {
+    try {
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.getAvailableQualityLevels === "function") {
+        const levels = ytPlayerRef.current.getAvailableQualityLevels();
+        if (Array.isArray(levels) && levels.length > 0) {
+          setAvailableLevels((prev) => {
+            if (!prev || prev.length !== levels.length || prev.some((l, i) => l !== levels[i])) {
+              return levels;
+            }
+            return prev;
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  const activeQualityOptions = useMemo(() => {
+    return getFilteredYtQualityOptions(availableLevels);
+  }, [availableLevels]);
+
+  const maxAvailableOption = useMemo(() => {
+    return activeQualityOptions.find((o) => o.height > 0);
+  }, [activeQualityOptions]);
+
+  // Anti-piracy & DevTools guard
+  const { isDevToolsOpen, handleContextMenu } = useDevToolsGuard({
+    onDevToolsDetected: () => {
+      sendCommand("pauseVideo", []);
+      setPlaying(false);
+    },
+  });
+
+  // Automatically clamp stored quality if video does not support 1080p (e.g. max is 720p HD)
+  useEffect(() => {
+    if (maxAvailableOption && quality !== "Auto") {
+      const match = activeQualityOptions.find((o) => o.label === quality);
+      if (!match) {
+        setQuality(maxAvailableOption.label);
+      }
+    }
+  }, [activeQualityOptions, maxAvailableOption, quality]);
 
   const handleSeekFromPointer = (clientX: number) => {
     if (!seekbarRef.current) return;
@@ -454,6 +517,10 @@ function CustomYouTubePlayer({
               if (typeof state === "number") {
                 setPlaying(state === 1);
               }
+              updateAvailableLevels();
+            },
+            onPlaybackQualityChange: () => {
+              updateAvailableLevels();
             },
             onStateChange: (e: any) => {
               setPlaying(e.data === 1);
@@ -461,6 +528,7 @@ function CustomYouTubePlayer({
               else if (e.data === 0) setIsEnded(true);
               const d = e.target.getDuration?.();
               if (d) setDuration(d);
+              updateAvailableLevels();
             },
             onError: (e: any) => {
               if (e?.data === 101 || e?.data === 150) {
@@ -471,7 +539,7 @@ function CustomYouTubePlayer({
         });
       } catch {}
     }
-  }, []);
+  }, [updateAvailableLevels]);
 
   useEffect(() => {
     let unmounted = false;
@@ -511,12 +579,13 @@ function CustomYouTubePlayer({
               setDuration(d);
             }
           }
+          updateAvailableLevels();
         }
       } catch {}
     }, 250);
 
     return () => clearInterval(pollInterval);
-  }, [onTimeProgress]);
+  }, [onTimeProgress, updateAvailableLevels]);
 
   // Live class auto-sync on load: start seekbar at live edge
   useEffect(() => {
@@ -823,7 +892,7 @@ function CustomYouTubePlayer({
   return (
     <div
       ref={wrapRef}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={handleContextMenu}
       className={cn(
         "relative h-full w-full bg-black select-none overflow-hidden group",
         isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
@@ -841,6 +910,12 @@ function CustomYouTubePlayer({
         referrerPolicy="strict-origin-when-cross-origin"
         className="pointer-events-none absolute inset-0 h-full w-full border-0"
       />
+
+      {/* PhysicsWallah / Classplus Style Dynamic Forensic Watermark */}
+      <DynamicWatermark />
+
+      {/* Real-time DevTools Blackout Security Overlay */}
+      {isDevToolsOpen && <DevToolsSecurityOverlay />}
 
       {/* Transparent surface over the iframe to catch clicks & gestures */}
       <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={handleSurfaceClick} />
@@ -1081,23 +1156,6 @@ function CustomYouTubePlayer({
               )
             )}
 
-            {/* Share / Link Icon */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast.success("Class link copied to clipboard!");
-                }
-              }}
-              title="Copy class link"
-              aria-label="Copy class link"
-              className="rounded-full p-2 hover:bg-white/15 text-white/90 hover:text-white transition active:scale-95"
-            >
-              <Link2 className="h-4 w-4" />
-            </button>
-
             <div className="flex items-center gap-1 group/vol">
               <button
                 type="button"
@@ -1179,7 +1237,7 @@ function CustomYouTubePlayer({
               )}
             </button>
 
-            {/* Quality Selector (Max 1080p) */}
+            {/* Dynamic Quality Selector (Matching actual video resolution) */}
             <div className="relative quality-menu-container">
               <button
                 type="button"
@@ -1193,18 +1251,18 @@ function CustomYouTubePlayer({
                     ? "bg-red-600 text-white border-red-500"
                     : "bg-black/40 hover:bg-white/15 text-white/90 hover:text-white border-white/10 hover:border-white/20"
                 )}
-                title="Adjust Video Quality (Max 1080p)"
+                title={`Adjust Video Quality (Max ${maxAvailableOption?.label || "1080p HD"})`}
               >
                 <Settings className="h-3 w-3" />
-                <span>{quality.replace(" HD", "")}</span>
+                <span>{quality}</span>
               </button>
               {showQualityMenu && (
                 <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950 border border-white/15 py-1.5 shadow-2xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
                   <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                    Quality (Max 1080)
+                    Quality (Max {maxAvailableOption?.label || "1080p HD"})
                   </div>
                   <div className="py-0.5">
-                    {QUALITY_OPTIONS.map((opt) => (
+                    {activeQualityOptions.map((opt) => (
                       <button
                         key={opt.label}
                         type="button"
@@ -1347,10 +1405,37 @@ function CustomHtml5Player({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [quality, setQuality] = useState(() => getStoredQuality());
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [actualHeight, setActualHeight] = useState<number>(0);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
+
+  const activeQualityOptions = useMemo(() => {
+    return getFilteredHtml5QualityOptions(actualHeight);
+  }, [actualHeight]);
+
+  const maxAvailableOption = useMemo(() => {
+    return activeQualityOptions.find((o) => o.height > 0);
+  }, [activeQualityOptions]);
+
+  // DevTools & anti-piracy guard
+  const { isDevToolsOpen, handleContextMenu } = useDevToolsGuard({
+    onDevToolsDetected: () => {
+      videoRef.current?.pause();
+      setPlaying(false);
+    },
+  });
+
+  // Automatically clamp stored quality if video resolution is lower than user's stored quality
+  useEffect(() => {
+    if (maxAvailableOption && quality !== "Auto") {
+      const match = activeQualityOptions.find((o) => o.label === quality);
+      if (!match) {
+        setQuality(maxAvailableOption.label);
+      }
+    }
+  }, [activeQualityOptions, maxAvailableOption, quality]);
 
   // Live class auto-sync on load: seek to duration / live edge
   useEffect(() => {
@@ -1429,8 +1514,12 @@ function CustomHtml5Player({
         hls.loadSource(src);
         hls.attachMedia(video);
 
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, (_evt, data) => {
           setReady(true);
+          if (data && Array.isArray(data.levels) && data.levels.length > 0) {
+            const maxH = Math.max(...data.levels.map((l: any) => l.height || 0));
+            if (maxH > 0) setActualHeight(maxH);
+          }
           if (initialTime && initialTime > 0) {
             video.currentTime = initialTime;
           }
@@ -1778,7 +1867,7 @@ function CustomHtml5Player({
   return (
     <div
       ref={wrapRef}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={handleContextMenu}
       className={cn(
         "relative h-full w-full bg-black select-none overflow-hidden group",
         isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
@@ -1795,9 +1884,17 @@ function CustomHtml5Player({
           setReady(true);
           if (videoRef.current) {
             setDuration(videoRef.current.duration);
+            if (videoRef.current.videoHeight) {
+              setActualHeight(videoRef.current.videoHeight);
+            }
             if (initialTime && initialTime > 0) {
               videoRef.current.currentTime = initialTime;
             }
+          }
+        }}
+        onCanPlay={() => {
+          if (videoRef.current?.videoHeight) {
+            setActualHeight(videoRef.current.videoHeight);
           }
         }}
         onTimeUpdate={() => {
@@ -1812,6 +1909,12 @@ function CustomHtml5Player({
         onPause={() => setPlaying(false)}
         className="h-full w-full object-contain bg-black"
       />
+
+      {/* PhysicsWallah / Classplus Style Dynamic Forensic Watermark */}
+      <DynamicWatermark />
+
+      {/* Real-time DevTools Blackout Security Overlay */}
+      {isDevToolsOpen && <DevToolsSecurityOverlay />}
 
       {/* Gesture Ripple Animations (Double tap left/right) */}
       <AnimatePresence>
@@ -2019,23 +2122,6 @@ function CustomHtml5Player({
               )
             )}
 
-            {/* Share / Link Icon */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast.success("Class link copied to clipboard!");
-                }
-              }}
-              title="Copy class link"
-              aria-label="Copy class link"
-              className="rounded-full p-2 hover:bg-white/15 text-white/90 hover:text-white transition active:scale-95"
-            >
-              <Link2 className="h-4 w-4" />
-            </button>
-
             <div className="flex items-center gap-1 group/vol">
               <button
                 type="button"
@@ -2114,7 +2200,7 @@ function CustomHtml5Player({
               )}
             </button>
 
-            {/* Quality Selector (Max 1080p) */}
+            {/* Dynamic Quality Selector (Matching actual video resolution) */}
             <div className="relative quality-menu-container">
               <button
                 type="button"
@@ -2128,7 +2214,7 @@ function CustomHtml5Player({
                     ? "bg-red-600 text-white border-red-500"
                     : "bg-black/40 hover:bg-white/15 text-white/90 hover:text-white border-white/10 hover:border-white/20"
                 )}
-                title="Video Quality (Max 1080p)"
+                title={`Video Quality (Max ${maxAvailableOption?.label || "1080p HD"})`}
               >
                 <Settings className="h-3 w-3" />
                 <span>{quality}</span>
@@ -2136,10 +2222,10 @@ function CustomHtml5Player({
               {showQualityMenu && (
                 <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950 border border-white/15 py-1.5 shadow-2xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
                   <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                    Max Quality
+                    Quality (Max {maxAvailableOption?.label || "1080p HD"})
                   </div>
                   <div className="py-0.5">
-                    {QUALITY_OPTIONS.map((opt) => (
+                    {activeQualityOptions.map((opt) => (
                       <button
                         key={opt.label}
                         type="button"
