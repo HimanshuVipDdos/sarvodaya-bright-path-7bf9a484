@@ -15,8 +15,12 @@ export default defineEventHandler((event) => {
              getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim() || 
              'unknown';
   
-  // Ignore static assets and internal nitro endpoints if needed
-  if (event.path.startsWith('/_nitro') || event.path.startsWith('/_server')) {
+  // Ignore static assets, internal nitro endpoints, and high-frequency video stream range chunks
+  if (
+    event.path.startsWith('/_nitro') ||
+    event.path.startsWith('/_server') ||
+    event.path.startsWith('/api/stream')
+  ) {
     return;
   }
 

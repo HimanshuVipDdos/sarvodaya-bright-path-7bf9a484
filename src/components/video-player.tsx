@@ -262,6 +262,8 @@ function CustomYouTubePlayer({
   hideTopTitleWhenNotFullscreen = false,
   onClose,
   onTimeProgress,
+  sourceBadge,
+  onToggleSourceMode,
 }: {
   videoId: string;
   title?: string;
@@ -275,6 +277,8 @@ function CustomYouTubePlayer({
   hideTopTitleWhenNotFullscreen?: boolean;
   onClose?: () => void;
   onTimeProgress?: (time: number) => void;
+  sourceBadge?: "direct" | "youtube";
+  onToggleSourceMode?: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -927,6 +931,20 @@ function CustomYouTubePlayer({
         </div>
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
+          {sourceBadge === "youtube" && onToggleSourceMode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSourceMode();
+              }}
+              title="Try Direct Stream (0% YouTube UI)"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600/30 hover:bg-red-600/50 text-rose-300 border border-red-500/40 text-[10px] font-bold transition active:scale-95 shadow-xs"
+            >
+              <span>📺 YouTube Mode</span>
+              <span className="text-[9px] opacity-75 font-normal">Switch to ⚡ Direct</span>
+            </button>
+          )}
           <LiveClock />
           {onClose && (
             <button
@@ -1283,6 +1301,8 @@ function CustomHtml5Player({
   initialTime = 0,
   hideTopTitleWhenNotFullscreen = false,
   onClose,
+  sourceBadge,
+  onToggleSourceMode,
 }: {
   src: string;
   poster?: string;
@@ -1299,6 +1319,8 @@ function CustomHtml5Player({
   initialTime?: number;
   hideTopTitleWhenNotFullscreen?: boolean;
   onClose?: () => void;
+  sourceBadge?: "direct" | "youtube";
+  onToggleSourceMode?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -1448,7 +1470,16 @@ function CustomHtml5Player({
       }
     }
 
+    // Direct stream buffer guard (falls back seamlessly if proxy or stream takes >5.5s)
+    const stallTimer = window.setTimeout(() => {
+      if (video && video.readyState < 2) {
+        console.warn("[CustomHtml5Player] Direct stream buffer timeout (>5.5s), triggering seamless fallback");
+        onError?.("Direct stream buffer timeout");
+      }
+    }, 5500);
+
     return () => {
+      window.clearTimeout(stallTimer);
       if (hls) {
         hls.destroy();
         hlsRef.current = null;
@@ -1845,6 +1876,20 @@ function CustomHtml5Player({
         </div>
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
+          {sourceBadge === "direct" && onToggleSourceMode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSourceMode();
+              }}
+              title="Direct stream active (0% YouTube UI). Click to switch to YouTube player"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold transition active:scale-95 shadow-xs"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>⚡ Direct Stream (0% UI)</span>
+            </button>
+          )}
           <LiveClock />
           {onClose && (
             <button
@@ -2209,37 +2254,13 @@ export function VideoPlayer({
 
   const embedInfo = getEmbedableSource(src);
 
-  // Direct Stream Extraction state (0.00% YouTube UI via native HTML5 video / HLS)
-  const [resolvedStream, setResolvedStream] = useState<ResolvedStream | null>(null);
-  const [streamResolveStatus, setStreamResolveStatus] = useState<"idle" | "resolving" | "resolved" | "fallback">("idle");
+  // Option A: Direct Stream Proxy State (/api/stream?v=...)
+  const [streamMode, setStreamMode] = useState<"direct" | "youtube">("direct");
   const [fallbackTime, setFallbackTime] = useState<number>(0);
 
-  useEffect(() => {
-    if (embedInfo?.type !== "youtube" || !embedInfo.videoId) {
-      setStreamResolveStatus("idle");
-      setResolvedStream(null);
-      return;
-    }
-
-    let isCancelled = false;
-    setStreamResolveStatus("resolving");
-
-    resolveVideoStream(embedInfo.videoId, 2800)
-      .then((stream) => {
-        if (isCancelled) return;
-        setResolvedStream(stream);
-        setStreamResolveStatus("resolved");
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-        console.warn("[VideoPlayer] Direct stream resolution fallback to YouTube player:", err?.message || err);
-        setStreamResolveStatus("fallback");
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [embedInfo?.videoId]);
+  const directStreamUrl = embedInfo?.type === "youtube" && embedInfo.videoId 
+    ? `/api/stream?v=${embedInfo.videoId}`
+    : null;
 
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
@@ -2273,13 +2294,13 @@ export function VideoPlayer({
             className="w-full h-full border-0"
           />
         ) : embedInfo.type === "youtube" && embedInfo.videoId ? (
-          streamResolveStatus === "resolved" && resolvedStream ? (
+          streamMode === "direct" && directStreamUrl ? (
             <CustomHtml5Player
-              key={`stream-${resolvedStream.streamUrl}`}
-              src={resolvedStream.streamUrl}
-              streamType={resolvedStream.type}
+              key={`direct-${embedInfo.videoId}`}
+              src={directStreamUrl}
+              streamType="mp4"
               poster={poster}
-              title={title || resolvedStream.title}
+              title={title}
               subtitle={subtitle}
               canShowChat={canShowChat}
               chatOpen={chatVisible}
@@ -2288,12 +2309,14 @@ export function VideoPlayer({
               initialTime={fallbackTime}
               onTimeProgress={(t) => setFallbackTime(t)}
               onError={(err) => {
-                console.warn("[VideoPlayer] Direct stream playback failed mid-stream, falling back to YouTube:", err);
-                setStreamResolveStatus("fallback");
+                console.warn("[VideoPlayer] Direct stream proxy failed, seamlessly switching to clean YouTube player:", err);
+                setStreamMode("youtube");
               }}
               fullscreenTargetRef={effectiveFullscreenRef}
               hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
               onClose={onClose}
+              sourceBadge="direct"
+              onToggleSourceMode={() => setStreamMode("youtube")}
             />
           ) : (
             <CustomYouTubePlayer
@@ -2310,6 +2333,8 @@ export function VideoPlayer({
               fullscreenTargetRef={effectiveFullscreenRef}
               hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
               onClose={onClose}
+              sourceBadge="youtube"
+              onToggleSourceMode={() => setStreamMode("direct")}
             />
           )
         ) : embedInfo.type === "youtube" ? (
