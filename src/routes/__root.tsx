@@ -52,6 +52,19 @@ function PendingComponent() {
   );
 }
 
+// Global handler for Vite dynamic chunk preload errors (e.g. after a new deployment)
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    const reloadKey = "app_preload_chunk_reload";
+    const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
+    if (Date.now() - lastReload > 12000) {
+      sessionStorage.setItem(reloadKey, String(Date.now()));
+      window.location.reload();
+    }
+  });
+}
+
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
@@ -61,13 +74,33 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     error?.message?.includes("Loading chunk") ||
     error?.message?.includes("error loading dynamically imported module");
 
-  const handleRetry = () => {
-    if (isChunkError) {
-      window.location.reload();
-    } else {
-      router.invalidate();
-      reset();
+  useEffect(() => {
+    if (isChunkError && typeof window !== "undefined") {
+      const reloadKey = "app_root_chunk_reload";
+      const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
+      if (Date.now() - lastReload > 12000) {
+        sessionStorage.setItem(reloadKey, String(Date.now()));
+        window.location.reload();
+      }
     }
+  }, [isChunkError]);
+
+  if (isChunkError) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="flex flex-col items-center gap-3">
+          <span className="relative flex h-10 w-10 items-center justify-center">
+            <span className="absolute h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          </span>
+          <p className="text-sm font-semibold text-muted-foreground">Updating application...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleRetry = () => {
+    router.invalidate();
+    reset();
   };
 
   return (
@@ -75,16 +108,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="glass-strong max-w-md rounded-3xl p-8 text-center">
         <h1 className="text-xl font-semibold">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {isChunkError
-            ? "A new version of the app is available. Reloading will fetch the latest update."
-            : "Something went wrong. Try again or head back home."}
+          {error?.message || "Something went wrong. Try again or head back home."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={handleRetry}
             className="rounded-full bg-gradient-to-br from-primary to-primary-glow px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-elegant"
           >
-            {isChunkError ? "Reload Page" : "Try again"}
+            Try again
           </button>
           <a href="/" className="rounded-full border border-border bg-background px-5 py-2.5 text-sm font-medium">Go home</a>
         </div>

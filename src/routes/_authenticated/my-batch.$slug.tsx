@@ -140,59 +140,104 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
     liveClassId: typeof search.liveClassId === "string" ? search.liveClassId : undefined,
   }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(batchPortalQuery(params.slug)),
-  component: BatchPortal,
-  errorComponent: ({ error, reset }: any) => {
-    console.error("BatchPortal Error Boundary caught:", error);
-    const isChunkOrInitError =
+  errorComponent: BatchPortalError,
+});
+
+function BatchPortalError({ error, reset }: { error: any; reset: () => void }) {
+  console.error("BatchPortal Error Boundary caught:", error);
+  const isNotFound = Boolean(
+    error?.isNotFound ||
+      error?.status === 404 ||
+      error?.message === "Not Found" ||
+      error?.message?.includes("not found")
+  );
+
+  const isChunkOrInitError =
+    !isNotFound &&
+    Boolean(
       error?.message?.includes("dynamically imported module") ||
-      error?.message?.includes("Failed to fetch") ||
-      error?.message?.includes("Loading chunk") ||
-      error?.message?.includes("is not defined") ||
-      error?.message?.includes("before initialization") ||
-      error?.message?.includes("Cannot access");
+        error?.message?.includes("Failed to fetch") ||
+        error?.message?.includes("Loading chunk") ||
+        error?.message?.includes("is not defined") ||
+        error?.message?.includes("before initialization") ||
+        error?.message?.includes("Cannot access")
+    );
 
-    const handleRetry = () => {
-      if (typeof window !== "undefined") {
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.set("_reload", Date.now().toString());
-          window.location.replace(url.toString());
-        } catch {
-          window.location.reload();
-        }
-      } else if (reset) {
-        reset();
+  // Automatically silent reload once if fresh deployment occurred
+  useEffect(() => {
+    if (isChunkOrInitError && typeof window !== "undefined") {
+      const key = `batch_chunk_reload_${window.location.pathname}`;
+      const reloadedAt = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - reloadedAt > 15000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        const url = new URL(window.location.href);
+        url.searchParams.set("_v", Date.now().toString());
+        window.location.replace(url.toString());
       }
-    };
+    }
+  }, [isChunkOrInitError]);
 
+  if (isNotFound) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center p-4 bg-slate-50">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border">
-          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">
-            {isChunkOrInitError ? "Update Available" : "This page didn't load"}
-          </h2>
-          <p className="text-slate-500 text-sm mb-2">
-            {isChunkOrInitError
-              ? "A fresh update was deployed. Please click below to load the latest version."
-              : error?.message || "Something went wrong."}
-          </p>
-          <p className="text-xs text-slate-400 mb-6">
-            Click below to refresh and load the class.
+      <div className="flex min-h-[70vh] w-full items-center justify-center p-4 bg-[#F8F9FA]">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-200/80">
+          <BookOpen className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+          <h2 className="text-xl font-black text-slate-900 mb-2">Batch Not Found</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            The batch you are looking for does not exist or may have been moved.
           </p>
           <div className="flex justify-center gap-3">
-            <Button onClick={handleRetry} className="bg-[#6043ED] hover:bg-[#4E36C2]">
-              Reload Page
+            <Button asChild className="rounded-xl bg-[#6043ED] hover:bg-[#4E36C2]">
+              <Link to="/my-batches">My Batches</Link>
             </Button>
-            <Button variant="outline" asChild>
-              <Link to="/dashboard">Go Home</Link>
+            <Button variant="outline" asChild className="rounded-xl">
+              <Link to="/dashboard">Dashboard</Link>
             </Button>
           </div>
         </div>
       </div>
     );
-  },
-});
+  }
+
+  if (isChunkOrInitError) {
+    return (
+      <div className="flex min-h-[70vh] w-full items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <span className="relative flex h-10 w-10 items-center justify-center">
+            <span className="absolute h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+          </span>
+          <p className="text-sm font-semibold text-slate-600">Loading batch details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-[70vh] w-full items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-200/80">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+        <h2 className="text-lg font-bold text-slate-900 mb-2">Unable to Load Batch</h2>
+        <p className="text-slate-500 text-sm mb-6">
+          {error?.message || "There was an issue connecting to the server. Please check your connection and try again."}
+        </p>
+        <div className="flex justify-center gap-3">
+          <Button
+            onClick={() => {
+              if (reset) reset();
+              else window.location.reload();
+            }}
+            className="rounded-xl bg-[#6043ED] hover:bg-[#4E36C2]"
+          >
+            Try Again
+          </Button>
+          <Button variant="outline" asChild className="rounded-xl">
+            <Link to="/dashboard">Go Home</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type MainTab = "All Classes" | "Description" | "Tests" | "Notice Board";
 type SubTab = "Lectures" | "Notes" | "DPP" | "DPP VIDEOS";
@@ -590,18 +635,18 @@ function BatchPortal() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-sm">
-                  {batch.target_exam || "Full Course"}
+                  {batch?.target_exam || "Full Course"}
                 </span>
-                {batch.validity_info && (
+                {batch?.validity_info && (
                   <span className="text-xs text-white/80 font-medium">
                     Valid till: {batch.validity_info}
                   </span>
                 )}
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
-                {batch.title}
+                {batch?.title || "Batch Portal"}
               </h1>
-              {batch.description && (
+              {batch?.description && (
                 <p className="mt-2 text-sm text-white/85 max-w-3xl line-clamp-2">
                   {batch.description}
                 </p>
@@ -921,7 +966,7 @@ function BatchPortal() {
                   <ul className="space-y-3 text-xs text-slate-600">
                     <li className="flex items-center justify-between pb-2 border-b border-slate-100">
                       <span className="text-slate-400">Target Exam</span>
-                      <span className="font-bold text-slate-800">{batch.target_exam || "All Exams"}</span>
+                      <span className="font-bold text-slate-800">{batch?.target_exam || "All Exams"}</span>
                     </li>
                     <li className="flex items-center justify-between pb-2 border-b border-slate-100">
                       <span className="text-slate-400">Total Subjects</span>
