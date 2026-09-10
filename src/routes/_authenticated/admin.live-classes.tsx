@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, CalendarDays, Clock3, Hash, Loader2, Pencil, Plus, Radio, Save, TimerReset, Trash2, User, XCircle } from "lucide-react";
+import { BookOpen, CalendarDays, Clock3, Hash, Loader2, MessageSquare, Pencil, Plus, Radio, Save, TimerReset, Trash2, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -112,6 +112,26 @@ function LiveClassesAdmin() {
       qc.invalidateQueries({ queryKey: ["admin-live-faculty-options"] });
       setOpen(false);
       toast.success(editing ? "Class timing updated" : "Live class scheduled");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const startLiveNow = useMutation({
+    mutationFn: async (id: string) => {
+      const nowIso = new Date().toISOString();
+      const { error } = await (supabase as any)
+        .from("live_classes")
+        .update({
+          is_live: true,
+          status: "live",
+          scheduled_at: nowIso,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "live_classes"] });
+      toast.success("🔴 Class is now LIVE! Students have been notified.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -238,26 +258,54 @@ function LiveClassesAdmin() {
                     <Button size="sm" variant="ghost" onClick={() => openEdit(row)} aria-label="Edit">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    {!row.recorded_lecture_id && (
+                    {!row.recorded_lecture_id && !row.is_live && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (window.confirm(`Start "${row.title}" right now as a LIVE class? Students will be notified.`)) {
+                            startLiveNow.mutate(row.id);
+                          }
+                        }}
+                        disabled={startLiveNow.isPending}
+                        title="Start Class Now (Go Live)"
+                        className="gap-1 font-black text-red-600 hover:bg-red-500/10 border border-red-500/40 rounded-lg px-2.5 shadow-2xs"
+                      >
+                        <Radio className="h-3.5 w-3.5 text-red-600 animate-pulse" />
+                        <span className="text-[11px]">Go Live</span>
+                      </Button>
+                    )}
+                    {!row.recorded_lecture_id && row.is_live && (
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => { if (window.confirm(`End "${row.title}" and archive to recorded lectures?`)) endNow.mutate(row.id); }}
                         disabled={endNow.isPending}
                         title="End Live Class — archives to Lectures"
-                        className={cn(
-                          "gap-1 font-semibold",
-                          row.is_live ? "bg-red-500/10 text-red-600 hover:bg-red-500/20" : "text-emerald-600 hover:bg-emerald-500/10"
-                        )}
+                        className="gap-1 font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded-lg px-2.5"
                       >
                         <Radio className="h-3.5 w-3.5" />
-                        <span className="text-[11px]">{row.is_live ? "End Live" : "End & Archive"}</span>
+                        <span className="text-[11px]">End Live</span>
                       </Button>
                     )}
                     {row.is_live && (
-                      <Button size="sm" variant="ghost" onClick={() => extend.mutate(row)} disabled={extend.isPending} title="Add 15 minutes">
-                        <TimerReset className="h-4 w-4 text-primary" />
-                      </Button>
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => extend.mutate(row)} disabled={extend.isPending} title="Add 15 minutes">
+                          <TimerReset className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          asChild
+                          title="Moderate Live Chat"
+                          className="text-blue-600 hover:bg-blue-500/10 px-2"
+                        >
+                          <Link to="/admin/live-chat">
+                            <MessageSquare className="h-4 w-4" />
+                            <span className="ml-1 text-[11px] font-semibold hidden lg:inline">Chat</span>
+                          </Link>
+                        </Button>
+                      </>
                     )}
                     <Button
                       size="sm" variant="ghost"

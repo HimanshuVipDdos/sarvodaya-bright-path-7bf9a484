@@ -209,6 +209,7 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, "a" | "b" | "c" | "d">>({});
   const [reviewed, setReviewed] = useState<Set<string>>(new Set()); // Marked for review
+  const [fontSize, setFontSize] = useState<"small" | "normal" | "large">("normal");
 
   // Candidate Name
   const { data: candidateName } = useQuery({
@@ -432,10 +433,50 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
         {/* LEFT: QUESTION WORKSPACE */}
         <main className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
           
-          {/* Question Sub-Header */}
+          {/* Question Sub-Header with NTA/Testbook Font Zoom */}
           <div className="h-11 border-b px-4 sm:px-6 flex items-center justify-between shrink-0 bg-slate-50/70 text-xs font-bold text-slate-600">
-            <span className="text-[#6043ED]">Question {currentQIndex + 1} of {totalQuestions}</span>
             <div className="flex items-center gap-3">
+              <span className="text-[#6043ED]">Question {currentQIndex + 1} of {totalQuestions}</span>
+              
+              {/* Font Size Scaling Toggle */}
+              <div className="hidden sm:flex items-center bg-slate-200/70 p-0.5 rounded-lg border border-slate-300/60 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setFontSize("small")}
+                  title="Smaller text"
+                  className={cn(
+                    "px-2 py-0.5 rounded font-bold transition",
+                    fontSize === "small" ? "bg-white text-[#6043ED] shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  A-
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSize("normal")}
+                  title="Default text"
+                  className={cn(
+                    "px-2 py-0.5 rounded font-bold transition",
+                    fontSize === "normal" ? "bg-white text-[#6043ED] shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSize("large")}
+                  title="Larger text"
+                  className={cn(
+                    "px-2 py-0.5 rounded font-bold transition",
+                    fontSize === "large" ? "bg-white text-[#6043ED] shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  A+
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
               <span className="text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[10px]">
                 +{currentQ.marks || 1} Marks
               </span>
@@ -448,7 +489,12 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
           {/* Scrollable Question Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
             {/* Question Text / Snippet Image */}
-            <div className="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">
+            <div className={cn(
+              "font-medium text-slate-900 leading-relaxed transition-all",
+              fontSize === "small" && "text-sm sm:text-base",
+              fontSize === "normal" && "text-base sm:text-lg",
+              fontSize === "large" && "text-lg sm:text-xl"
+            )}>
               {renderContent(currentQ.question_text)}
             </div>
 
@@ -480,7 +526,12 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
                     )}>
                       {opt.toUpperCase()}
                     </span>
-                    <div className="flex-1 text-sm sm:text-base text-slate-800 pt-0.5">
+                    <div className={cn(
+                      "flex-1 text-slate-800 pt-0.5 transition-all",
+                      fontSize === "small" && "text-xs sm:text-sm",
+                      fontSize === "normal" && "text-sm sm:text-base",
+                      fontSize === "large" && "text-base sm:text-lg"
+                    )}>
                       {renderContent(optText)}
                     </div>
                   </label>

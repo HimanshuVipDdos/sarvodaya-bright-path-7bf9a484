@@ -743,6 +743,77 @@ function CustomYouTubePlayer({
     showHud(`Quality: ${opt.label}`, <Settings className="h-3.5 w-3.5 text-indigo-400" />);
   }, [sendCommand, resetHideTimer, showHud]);
 
+  // Desktop / Laptop Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+        case " ":
+        case "k":
+        case "K":
+          e.preventDefault();
+          togglePlay();
+          break;
+        case "j":
+        case "J":
+          e.preventDefault();
+          seekBy(-10);
+          break;
+        case "l":
+        case "L":
+          e.preventDefault();
+          seekBy(10);
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          seekBy(-5);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          seekBy(5);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          onVolumeChange(Math.min(100, volume + 10));
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          onVolumeChange(Math.max(0, volume - 10));
+          break;
+        case "m":
+        case "M":
+          e.preventDefault();
+          toggleMute();
+          break;
+        case "f":
+        case "F":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case ">":
+          e.preventDefault();
+          stepSpeed("up");
+          break;
+        case "<":
+          e.preventDefault();
+          stepSpeed("down");
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlay, seekBy, onVolumeChange, volume, toggleMute, toggleFullscreen, stepSpeed]);
+
   // Click & Double-Click handler on video surface
   const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -1738,6 +1809,77 @@ function CustomHtml5Player({
     resetHideTimer();
     showHud(`Quality: ${opt.label}`, <Settings className="h-3.5 w-3.5 text-indigo-400" />);
   }, [resetHideTimer, showHud]);
+
+  // Desktop / Laptop Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+        case " ":
+        case "k":
+        case "K":
+          e.preventDefault();
+          togglePlay();
+          break;
+        case "j":
+        case "J":
+          e.preventDefault();
+          seekBy(-10);
+          break;
+        case "l":
+        case "L":
+          e.preventDefault();
+          seekBy(10);
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          seekBy(-5);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          seekBy(5);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          onVolumeChange(Math.min(100, volume + 10));
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          onVolumeChange(Math.max(0, volume - 10));
+          break;
+        case "m":
+        case "M":
+          e.preventDefault();
+          toggleMute();
+          break;
+        case "f":
+        case "F":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case ">":
+          e.preventDefault();
+          stepSpeed("up");
+          break;
+        case "<":
+          e.preventDefault();
+          stepSpeed("down");
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlay, seekBy, onVolumeChange, volume, toggleMute, toggleFullscreen, stepSpeed]);
 
   const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
