@@ -141,6 +141,7 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
   }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(batchPortalQuery(params.slug)),
   errorComponent: BatchPortalError,
+  component: BatchPortal,
 });
 
 function BatchPortalError({ error, reset }: { error: any; reset: () => void }) {
