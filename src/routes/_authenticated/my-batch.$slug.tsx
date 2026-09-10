@@ -142,15 +142,24 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(batchPortalQuery(params.slug)),
   component: BatchPortal,
   errorComponent: ({ error, reset }: any) => {
-    const isChunkError =
+    console.error("BatchPortal Error Boundary caught:", error);
+    const isChunkOrInitError =
       error?.message?.includes("dynamically imported module") ||
       error?.message?.includes("Failed to fetch") ||
       error?.message?.includes("Loading chunk") ||
-      error?.message?.includes("is not defined");
+      error?.message?.includes("is not defined") ||
+      error?.message?.includes("before initialization") ||
+      error?.message?.includes("Cannot access");
 
     const handleRetry = () => {
       if (typeof window !== "undefined") {
-        window.location.reload();
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set("_reload", Date.now().toString());
+          window.location.replace(url.toString());
+        } catch {
+          window.location.reload();
+        }
       } else if (reset) {
         reset();
       }
@@ -161,11 +170,11 @@ export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
         <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">
-            {isChunkError ? "New Version Available" : "This page didn't load"}
+            {isChunkOrInitError ? "Update Available" : "This page didn't load"}
           </h2>
           <p className="text-slate-500 text-sm mb-2">
-            {isChunkError
-              ? "A fresh update was deployed. Please reload to load the latest video player."
+            {isChunkOrInitError
+              ? "A fresh update was deployed. Please click below to load the latest version."
               : error?.message || "Something went wrong."}
           </p>
           <p className="text-xs text-slate-400 mb-6">
@@ -201,6 +210,7 @@ const pastelColors = [
 function BatchPortal() {
   const { slug } = Route.useParams();
   const { data } = useSuspenseQuery(batchPortalQuery(slug));
+  const search = Route.useSearch();
 
   const [mainTab, setMainTab] = useState<MainTab>("All Classes");
 
@@ -215,75 +225,65 @@ function BatchPortal() {
   const [docUrl, setDocUrl] = useState<string | null>(null);
   const [docTitle, setDocTitle] = useState<string>("");
 
-  if (!data.enrolled) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] py-16 px-4">
-        <div className="mx-auto max-w-lg bg-white border border-slate-200/80 rounded-3xl p-10 text-center shadow-sm">
-          <BookOpen className="mx-auto h-12 w-12 text-indigo-300 mb-4" />
-          <h1 className="text-2xl font-bold text-slate-900">{data.batch.title}</h1>
-          <p className="mt-2 text-sm text-slate-500">You haven't enrolled in this batch yet.</p>
-          <div className="mt-6 flex justify-center gap-3">
-            <Button asChild className="rounded-xl bg-[#6043ED] hover:bg-[#4E36C2]">
-              <Link to="/batches">Browse Batches</Link>
-            </Button>
-            <Button variant="outline" asChild className="rounded-xl">
-              <Link to="/dashboard">Go to Dashboard</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const [nowTime, setNowTime] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const { batch, lectures, materials, liveClasses, tests, notifications } = data;
+  const batch = data?.batch;
+  const lectures = useMemo(() => data?.lectures ?? [], [data?.lectures]);
+  const materials = useMemo(() => data?.materials ?? [], [data?.materials]);
+  const liveClasses = useMemo(() => data?.liveClasses ?? [], [data?.liveClasses]);
+  const tests = useMemo(() => data?.tests ?? [], [data?.tests]);
+  const notifications = useMemo(() => data?.notifications ?? [], [data?.notifications]);
 
   const facultyPhotoMap = useMemo(() => {
     const map = new Map<string, string>();
-    (data.facultyList ?? []).forEach((f: any) => {
+    (data?.facultyList ?? []).forEach((f: any) => {
       if (f.name && f.photo_url) {
         map.set(f.name.toLowerCase().trim(), f.photo_url);
       }
     });
     return map;
-  }, [data.facultyList]);
+  }, [data?.facultyList]);
 
-  // Derive Subjects and Chapters
-  const subjectsMap = new Map<string, { chapters: Set<string> }>();
+  // Derive Subjects and Chapters with stable useMemo
+  const { subjectsMap, subjects } = useMemo(() => {
+    const map = new Map<string, { chapters: Set<string> }>();
 
-  liveClasses.forEach((l) => {
-    const s = l.subject || "General";
-    const c = l.chapter || "Overview & Lectures";
-    if (!subjectsMap.has(s)) subjectsMap.set(s, { chapters: new Set() });
-    subjectsMap.get(s)!.chapters.add(c);
-  });
+    liveClasses.forEach((l: any) => {
+      const s = l.subject || "General";
+      const c = l.chapter || "Overview & Lectures";
+      if (!map.has(s)) map.set(s, { chapters: new Set() });
+      map.get(s)!.chapters.add(c);
+    });
 
-  lectures.forEach((l) => {
-    const s = l.subject || "General";
-    const c = l.chapter || "Overview & Lectures";
-    if (!subjectsMap.has(s)) subjectsMap.set(s, { chapters: new Set() });
-    subjectsMap.get(s)!.chapters.add(c);
-  });
+    lectures.forEach((l: any) => {
+      const s = l.subject || "General";
+      const c = l.chapter || "Overview & Lectures";
+      if (!map.has(s)) map.set(s, { chapters: new Set() });
+      map.get(s)!.chapters.add(c);
+    });
 
-  materials.forEach((m) => {
-    const s = m.subject || "General";
-    const c = m.chapter || "Overview & Lectures";
-    if (!subjectsMap.has(s)) subjectsMap.set(s, { chapters: new Set() });
-    subjectsMap.get(s)!.chapters.add(c);
-  });
+    materials.forEach((m: any) => {
+      const s = m.subject || "General";
+      const c = m.chapter || "Overview & Lectures";
+      if (!map.has(s)) map.set(s, { chapters: new Set() });
+      map.get(s)!.chapters.add(c);
+    });
 
-  const subjects = Array.from(subjectsMap.keys()).sort();
+    return {
+      subjectsMap: map,
+      subjects: Array.from(map.keys()).sort(),
+    };
+  }, [liveClasses, lectures, materials]);
 
   // Content for active drill-down
   const chapters = useMemo(() => {
     if (!activeSubject) return [];
     return Array.from(subjectsMap.get(activeSubject)?.chapters || []).sort();
   }, [activeSubject, subjectsMap]);
-
-  const [nowTime, setNowTime] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNowTime(Date.now()), 5000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Today's Live Classes (Active or Scheduled for today)
   const todayLiveClasses = useMemo(() => {
@@ -330,12 +330,12 @@ function BatchPortal() {
   const chapterLectures = useMemo(() => {
     if (!activeSubject || !activeChapter) return [];
     const rec = lectures.filter(
-      (l) =>
+      (l: any) =>
         (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
         (l.chapter === activeChapter || (!l.chapter && activeChapter === "Overview & Lectures"))
     );
     const live = liveClasses.filter(
-      (l) =>
+      (l: any) =>
         (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
         (l.chapter === activeChapter || (!l.chapter && activeChapter === "Overview & Lectures"))
     );
@@ -350,7 +350,7 @@ function BatchPortal() {
   const chapterNotes = useMemo(() => {
     if (!activeSubject || !activeChapter) return [];
     return materials.filter(
-      (m) =>
+      (m: any) =>
         (m.subject === activeSubject || (!m.subject && activeSubject === "General")) &&
         (m.chapter === activeChapter || (!m.chapter && activeChapter === "Overview & Lectures")) &&
         m.material_type !== "dpp"
@@ -360,7 +360,7 @@ function BatchPortal() {
   const chapterDpps = useMemo(() => {
     if (!activeSubject || !activeChapter) return [];
     return materials.filter(
-      (m) =>
+      (m: any) =>
         (m.subject === activeSubject || (!m.subject && activeSubject === "General")) &&
         (m.chapter === activeChapter || (!m.chapter && activeChapter === "Overview & Lectures")) &&
         m.material_type === "dpp"
@@ -375,7 +375,7 @@ function BatchPortal() {
         l.description?.toLowerCase().includes("dpp") ||
         l.chapter?.toLowerCase().includes("dpp")
     );
-  }, [chapterLectures]);
+  }, [chapterLectures, activeSubject, activeChapter]);
 
   const allBatchLectures = useMemo(() => {
     const live = liveClasses.map((l: any) => ({
@@ -402,13 +402,14 @@ function BatchPortal() {
   );
 
   // Completion Tracking for Lectures & Classes (PW Style)
-  const userId = data.userId || "user";
-  const storageKey = `sarvodaya_completed_lectures_${userId}_${batch.id}`;
+  const userId = data?.userId || "user";
+  const batchId = batch?.id || "batch";
+  const storageKey = `sarvodaya_completed_lectures_${userId}_${batchId}`;
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
-      const saved = localStorage.getItem(`sarvodaya_completed_lectures_${userId}_${batch.id}`);
+      const saved = localStorage.getItem(`sarvodaya_completed_lectures_${userId}_${batchId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return new Set(parsed);
@@ -482,7 +483,6 @@ function BatchPortal() {
   };
 
   // If student was redirected from Dashboard with ?liveClassId=..., automatically launch theater player
-  const search = Route.useSearch();
   useEffect(() => {
     const targetId = search?.liveClassId || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("liveClassId") : null);
     if (targetId && liveClasses && liveClasses.length > 0) {
@@ -492,6 +492,27 @@ function BatchPortal() {
       }
     }
   }, [liveClasses, search?.liveClassId]);
+
+  // Safe early return for non-enrolled students AFTER all hooks are evaluated
+  if (!data?.enrolled) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] py-16 px-4">
+        <div className="mx-auto max-w-lg bg-white border border-slate-200/80 rounded-3xl p-10 text-center shadow-sm">
+          <BookOpen className="mx-auto h-12 w-12 text-indigo-300 mb-4" />
+          <h1 className="text-2xl font-bold text-slate-900">{data?.batch?.title || "Batch"}</h1>
+          <p className="mt-2 text-sm text-slate-500">You haven't enrolled in this batch yet.</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Button asChild className="rounded-xl bg-[#6043ED] hover:bg-[#4E36C2]">
+              <Link to="/batches">Browse Batches</Link>
+            </Button>
+            <Button variant="outline" asChild className="rounded-xl">
+              <Link to="/dashboard">Go to Dashboard</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ----------------------------------------------------
   // RENDER: LEVEL 1 (PW Purple Banner + Tabs + Subjects)

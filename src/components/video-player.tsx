@@ -171,7 +171,7 @@ const QUALITY_OPTIONS = [
 
 const STORAGE_KEY_QUALITY = "sarvodaya_lecture_quality";
 
-export function getFilteredYtQualityOptions(availableLevels?: string[] | null) {
+function getFilteredYtQualityOptions(availableLevels?: string[] | null) {
   if (!availableLevels || availableLevels.length === 0) {
     return QUALITY_OPTIONS;
   }
@@ -182,7 +182,7 @@ export function getFilteredYtQualityOptions(availableLevels?: string[] | null) {
   return filtered.length > 0 ? filtered : QUALITY_OPTIONS;
 }
 
-export function getFilteredHtml5QualityOptions(videoHeight: number) {
+function getFilteredHtml5QualityOptions(videoHeight: number) {
   if (!videoHeight || videoHeight <= 0) return QUALITY_OPTIONS;
   const filtered = QUALITY_OPTIONS.filter((opt) => {
     if (opt.height === -1) return true; // Auto
@@ -397,12 +397,14 @@ function CustomYouTubePlayer({
     return activeQualityOptions.find((o) => o.height > 0);
   }, [activeQualityOptions]);
 
+  const handleDevToolsDetected = useCallback(() => {
+    sendCommand("pauseVideo", []);
+    setPlaying(false);
+  }, [sendCommand]);
+
   // Anti-piracy & DevTools guard
   const { isDevToolsOpen, handleContextMenu } = useDevToolsGuard({
-    onDevToolsDetected: () => {
-      sendCommand("pauseVideo", []);
-      setPlaying(false);
-    },
+    onDevToolsDetected: handleDevToolsDetected,
   });
 
   // Automatically clamp stored quality if video does not support 1080p (e.g. max is 720p HD)
@@ -1419,12 +1421,14 @@ function CustomHtml5Player({
     return activeQualityOptions.find((o) => o.height > 0);
   }, [activeQualityOptions]);
 
+  const handleDevToolsDetected = useCallback(() => {
+    videoRef.current?.pause();
+    setPlaying(false);
+  }, []);
+
   // DevTools & anti-piracy guard
   const { isDevToolsOpen, handleContextMenu } = useDevToolsGuard({
-    onDevToolsDetected: () => {
-      videoRef.current?.pause();
-      setPlaying(false);
-    },
+    onDevToolsDetected: handleDevToolsDetected,
   });
 
   // Automatically clamp stored quality if video resolution is lower than user's stored quality

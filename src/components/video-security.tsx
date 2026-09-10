@@ -72,21 +72,28 @@ export function useDevToolsGuard({
 } = {}) {
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const isOpenRef = useRef(false);
+  const onDetectedRef = useRef(onDevToolsDetected);
+  const onClosedRef = useRef(onDevToolsClosed);
 
-  const setDevToolsState = useCallback(
-    (open: boolean) => {
-      if (isOpenRef.current !== open) {
-        isOpenRef.current = open;
-        setIsDevToolsOpen(open);
-        if (open) {
-          onDevToolsDetected?.();
-        } else {
-          onDevToolsClosed?.();
-        }
+  useEffect(() => {
+    onDetectedRef.current = onDevToolsDetected;
+  }, [onDevToolsDetected]);
+
+  useEffect(() => {
+    onClosedRef.current = onDevToolsClosed;
+  }, [onDevToolsClosed]);
+
+  const setDevToolsState = useCallback((open: boolean) => {
+    if (isOpenRef.current !== open) {
+      isOpenRef.current = open;
+      setIsDevToolsOpen(open);
+      if (open) {
+        onDetectedRef.current?.();
+      } else {
+        onClosedRef.current?.();
       }
-    },
-    [onDevToolsDetected, onDevToolsClosed]
-  );
+    }
+  }, []);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
