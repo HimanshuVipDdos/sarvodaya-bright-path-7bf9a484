@@ -16,12 +16,22 @@ import {
   BookOpen,
   Radio,
   Play,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { isClassLiveNow } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 import { defaultDashboardConfig, type DashboardConfig } from "./admin.dashboard-settings";
 
@@ -144,6 +154,81 @@ function Dashboard() {
     return { liveEnrolledClasses: liveList, todayUpcomingClasses: upcomingList };
   }, [data?.enrollments, (data as any)?.liveClasses, nowTime]);
 
+  // Derive unique enrolled batches
+  const enrolledBatches = useMemo(() => {
+    const list: any[] = [];
+    const seen = new Set<string>();
+    ((data?.enrollments as any[]) ?? []).forEach((e: any) => {
+      const b = Array.isArray(e.batch) ? e.batch[0] : e.batch;
+      if (b?.id && !seen.has(b.id)) {
+        seen.add(b.id);
+        list.push(b);
+      }
+    });
+    return list;
+  }, [data?.enrollments]);
+
+  // Track live status per batch
+  const batchLiveStatusMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    const classes = (data as any)?.liveClasses ?? [];
+    for (const lc of classes) {
+      if (lc.batch_id && isClassLiveNow(lc, nowTime)) {
+        map.set(lc.batch_id, true);
+      }
+    }
+    return map;
+  }, [(data as any)?.liveClasses, nowTime]);
+
+  // Track scheduled today count per batch
+  const batchClassCountMap = useMemo(() => {
+    const map = new Map<string, { live: number; upcoming: number }>();
+    enrolledBatches.forEach((b) => {
+      const live = liveEnrolledClasses.filter((c: any) => c.batch_id === b.id).length;
+      const upcoming = todayUpcomingClasses.filter((c: any) => c.batch_id === b.id).length;
+      map.set(b.id, { live, upcoming });
+    });
+    return map;
+  }, [enrolledBatches, liveEnrolledClasses, todayUpcomingClasses]);
+
+  // Selected batch state
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+
+  // Auto-select batch with ongoing live class if available, else first enrolled batch
+  const effectiveBatchId = useMemo(() => {
+    if (selectedBatchId && enrolledBatches.some((b) => b.id === selectedBatchId)) {
+      return selectedBatchId;
+    }
+    // Auto-select batch that has active live class
+    const liveBatch = enrolledBatches.find((b) => batchLiveStatusMap.get(b.id));
+    if (liveBatch) return liveBatch.id;
+    return enrolledBatches[0]?.id || null;
+  }, [selectedBatchId, enrolledBatches, batchLiveStatusMap]);
+
+  const selectedBatch = useMemo(() => {
+    return enrolledBatches.find((b) => b.id === effectiveBatchId) || null;
+  }, [enrolledBatches, effectiveBatchId]);
+
+  // Check if any other enrolled batch is live right now
+  const hasOtherBatchLive = useMemo(() => {
+    return enrolledBatches.some(
+      (b) => b.id !== effectiveBatchId && batchLiveStatusMap.get(b.id)
+    );
+  }, [enrolledBatches, effectiveBatchId, batchLiveStatusMap]);
+
+  // Classes for the selected batch
+  const currentBatchLiveClasses = useMemo(() => {
+    if (!effectiveBatchId) return [];
+    return liveEnrolledClasses.filter((c: any) => c.batch_id === effectiveBatchId);
+  }, [effectiveBatchId, liveEnrolledClasses]);
+
+  const currentBatchUpcomingClasses = useMemo(() => {
+    if (!effectiveBatchId) return [];
+    return todayUpcomingClasses.filter((c: any) => c.batch_id === effectiveBatchId);
+  }, [effectiveBatchId, todayUpcomingClasses]);
+
+  const hasAnyClassesToday = liveEnrolledClasses.length > 0 || todayUpcomingClasses.length > 0;
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     toast.success("Signed out");
@@ -202,194 +287,310 @@ function Dashboard() {
          </div>
       </div>
 
-      {/* SECTION: Live Classes in Enrolled Batches */}
-      {liveEnrolledClasses.length > 0 && (
+      {/* SECTION: Batch-Switchable Today's Classes & Live (Directly Above My Learning) */}
+      {hasAnyClassesToday && enrolledBatches.length > 0 && (
         <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-600" />
-              </span>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                Live Classes Now
+          {/* Batch Selector Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="group inline-flex items-center gap-2.5 rounded-2xl border-2 border-slate-200/90 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-xs hover:border-indigo-300 hover:bg-slate-50/90 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.99]"
+                  >
+                    {batchLiveStatusMap.get(effectiveBatchId || "") ? (
+                      <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-90" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
+                      </span>
+                    ) : (
+                      <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
+                    )}
+
+                    <span className="truncate max-w-[200px] sm:max-w-[320px]">
+                      {selectedBatch?.title || "Select Batch"}
+                    </span>
+
+                    {/* Soft Blinking Red Dot on selector if another enrolled batch is live */}
+                    {hasOtherBatchLive && (
+                      <span
+                        className="relative inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-600 ml-1"
+                        title="Another enrolled batch has an ongoing live class!"
+                      >
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-90" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                        </span>
+                        <span className="hidden sm:inline">LIVE IN OTHER</span>
+                      </span>
+                    )}
+
+                    <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ml-1" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="start" className="w-72 sm:w-80 p-2 rounded-2xl shadow-xl border border-slate-200 bg-white z-50">
+                  <DropdownMenuLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1.5">
+                    Switch Enrolled Batch
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {enrolledBatches.map((b) => {
+                    const isSelected = b.id === effectiveBatchId;
+                    const isLive = Boolean(batchLiveStatusMap.get(b.id));
+                    const count = batchClassCountMap.get(b.id);
+                    return (
+                      <DropdownMenuItem
+                        key={b.id}
+                        onClick={() => setSelectedBatchId(b.id)}
+                        className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
+                          isSelected ? "bg-indigo-50/90 text-indigo-950 font-bold" : "text-slate-700 hover:bg-slate-100/80"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          {isLive ? (
+                            <span className="relative flex h-2.5 w-2.5 shrink-0" title="Class Live Now">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-90" />
+                              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
+                            </span>
+                          ) : (
+                            <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />
+                          )}
+                          <span className="truncate text-xs font-bold">{b.title}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isLive ? (
+                            <span className="relative overflow-hidden inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white live-badge-glow">
+                              <span className="live-shimmer" />
+                              LIVE
+                            </span>
+                          ) : count && count.upcoming > 0 ? (
+                            <span className="rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold px-2 py-0.5">
+                              {count.upcoming} today
+                            </span>
+                          ) : null}
+                          {isSelected && <Check className="h-4 w-4 text-indigo-600 ml-1 shrink-0" />}
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Live Badge for this batch */}
+              {currentBatchLiveClasses.length > 0 && (
                 <span className="relative overflow-hidden inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-black uppercase text-white live-badge-glow border border-red-300/40">
                   <span className="live-shimmer" />
                   <Radio className="h-3 w-3" />
-                  {liveEnrolledClasses.length} LIVE
+                  {currentBatchLiveClasses.length} LIVE
                 </span>
-              </h2>
+              )}
             </div>
-            <span className="text-xs font-bold text-slate-500 hidden sm:inline">
-              In Your Enrolled Batches
+
+            <span className="text-xs font-bold text-slate-400 hidden sm:inline">
+              Today's Live & Scheduled Classes
             </span>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {liveEnrolledClasses.map((item: any) => {
-              const start = item.scheduled_at ? new Date(item.scheduled_at) : null;
-              const startStr = start
-                ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : null;
-              const end = item.end_at
-                ? new Date(item.end_at)
-                : item.duration_minutes && start
-                ? new Date(start.getTime() + item.duration_minutes * 60000)
-                : null;
-              const endStr = end
-                ? end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : null;
-              const timingText = startStr ? (endStr ? `${startStr} - ${endStr}` : startStr) : null;
+          {/* Classes for Selected Batch in Sequence */}
+          <div className="space-y-6">
+            {/* 1. Live Classes First */}
+            {currentBatchLiveClasses.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {currentBatchLiveClasses.map((item: any) => {
+                  const start = item.scheduled_at ? new Date(item.scheduled_at) : null;
+                  const startStr = start
+                    ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : null;
+                  const end = item.end_at
+                    ? new Date(item.end_at)
+                    : item.duration_minutes && start
+                    ? new Date(start.getTime() + item.duration_minutes * 60000)
+                    : null;
+                  const endStr = end
+                    ? end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : null;
+                  const timingText = startStr ? (endStr ? `${startStr} - ${endStr}` : startStr) : null;
 
-              return (
-                <div
-                  key={item.id}
-                  className="relative overflow-hidden rounded-2xl bg-white border-2 border-red-500 shadow-[0_0_24px_rgba(239,68,68,0.22)] ring-2 ring-red-500/20 p-5 flex flex-col justify-between transition-all hover:shadow-[0_0_32px_rgba(239,68,68,0.38)] group"
-                >
-                  {/* Top ambient glowing strip */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-500 to-red-600 animate-pulse" />
+                  return (
+                    <div
+                      key={item.id}
+                      className="relative overflow-hidden rounded-2xl bg-white border-2 border-red-500 shadow-[0_0_24px_rgba(239,68,68,0.22)] ring-2 ring-red-500/20 p-5 flex flex-col justify-between transition-all hover:shadow-[0_0_32px_rgba(239,68,68,0.38)] group"
+                    >
+                      {/* Top ambient glowing strip */}
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-500 to-red-600 animate-pulse" />
 
-                  <div>
-                    {/* Batch Name & Live Badge Row */}
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      {/* Batch Name Pill */}
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 border border-indigo-200/90 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-indigo-700 max-w-[65%] truncate"
-                        title={item.batchTitle}
-                      >
-                        <BookOpen className="h-3 w-3 shrink-0 text-indigo-600" />
-                        <span className="truncate">{item.batchTitle}</span>
-                      </span>
+                      <div>
+                        {/* Batch Name & Live Badge Row */}
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 border border-indigo-200/90 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-indigo-700 max-w-[65%] truncate"
+                            title={item.batchTitle}
+                          >
+                            <BookOpen className="h-3 w-3 shrink-0 text-indigo-600" />
+                            <span className="truncate">{item.batchTitle}</span>
+                          </span>
 
-                      {/* Shining Live Badge */}
-                      <span className="relative overflow-hidden shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/50">
-                        <span className="live-shimmer" />
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-                        </span>
-                        <Radio className="h-3 w-3 text-white animate-pulse" />
-                        <span>LIVE NOW</span>
-                      </span>
-                    </div>
+                          <span className="relative overflow-hidden shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/50">
+                            <span className="live-shimmer" />
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                            </span>
+                            <Radio className="h-3 w-3 text-white animate-pulse" />
+                            <span>LIVE NOW</span>
+                          </span>
+                        </div>
 
-                    {/* Class Title */}
-                    <h3 className="font-bold text-slate-900 text-base leading-snug line-clamp-2 mb-1.5 group-hover:text-indigo-600 transition-colors">
-                      {item.title}
-                    </h3>
+                        {/* Class Title */}
+                        <h3 className="font-bold text-slate-900 text-base leading-snug line-clamp-2 mb-1.5 group-hover:text-indigo-600 transition-colors">
+                          {item.title}
+                        </h3>
 
-                    {/* Subject, Chapter & Faculty */}
-                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 mb-3 font-medium">
-                      {item.subject && (
-                        <span className="text-slate-800 font-bold">{item.subject}</span>
-                      )}
-                      {item.chapter && (
-                        <>
-                          <span className="text-slate-300">•</span>
-                          <span className="line-clamp-1">{item.chapter}</span>
-                        </>
-                      )}
-                      {item.faculty && (
-                        <>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-indigo-600 font-semibold">{item.faculty}</span>
-                        </>
-                      )}
-                    </div>
+                        {/* Subject, Chapter & Faculty */}
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 mb-3 font-medium">
+                          {item.subject && (
+                            <span className="text-slate-800 font-bold">{item.subject}</span>
+                          )}
+                          {item.chapter && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="line-clamp-1">{item.chapter}</span>
+                            </>
+                          )}
+                          {item.faculty && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-indigo-600 font-semibold">{item.faculty}</span>
+                            </>
+                          )}
+                        </div>
 
-                    {/* Timing */}
-                    {timingText && (
-                      <div className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-mono text-slate-700 font-semibold">
-                        <Clock className="h-3 w-3 text-slate-500" />
-                        {timingText}
+                        {/* Timing */}
+                        {timingText && (
+                          <div className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-mono text-slate-700 font-semibold">
+                            <Clock className="h-3 w-3 text-slate-500" />
+                            {timingText}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Direct Join Action */}
-                  <Link
-                    to="/my-batch/$slug"
-                    params={{ slug: item.batchSlug }}
-                    search={{ liveClassId: item.id }}
-                    className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md hover:from-red-700 hover:to-rose-700 transition-all active:scale-[0.98]"
-                  >
-                    <Radio className="h-3.5 w-3.5 text-white animate-pulse" />
-                    <span>Join Live Class</span>
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* SECTION: Today's Scheduled Classes */}
-      {todayUpcomingClasses.length > 0 && (
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-500" />
-              <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-                Today's Scheduled Classes
-              </h2>
-            </div>
-            <span className="text-xs font-semibold text-slate-500">
-              {todayUpcomingClasses.length} Scheduled in your batches
-            </span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {todayUpcomingClasses.map((item: any) => {
-              const start = item.scheduled_at ? new Date(item.scheduled_at) : null;
-              const startStr = start
-                ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "Today";
-
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl bg-white border border-slate-200/90 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-all group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 max-w-[65%] truncate"
-                        title={item.batchTitle}
+                      {/* Direct Join Action */}
+                      <Link
+                        to="/my-batch/$slug"
+                        params={{ slug: item.batchSlug }}
+                        search={{ liveClassId: item.id }}
+                        className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md hover:from-red-700 hover:to-rose-700 transition-all active:scale-[0.98]"
                       >
-                        <BookOpen className="h-3 w-3 shrink-0 text-slate-500" />
-                        <span className="truncate">{item.batchTitle}</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                        <Clock className="h-3 w-3 text-amber-600" />
-                        Starts at {startStr}
-                      </span>
+                        <Radio className="h-3.5 w-3.5 text-white animate-pulse" />
+                        <span>Join Live Class</span>
+                      </Link>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 mb-1 group-hover:text-indigo-600 transition-colors">
-                      {item.title}
-                    </h3>
+            {/* 2. Today's Scheduled Classes in Sequence */}
+            {currentBatchUpcomingClasses.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {currentBatchUpcomingClasses.map((item: any) => {
+                  const start = item.scheduled_at ? new Date(item.scheduled_at) : null;
+                  const startStr = start
+                    ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "Today";
 
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                      {item.subject && <span>{item.subject}</span>}
-                      {item.faculty && <span>• {item.faculty}</span>}
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl bg-white border border-slate-200/90 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-all group"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 max-w-[65%] truncate"
+                            title={item.batchTitle}
+                          >
+                            <BookOpen className="h-3 w-3 shrink-0 text-slate-500" />
+                            <span className="truncate">{item.batchTitle}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <Clock className="h-3 w-3 text-amber-600" />
+                            Starts at {startStr}
+                          </span>
+                        </div>
+
+                        <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 mb-1 group-hover:text-indigo-600 transition-colors">
+                          {item.title}
+                        </h3>
+
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          {item.subject && <span>{item.subject}</span>}
+                          {item.faculty && <span>• {item.faculty}</span>}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Scheduled today
+                        </span>
+                        <Link
+                          to="/my-batch/$slug"
+                          params={{ slug: item.batchSlug }}
+                          className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1"
+                        >
+                          View Batch →
+                        </Link>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            )}
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-400">
-                      Scheduled today
-                    </span>
+            {/* 3. Empty State if Selected Batch has no classes today */}
+            {currentBatchLiveClasses.length === 0 && currentBatchUpcomingClasses.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-7 text-center flex flex-col items-center justify-center">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-3 shadow-xs">
+                  <Clock className="h-5 w-5 text-indigo-600" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base mb-1">
+                  No classes scheduled today for {selectedBatch?.title}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mb-4">
+                  Check back later or access all recorded lectures, notes, and DPPs for this batch.
+                </p>
+                <div className="flex items-center gap-3 flex-wrap justify-center">
+                  {selectedBatch?.slug && (
                     <Link
                       to="/my-batch/$slug"
-                      params={{ slug: item.batchSlug }}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1"
+                      params={{ slug: selectedBatch.slug }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-colors shadow-xs"
                     >
-                      View Batch →
+                      <BookOpen className="h-3.5 w-3.5" />
+                      <span>Open Batch Lectures</span>
                     </Link>
-                  </div>
+                  )}
+                  {hasOtherBatchLive && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const liveBatch = enrolledBatches.find((b) => batchLiveStatusMap.get(b.id));
+                        if (liveBatch) setSelectedBatchId(liveBatch.id);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-90" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                      </span>
+                      <span>Switch to Ongoing Live Class</span>
+                    </button>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         </div>
       )}

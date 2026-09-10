@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { TheaterModal, type TheaterLecture } from "@/components/theater-modal";
 import { DocumentViewer } from "@/components/document-viewer";
-import { cn, getStorageUrl } from "@/lib/utils";
+import { cn, getStorageUrl, isClassLiveNow } from "@/lib/utils";
 
 const batchPortalQuery = (slug: string) =>
   queryOptions({
@@ -327,25 +327,103 @@ function BatchPortal() {
     return startStr;
   };
 
+  // Canonical merged lectures list for the batch with 100% deduplication
+  const allBatchLectures = useMemo(() => {
+    // 1. Existing lectures from the `lectures` table
+    const recMap = new Map<string, any>();
+    const baseLectures = (lectures ?? []).map((l: any) => ({
+      ...l,
+      isLive: false,
+      video_url: l.video_url || l.youtube_url,
+      subtitle: [l.subject, l.chapter].filter(Boolean).join(" • "),
+    }));
+
+    // Index lectures by id, by video_url, and by normalized title+chapter
+    baseLectures.forEach((lec: any) => {
+      if (lec.id) recMap.set(`id:${lec.id}`, lec);
+      if (lec.video_url) recMap.set(`url:${lec.video_url.trim()}`, lec);
+      if (lec.title && lec.chapter) {
+        recMap.set(
+          `title:${lec.title.trim().toLowerCase()}__${lec.chapter.trim().toLowerCase()}`,
+          lec
+        );
+      }
+    });
+
+    // 2. Process live_classes
+    const mergedList = [...baseLectures];
+
+    (liveClasses ?? []).forEach((lc: any) => {
+      const isLiveNow = isClassLiveNow(lc, nowTime);
+      const urlKey = (lc.youtube_url || lc.video_url || "").trim();
+      const titleKey =
+        lc.title && lc.chapter
+          ? `${lc.title.trim().toLowerCase()}__${lc.chapter.trim().toLowerCase()}`
+          : "";
+
+      const duplicateIdx = mergedList.findIndex((m: any) => {
+        if (lc.recorded_lecture_id && m.id === lc.recorded_lecture_id) return true;
+        if (urlKey && m.video_url && m.video_url.trim() === urlKey) return true;
+        if (titleKey && m.title && m.chapter) {
+          const mKey = `${m.title.trim().toLowerCase()}__${m.chapter.trim().toLowerCase()}`;
+          if (mKey === titleKey) return true;
+        }
+        return false;
+      });
+
+      if (isLiveNow) {
+        // If class is currently LIVE:
+        // If a duplicate archived lecture was found, remove it so the LIVE version replaces it!
+        if (duplicateIdx !== -1) {
+          mergedList.splice(duplicateIdx, 1);
+        }
+        // Add the shining live class at the top
+        mergedList.unshift({
+          ...lc,
+          isLive: true,
+          video_url: lc.youtube_url || lc.video_url,
+          subtitle: [lc.subject, lc.chapter].filter(Boolean).join(" • "),
+        });
+      } else {
+        // Class is NOT live (ended or scheduled)
+        // If it already exists in lectures table, DO NOT add a duplicate!
+        if (duplicateIdx === -1) {
+          // If the class has ended or has a recording, but wasn't in lectures table, include it once as recorded lecture
+          if (
+            lc.status === "ended" ||
+            (!lc.is_live && lc.scheduled_at && new Date(lc.scheduled_at).getTime() < nowTime)
+          ) {
+            mergedList.push({
+              ...lc,
+              isLive: false,
+              video_url: lc.youtube_url || lc.video_url,
+              subtitle: [lc.subject, lc.chapter].filter(Boolean).join(" • "),
+            });
+          }
+        }
+      }
+    });
+
+    return mergedList;
+  }, [liveClasses, lectures, nowTime]);
+
   const chapterLectures = useMemo(() => {
     if (!activeSubject || !activeChapter) return [];
-    const rec = lectures.filter(
-      (l: any) =>
-        (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
-        (l.chapter === activeChapter || (!l.chapter && activeChapter === "Overview & Lectures"))
-    );
-    const live = liveClasses.filter(
-      (l: any) =>
-        (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
-        (l.chapter === activeChapter || (!l.chapter && activeChapter === "Overview & Lectures"))
-    );
-    return [...live, ...rec].sort((a: any, b: any) => {
-      return (
-        new Date(b.created_at || b.scheduled_at).getTime() -
-        new Date(a.created_at || a.scheduled_at).getTime()
-      );
-    });
-  }, [lectures, liveClasses, activeSubject, activeChapter]);
+    return allBatchLectures
+      .filter(
+        (l: any) =>
+          (l.subject === activeSubject || (!l.subject && activeSubject === "General")) &&
+          (l.chapter === activeChapter || (!l.chapter && activeChapter === "Overview & Lectures"))
+      )
+      .sort((a: any, b: any) => {
+        if (a.isLive && !b.isLive) return -1;
+        if (!a.isLive && b.isLive) return 1;
+        return (
+          new Date(b.created_at || b.scheduled_at || 0).getTime() -
+          new Date(a.created_at || a.scheduled_at || 0).getTime()
+        );
+      });
+  }, [allBatchLectures, activeSubject, activeChapter]);
 
   const chapterNotes = useMemo(() => {
     if (!activeSubject || !activeChapter) return [];
@@ -376,21 +454,6 @@ function BatchPortal() {
         l.chapter?.toLowerCase().includes("dpp")
     );
   }, [chapterLectures, activeSubject, activeChapter]);
-
-  const allBatchLectures = useMemo(() => {
-    const live = liveClasses.map((l: any) => ({
-      ...l,
-      isLive: true,
-      video_url: l.youtube_url,
-      subtitle: [l.subject, l.chapter].filter(Boolean).join(" • "),
-    }));
-    const rec = lectures.map((l: any) => ({
-      ...l,
-      isLive: false,
-      subtitle: [l.subject, l.chapter].filter(Boolean).join(" • "),
-    }));
-    return [...live, ...rec];
-  }, [liveClasses, lectures]);
 
   const allNotes = useMemo(
     () => materials.filter((m: any) => m.material_type !== "dpp"),
@@ -460,7 +523,7 @@ function BatchPortal() {
 
   const playVideo = (item: any) => {
     const isLive = Boolean(
-      item.is_live ?? item.isLive ?? (item.scheduled_at && !item.recorded_lecture_id)
+      item.isLive ?? item.is_live ?? (item.scheduled_at && !item.recorded_lecture_id && isClassLiveNow(item, nowTime))
     );
     setPlayingVideo({
       id: item.id,
@@ -1203,87 +1266,126 @@ function BatchPortal() {
               </div>
             ) : (
               chapterLectures.map((l: any) => {
-                const isLive = Boolean(l.is_live ?? (l.scheduled_at && !l.recorded_lecture_id));
-                const teacherPhoto = l.faculty ? facultyPhotoMap.get(String(l.faculty).toLowerCase().trim()) : null;
-                const avatarSrc = l.thumbnail_url
-                  ? (getStorageUrl(l.thumbnail_url) || l.thumbnail_url)
-                  : teacherPhoto
-                  ? (getStorageUrl(teacherPhoto) || teacherPhoto)
-                  : null;
+              const isLive = Boolean(l.isLive || l.is_live);
+              const teacherPhoto = l.faculty ? facultyPhotoMap.get(String(l.faculty).toLowerCase().trim()) : null;
+              const avatarSrc = l.thumbnail_url
+                ? (getStorageUrl(l.thumbnail_url) || l.thumbnail_url)
+                : teacherPhoto
+                ? (getStorageUrl(teacherPhoto) || teacherPhoto)
+                : null;
 
-                return (
-                  <div
-                    key={l.id}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden flex flex-col group hover:shadow-md transition-all"
-                  >
-                    {/* Top Thumbnail / Card Header */}
-                    <div className="bg-gradient-to-br from-[#F5F3FF] to-[#EDE9FE] p-4 relative h-40 flex flex-col justify-between">
-                      <div className="pr-16">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-[#6043ED] bg-white px-2 py-0.5 rounded-full shadow-xs">
-                            {isLive ? "Live Class" : l.lecture_number ? `Lec ${l.lecture_number}` : "Lecture"}
-                          </span>
-                          {completedIds.has(l.id) && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                              <CheckCircle2 className="w-3 h-3" /> Completed
+              return (
+                <div
+                  key={l.id}
+                  className={cn(
+                    "bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col group transition-all",
+                    isLive
+                      ? "border-2 border-red-500 ring-2 ring-red-500/20 shadow-[0_0_24px_rgba(239,68,68,0.22)]"
+                      : "border-slate-200/80 hover:shadow-md"
+                  )}
+                >
+                  {isLive && (
+                    <div className="h-1 bg-gradient-to-r from-red-500 via-rose-500 to-red-600 animate-pulse" />
+                  )}
+
+                  {/* Top Thumbnail / Card Header */}
+                  <div className="bg-gradient-to-br from-[#F5F3FF] to-[#EDE9FE] p-4 relative h-40 flex flex-col justify-between">
+                    <div className="pr-16">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isLive ? (
+                          <span className="relative overflow-hidden inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/50 shadow-xs">
+                            <span className="live-shimmer" />
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
                             </span>
-                          )}
-                        </div>
-                        <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 mt-2">
-                          {l.title}
-                        </h4>
-                      </div>
-
-                      {/* Circular Teacher Photo / Thumbnail */}
-                      <div className="absolute right-3 top-3 w-16 h-16 rounded-full border-2 border-white shadow-md overflow-hidden bg-white">
-                        {avatarSrc ? (
-                          <img
-                            src={avatarSrc}
-                            className="w-full h-full object-cover"
-                            alt={l.faculty || "Faculty"}
-                            loading="lazy"
-                            decoding="async"
-                          />
+                            <Radio className="h-3 w-3 text-white animate-pulse" />
+                            <span>LIVE CLASS</span>
+                          </span>
                         ) : (
-                          <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
-                            <User className="w-8 h-8" />
-                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#6043ED] bg-white px-2 py-0.5 rounded-full shadow-xs">
+                            {l.lecture_number ? `Lec ${l.lecture_number}` : "Lecture"}
+                          </span>
                         )}
-
-                        {/* Play Button Overlay */}
-                        <button
-                          onClick={() => playVideo(l)}
-                          className="absolute -bottom-0.5 -right-0.5 w-7 h-7 bg-[#6043ED] hover:bg-[#4E36C2] rounded-full text-white flex items-center justify-center shadow-md border-2 border-white transition group-hover:scale-110"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                        </button>
+                        {completedIds.has(l.id) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                            <CheckCircle2 className="w-3 h-3" /> Completed
+                          </span>
+                        )}
                       </div>
-
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[130px]">
-                        {l.faculty || "Sarvodaya Faculty"}
-                      </div>
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 mt-2">
+                        {l.title}
+                      </h4>
                     </div>
 
-                    {/* Card Body */}
-                    <div className="p-4 flex flex-col flex-1 bg-white">
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-2">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {new Date(l.created_at || l.scheduled_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Video className="w-3.5 h-3.5" />
-                          {l.duration_minutes ? `${l.duration_minutes} mins` : "Full Lec"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 line-clamp-2 mb-3 flex-1">
-                        {l.description || `${activeChapter} - Comprehensive Class`}
-                      </p>
+                    {/* Circular Teacher Photo / Thumbnail */}
+                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full border-2 border-white shadow-md overflow-hidden bg-white">
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          className="w-full h-full object-cover"
+                          alt={l.faculty || "Faculty"}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
+                          <User className="w-8 h-8" />
+                        </div>
+                      )}
 
-                      <div className="space-y-2 mt-auto">
+                      {/* Play Button Overlay */}
+                      <button
+                        onClick={() => playVideo(l)}
+                        className={cn(
+                          "absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full text-white flex items-center justify-center shadow-md border-2 border-white transition group-hover:scale-110",
+                          isLive
+                            ? "bg-red-600 hover:bg-red-700 animate-pulse"
+                            : "bg-[#6043ED] hover:bg-[#4E36C2]"
+                        )}
+                      >
+                        {isLive ? (
+                          <Radio className="w-3.5 h-3.5" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[130px]">
+                      {l.faculty || "Sarvodaya Faculty"}
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-4 flex flex-col flex-1 bg-white">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-2">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {new Date(l.created_at || l.scheduled_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Video className="w-3.5 h-3.5" />
+                        {l.duration_minutes ? `${l.duration_minutes} mins` : "Full Lec"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 line-clamp-2 mb-3 flex-1">
+                      {l.description || `${activeChapter} - Comprehensive Class`}
+                    </p>
+
+                    <div className="space-y-2 mt-auto">
+                      {isLive ? (
+                        <Button
+                          size="sm"
+                          onClick={() => playVideo(l)}
+                          className="w-full rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-700 hover:to-rose-700 text-white text-xs font-black tracking-wider uppercase gap-1.5 shadow-md active:scale-[0.98]"
+                        >
+                          <Radio className="w-3.5 h-3.5 animate-pulse" /> Join Live Class
+                        </Button>
+                      ) : (
                         <Button
                           size="sm"
                           onClick={() => playVideo(l)}
@@ -1291,6 +1393,7 @@ function BatchPortal() {
                         >
                           <Play className="w-3.5 h-3.5 fill-current" /> Watch Lecture
                         </Button>
+                      )}
 
                         <button
                           type="button"
