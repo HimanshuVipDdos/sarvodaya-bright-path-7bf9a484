@@ -201,7 +201,7 @@ function LiveClock() {
 
   if (!timeStr) return null;
   return (
-    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md text-[11px] font-mono font-medium text-white/90 shadow-xs">
+    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 border border-white/15 text-[11px] font-mono font-medium text-white/90 shadow-xs">
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
       {timeStr}
     </span>
@@ -826,7 +826,7 @@ function CustomYouTubePlayer({
       )}
       onMouseMove={resetHideTimer}
     >
-      {/* Real YouTube iframe with controls=0 permanently enforced (full uncropped frame) */}
+      {/* Real YouTube iframe with controls=0 (crystal-clear full frame, no cropping, no black masks, no blur) */}
       <iframe
         ref={iframeRef}
         src={embedSrc}
@@ -849,7 +849,7 @@ function CustomYouTubePlayer({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.15 }}
             transition={{ duration: 0.35 }}
-            className="pointer-events-none absolute left-8 sm:left-14 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center justify-center h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-black/70 border border-white/20 backdrop-blur-md text-white font-bold text-xs shadow-2xl"
+            className="pointer-events-none absolute left-8 sm:left-14 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center justify-center h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-black/70 border border-white/20 text-white font-bold text-xs shadow-2xl"
           >
             <RotateCcw className="h-6 w-6 sm:h-8 sm:w-8 mb-1 text-emerald-400" />
             <span className="text-[11px] font-mono font-bold">10s</span>
@@ -861,19 +861,13 @@ function CustomYouTubePlayer({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.15 }}
             transition={{ duration: 0.35 }}
-            className="pointer-events-none absolute right-8 sm:right-14 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center justify-center h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-black/70 border border-white/20 backdrop-blur-md text-white font-bold text-xs shadow-2xl"
+            className="pointer-events-none absolute right-8 sm:right-14 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center justify-center h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-black/70 border border-white/20 text-white font-bold text-xs shadow-2xl"
           >
             <RotateCw className="h-6 w-6 sm:h-8 sm:w-8 mb-1 text-emerald-400" />
             <span className="text-[11px] font-mono font-bold">10s</span>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Permanent top edge blackout: 100% blocks YouTube's title, avatar, Watch Later & Share icons */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-11 bg-black" />
-      <div className="pointer-events-none absolute inset-x-0 top-11 z-10 h-6 bg-gradient-to-b from-black to-transparent" />
-
-
 
       {/* Action Feedback HUD */}
       <AnimatePresence>
@@ -884,7 +878,7 @@ function CustomYouTubePlayer({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="pointer-events-none absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 border border-white/20 backdrop-blur-xl text-white text-xs font-semibold shadow-2xl tracking-wide"
+            className="pointer-events-none absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/90 border border-white/20 text-white text-xs font-semibold shadow-2xl tracking-wide"
           >
             {hud.icon}
             <span>{hud.text}</span>
@@ -915,7 +909,7 @@ function CustomYouTubePlayer({
       {/* Top Bar: Title/Subtitle + Live Clock */}
       <div
         className={cn(
-          "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3 sm:p-4 transition-opacity duration-300",
+          "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/60 to-transparent p-3 sm:p-4 transition-opacity duration-300",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
@@ -963,7 +957,7 @@ function CustomYouTubePlayer({
               togglePlay();
             }}
             aria-label={playing ? "Pause" : "Play"}
-            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_8px_30px_rgba(225,29,72,0.45)] ring-4 ring-white/20 hover:ring-white/40 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
+            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_8px_30px_rgba(225,29,72,0.45)] ring-4 ring-white/20 hover:ring-white/40 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
           >
             {playing ? (
               <Pause className="h-7 w-7 fill-current" />
@@ -984,7 +978,7 @@ function CustomYouTubePlayer({
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-3 pt-12 sm:px-5 transition-opacity duration-300 backdrop-blur-[1px]",
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-2.5 pt-8 sm:px-5 transition-opacity duration-300",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -1020,13 +1014,13 @@ function CustomYouTubePlayer({
         >
           {hoverTooltip.visible && duration > 0 && (
             <div
-              className="pointer-events-none absolute -top-8 -translate-x-1/2 z-30 px-2 py-0.5 rounded-md bg-zinc-950/95 border border-white/20 text-[11px] font-mono font-medium text-white shadow-lg backdrop-blur-md whitespace-nowrap"
+              className="pointer-events-none absolute -top-8 -translate-x-1/2 z-30 px-2 py-0.5 rounded-md bg-zinc-950 border border-white/20 text-[11px] font-mono font-medium text-white shadow-lg whitespace-nowrap"
               style={{ left: `${Math.max(20, Math.min(hoverTooltip.x, (seekbarRef.current?.getBoundingClientRect().width || 100) - 20))}px` }}
             >
               {formatTime(hoverTooltip.time)}
             </div>
           )}
-          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/20 backdrop-blur-xs transition-all">
+          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
             <div
               className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
               style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
@@ -1144,7 +1138,7 @@ function CustomYouTubePlayer({
                 title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
                 aria-label="Toggle Live Chat"
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md transition active:scale-95 border",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 border",
                   chatOpen
                     ? "bg-red-600 text-white border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]"
                     : "bg-white/10 text-white/90 hover:bg-white/20 border-white/15"
@@ -1187,7 +1181,7 @@ function CustomYouTubePlayer({
                 <span>{quality.replace(" HD", "")}</span>
               </button>
               {showQualityMenu && (
-                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950 border border-white/15 py-1.5 shadow-2xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
                   <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
                     Quality (Max 1080)
                   </div>
@@ -1230,7 +1224,7 @@ function CustomYouTubePlayer({
                 {rate}x
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950 border border-white/15 py-1.5 shadow-2xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
                   <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
                     Playback Speed
                   </div>
@@ -1795,7 +1789,7 @@ function CustomHtml5Player({
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center h-24 w-24 rounded-full bg-black/60 border border-white/20 text-white backdrop-blur-md"
+            className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center h-24 w-24 rounded-full bg-black/60 border border-white/20 text-white"
           >
             <RotateCcw className="h-7 w-7" />
             <span className="text-xs font-bold mt-1">10s</span>
@@ -1806,7 +1800,7 @@ function CustomHtml5Player({
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center h-24 w-24 rounded-full bg-black/60 border border-white/20 text-white backdrop-blur-md"
+            className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center h-24 w-24 rounded-full bg-black/60 border border-white/20 text-white"
           >
             <RotateCw className="h-7 w-7" />
             <span className="text-xs font-bold mt-1">10s</span>
@@ -1822,7 +1816,7 @@ function CustomHtml5Player({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="pointer-events-none absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 border border-white/20 backdrop-blur-xl text-white text-xs font-semibold shadow-2xl tracking-wide"
+            className="pointer-events-none absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/90 border border-white/20 text-white text-xs font-semibold shadow-2xl tracking-wide"
           >
             {hud.icon}
             <span>{hud.text}</span>
@@ -1833,7 +1827,7 @@ function CustomHtml5Player({
       {/* Top Bar: Title/Subtitle + Live Clock */}
       <div
         className={cn(
-          "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3 sm:p-4 transition-opacity duration-300",
+          "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/60 to-transparent p-3 sm:p-4 transition-opacity duration-300",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
@@ -1881,7 +1875,7 @@ function CustomHtml5Player({
               togglePlay();
             }}
             aria-label={playing ? "Pause" : "Play"}
-            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_8px_30px_rgba(225,29,72,0.45)] ring-4 ring-white/20 hover:ring-white/40 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
+            className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 sm:h-16 sm:w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_8px_30px_rgba(225,29,72,0.45)] ring-4 ring-white/20 hover:ring-white/40 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
           >
             {playing ? (
               <Pause className="h-7 w-7 fill-current" />
@@ -1895,7 +1889,7 @@ function CustomHtml5Player({
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-3 pt-12 sm:px-5 transition-opacity duration-300 backdrop-blur-[1px]",
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-2.5 pt-8 sm:px-5 transition-opacity duration-300",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -1932,13 +1926,13 @@ function CustomHtml5Player({
           {/* Hover Time Tooltip */}
           {hoverTooltip.visible && (
             <div
-              className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-md bg-black/90 border border-white/20 px-2 py-0.5 text-[10px] font-mono font-bold text-white shadow-lg backdrop-blur-xs"
+              className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-md bg-zinc-950 border border-white/20 px-2 py-0.5 text-[10px] font-mono font-bold text-white shadow-lg"
               style={{ left: `${hoverTooltip.x}px` }}
             >
               {formatTime(hoverTooltip.time)}
             </div>
           )}
-          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/20 backdrop-blur-xs transition-all">
+          <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
             <div
               className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
               style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
@@ -2052,7 +2046,7 @@ function CustomHtml5Player({
                 title={chatOpen ? "Hide Live Chat" : "Open Live Chat"}
                 aria-label="Toggle Live Chat"
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md transition active:scale-95 border",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 border",
                   chatOpen
                     ? "bg-red-600 text-white border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]"
                     : "bg-white/10 text-white/90 hover:bg-white/20 border-white/15"
@@ -2095,7 +2089,7 @@ function CustomHtml5Player({
                 <span>{quality}</span>
               </button>
               {showQualityMenu && (
-                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950 border border-white/15 py-1.5 shadow-2xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
                   <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
                     Max Quality
                   </div>
@@ -2138,7 +2132,7 @@ function CustomHtml5Player({
                 {rate}x
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950/95 border border-white/15 py-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
+                <div className="absolute bottom-10 right-0 z-30 flex flex-col rounded-xl bg-zinc-950 border border-white/15 py-1.5 shadow-2xl ring-1 ring-black/50 max-h-56 overflow-y-auto w-36 divide-y divide-white/5 scrollbar-thin">
                   <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
                     Playback Speed
                   </div>
@@ -2301,11 +2295,6 @@ export function VideoPlayer({
               hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
               onClose={onClose}
             />
-          ) : streamResolveStatus === "resolving" ? (
-            <div className="relative flex h-full w-full flex-col items-center justify-center bg-black p-6 text-center text-white select-none">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-red-500 border-t-transparent mb-3" />
-              <p className="text-xs font-semibold text-white/90">Starting clean video stream…</p>
-            </div>
           ) : (
             <CustomYouTubePlayer
               key={embedInfo.videoId}

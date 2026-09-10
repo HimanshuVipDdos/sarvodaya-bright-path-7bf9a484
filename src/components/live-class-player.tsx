@@ -59,7 +59,7 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, isLive = true
           <button
             onClick={() => setChatOpen(true)}
             aria-label="Open live chat"
-            className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:bg-black/80"
+            className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/80 px-3 py-2 text-xs font-medium text-white transition hover:bg-black"
           >
             <MessageCircle className="h-4 w-4" /> Chat
           </button>
@@ -72,7 +72,7 @@ export function LiveClassPlayer({ src, title, poster, liveClassId, isLive = true
           className={cn(
             "flex min-w-0 shrink-0 flex-col",
             isFullscreen
-              ? "h-full w-full max-w-xs bg-black/90 backdrop-blur-md sm:max-w-sm"
+              ? "h-full w-full max-w-xs bg-black sm:max-w-sm"
               : "w-full lg:w-80",
           )}
         >
