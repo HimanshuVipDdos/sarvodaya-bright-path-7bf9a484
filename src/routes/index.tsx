@@ -26,23 +26,80 @@ import { HeroSlider } from "@/components/hero-slider";
 import { Hero3DModel } from "@/components/hero-3d-model";
 import { Button } from "@/components/ui/button";
 import { SITE, whatsappHref, telHref } from "@/lib/site";
+import { cn } from "@/lib/utils";
+import {
+  LandingStatsConfig,
+  StatMetricKey,
+  defaultLandingStatsConfig,
+  formatStatDisplayValue,
+  ICON_MAP,
+  COLOR_MAP,
+} from "@/lib/landing-stats";
 
 const landingQuery = queryOptions({
   queryKey: ["landing-data"],
   queryFn: async () => {
-    const [batches, faculty, results, notifications, currentAffairs] = await Promise.all([
+    const [
+      batches,
+      faculty,
+      results,
+      notifications,
+      currentAffairs,
+      statsConfigRes,
+      studentCount,
+      testCount,
+      materialCount,
+      batchCount,
+      liveClassCount,
+    ] = await Promise.all([
       supabase.from("batches").select("*").eq("is_active", true).eq("is_featured", true).limit(8),
       supabase.from("faculty").select("*").eq("is_active", true).order("sort_order").limit(6),
       supabase.from("results").select("*").order("sort_order").limit(8),
       supabase.from("notifications").select("*").eq("is_active", true).order("created_at", { ascending: false }).limit(5),
       supabase.from("current_affairs").select("*").eq("is_active", true).order("publish_date", { ascending: false }).limit(4),
+      supabase.from("notifications").select("body").eq("category", "landing_stats_config").eq("title", "landing_stats").maybeSingle().then(res => res, () => ({ data: null, error: null })),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
+      supabase.from("cbt_tests").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
+      supabase.from("study_materials").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
+      supabase.from("batches").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
+      supabase.from("live_classes").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
     ]);
+
+    let statsConfig: LandingStatsConfig = defaultLandingStatsConfig;
+    if (statsConfigRes?.data?.body) {
+      try {
+        const parsed = JSON.parse(statsConfigRes.data.body) as LandingStatsConfig;
+        if (parsed && Array.isArray(parsed.cards)) {
+          statsConfig = {
+            is_enabled: parsed.is_enabled ?? true,
+            cards: parsed.cards,
+          };
+        }
+      } catch {}
+    } else if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("sarvodaya_landing_stats_config");
+        if (cached) statsConfig = JSON.parse(cached);
+      } catch {}
+    }
+
+    const actualCounts: Record<StatMetricKey, number> = {
+      students: studentCount,
+      tests: testCount,
+      materials: materialCount,
+      batches: batchCount,
+      live_classes: liveClassCount,
+      faculty: (faculty.data ?? []).length,
+    };
+
     return {
       batches: batches.data ?? [],
       faculty: faculty.data ?? [],
       results: results.data ?? [],
       notifications: notifications.data ?? [],
       currentAffairs: currentAffairs.data ?? [],
+      statsConfig,
+      actualCounts,
     };
   },
 });
@@ -60,6 +117,9 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { data } = useSuspenseQuery(landingQuery);
+  const statsConfig = data.statsConfig;
+  const actualCounts = data.actualCounts;
+  const visibleCards = (statsConfig?.cards ?? []).filter((c) => c.is_visible);
 
   return (
     <div className="perspective-1000">
@@ -111,30 +171,46 @@ function Index() {
             </motion.div>
           </div>
 
-          {/* STATS ROW */}
-          <div className="mt-16 sm:mt-24 border-t border-b border-slate-100 py-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 divide-x divide-slate-100">
-               {[
-                 { Icon: Video, iconClass: "text-red-500", title: "Daily Live", sub: "Interactive classes" },
-                 { Icon: FileText, iconClass: "text-blue-500", title: "10 Million +", sub: "Tests, sample papers & notes" },
-                 { Icon: Clock, iconClass: "text-purple-500", title: "24 x 7", sub: "Doubt solving sessions" },
-                 { Icon: MapPin, iconClass: "text-yellow-500", title: "100 +", sub: "Offline centres" },
-               ].map(({ Icon, iconClass, title, sub }, i) => (
-                 <motion.div
-                   key={title}
-                   initial={{ opacity: 0, y: 16 }}
-                   whileInView={{ opacity: 1, y: 0 }}
-                   viewport={{ once: true, amount: 0.4 }}
-                   transition={{ duration: 0.4, delay: i * 0.08, ease: "easeOut" }}
-                   className="flex flex-col items-center text-center px-4"
-                 >
-                    <Icon className={`w-8 h-8 ${iconClass} mb-3`} />
-                    <div className="font-bold text-slate-900 text-sm">{title}</div>
-                    <div className="text-xs text-slate-500 mt-1">{sub}</div>
-                 </motion.div>
-               ))}
+          {/* STATS ROW (Admin-managed at /admin/landing-stats, PW Style) */}
+          {statsConfig.is_enabled && visibleCards.length > 0 && (
+            <div className="mt-16 sm:mt-24 border-t border-b border-slate-100 py-8">
+              <div
+                className={cn(
+                  "grid gap-8 divide-x divide-slate-100",
+                  visibleCards.length === 1
+                    ? "grid-cols-1 max-w-sm mx-auto divide-x-0"
+                    : visibleCards.length === 2
+                    ? "grid-cols-2 max-w-2xl mx-auto"
+                    : visibleCards.length === 3
+                    ? "grid-cols-1 sm:grid-cols-3 max-w-4xl mx-auto"
+                    : "grid-cols-2 lg:grid-cols-4"
+                )}
+              >
+                {visibleCards.map((card, i) => {
+                  const IconComp = ICON_MAP[card.icon] || Sparkles;
+                  const colorObj = COLOR_MAP[card.color] || COLOR_MAP.blue;
+                  const displayValue = formatStatDisplayValue(card, actualCounts);
+
+                  return (
+                    <motion.div
+                      key={card.id || card.title}
+                      initial={{ opacity: 0, y: 16 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.4 }}
+                      transition={{ duration: 0.4, delay: i * 0.08, ease: "easeOut" }}
+                      className="flex flex-col items-center text-center px-4"
+                    >
+                      <IconComp className={`w-8 h-8 ${colorObj.textClass} mb-3`} />
+                      <div className="font-bold text-slate-900 text-sm sm:text-base">
+                        {displayValue}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">{card.sub}</div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 

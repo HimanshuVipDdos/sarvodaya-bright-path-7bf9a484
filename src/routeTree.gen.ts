@@ -41,6 +41,7 @@ import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminLiveClassesRouteImport } from './routes/_authenticated/admin.live-classes'
 import { Route as AuthenticatedAdminLiveChatRouteImport } from './routes/_authenticated/admin.live-chat'
 import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
+import { Route as AuthenticatedAdminLandingStatsRouteImport } from './routes/_authenticated/admin.landing-stats'
 import { Route as AuthenticatedAdminHeroSlidesRouteImport } from './routes/_authenticated/admin.hero-slides'
 import { Route as AuthenticatedAdminGalleryRouteImport } from './routes/_authenticated/admin.gallery'
 import { Route as AuthenticatedAdminFacultyRouteImport } from './routes/_authenticated/admin.faculty'
@@ -226,6 +227,12 @@ const AuthenticatedAdminLecturesRoute =
     path: '/lectures',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminLandingStatsRoute =
+  AuthenticatedAdminLandingStatsRouteImport.update({
+    id: '/landing-stats',
+    path: '/landing-stats',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminHeroSlidesRoute =
   AuthenticatedAdminHeroSlidesRouteImport.update({
     id: '/hero-slides',
@@ -364,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/admin/faculty': typeof AuthenticatedAdminFacultyRoute
   '/admin/gallery': typeof AuthenticatedAdminGalleryRoute
   '/admin/hero-slides': typeof AuthenticatedAdminHeroSlidesRoute
+  '/admin/landing-stats': typeof AuthenticatedAdminLandingStatsRoute
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/admin/live-chat': typeof AuthenticatedAdminLiveChatRoute
   '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
@@ -412,6 +420,7 @@ export interface FileRoutesByTo {
   '/admin/faculty': typeof AuthenticatedAdminFacultyRoute
   '/admin/gallery': typeof AuthenticatedAdminGalleryRoute
   '/admin/hero-slides': typeof AuthenticatedAdminHeroSlidesRoute
+  '/admin/landing-stats': typeof AuthenticatedAdminLandingStatsRoute
   '/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/admin/live-chat': typeof AuthenticatedAdminLiveChatRoute
   '/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
@@ -464,6 +473,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/faculty': typeof AuthenticatedAdminFacultyRoute
   '/_authenticated/admin/gallery': typeof AuthenticatedAdminGalleryRoute
   '/_authenticated/admin/hero-slides': typeof AuthenticatedAdminHeroSlidesRoute
+  '/_authenticated/admin/landing-stats': typeof AuthenticatedAdminLandingStatsRoute
   '/_authenticated/admin/lectures': typeof AuthenticatedAdminLecturesRoute
   '/_authenticated/admin/live-chat': typeof AuthenticatedAdminLiveChatRoute
   '/_authenticated/admin/live-classes': typeof AuthenticatedAdminLiveClassesRoute
@@ -517,6 +527,7 @@ export interface FileRouteTypes {
     | '/admin/faculty'
     | '/admin/gallery'
     | '/admin/hero-slides'
+    | '/admin/landing-stats'
     | '/admin/lectures'
     | '/admin/live-chat'
     | '/admin/live-classes'
@@ -565,6 +576,7 @@ export interface FileRouteTypes {
     | '/admin/faculty'
     | '/admin/gallery'
     | '/admin/hero-slides'
+    | '/admin/landing-stats'
     | '/admin/lectures'
     | '/admin/live-chat'
     | '/admin/live-classes'
@@ -616,6 +628,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/faculty'
     | '/_authenticated/admin/gallery'
     | '/_authenticated/admin/hero-slides'
+    | '/_authenticated/admin/landing-stats'
     | '/_authenticated/admin/lectures'
     | '/_authenticated/admin/live-chat'
     | '/_authenticated/admin/live-classes'
@@ -881,6 +894,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/landing-stats': {
+      id: '/_authenticated/admin/landing-stats'
+      path: '/landing-stats'
+      fullPath: '/admin/landing-stats'
+      preLoaderRoute: typeof AuthenticatedAdminLandingStatsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/hero-slides': {
       id: '/_authenticated/admin/hero-slides'
       path: '/hero-slides'
@@ -1056,6 +1076,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminFacultyRoute: typeof AuthenticatedAdminFacultyRoute
   AuthenticatedAdminGalleryRoute: typeof AuthenticatedAdminGalleryRoute
   AuthenticatedAdminHeroSlidesRoute: typeof AuthenticatedAdminHeroSlidesRoute
+  AuthenticatedAdminLandingStatsRoute: typeof AuthenticatedAdminLandingStatsRoute
   AuthenticatedAdminLecturesRoute: typeof AuthenticatedAdminLecturesRoute
   AuthenticatedAdminLiveChatRoute: typeof AuthenticatedAdminLiveChatRoute
   AuthenticatedAdminLiveClassesRoute: typeof AuthenticatedAdminLiveClassesRoute
@@ -1077,6 +1098,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminFacultyRoute: AuthenticatedAdminFacultyRoute,
   AuthenticatedAdminGalleryRoute: AuthenticatedAdminGalleryRoute,
   AuthenticatedAdminHeroSlidesRoute: AuthenticatedAdminHeroSlidesRoute,
+  AuthenticatedAdminLandingStatsRoute: AuthenticatedAdminLandingStatsRoute,
   AuthenticatedAdminLecturesRoute: AuthenticatedAdminLecturesRoute,
   AuthenticatedAdminLiveChatRoute: AuthenticatedAdminLiveChatRoute,
   AuthenticatedAdminLiveClassesRoute: AuthenticatedAdminLiveClassesRoute,
