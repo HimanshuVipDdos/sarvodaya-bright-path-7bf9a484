@@ -147,7 +147,10 @@ export default defineEventHandler(async (event) => {
 
     setResponseHeader(event, 'Content-Type', upstreamRes.headers.get('content-type') || 'video/mp4');
     setResponseHeader(event, 'Accept-Ranges', 'bytes');
-    setResponseHeader(event, 'Cache-Control', 'public, max-age=3600');
+    setResponseHeader(event, 'Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    setResponseHeader(event, 'Content-Disposition', 'inline');
+    setResponseHeader(event, 'X-Content-Type-Options', 'nosniff');
+    setResponseHeader(event, 'X-Download-Options', 'noopen');
 
     const contentLength = upstreamRes.headers.get('content-length');
     if (contentLength) setResponseHeader(event, 'Content-Length', contentLength);

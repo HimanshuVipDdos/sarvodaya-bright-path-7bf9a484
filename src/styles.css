@@ -304,3 +304,31 @@
     animation: live-shimmer-sweep 2.2s infinite;
   }
 }
+
+/* ==========================================================================
+   Anti-Piracy & Anti-IDM / Extension Sniffer Suppression
+   Neutralizes floating download bars, sniffer overlays, and injector buttons.
+   ========================================================================== */
+[id*="idm" i],
+[class*="idm" i],
+[id*="IDM" i],
+[class*="IDM" i],
+[id*="down-bar" i],
+[class*="down-bar" i],
+[id*="video-download" i],
+[class*="video-download" i],
+div[id^="__idm"],
+div[class^="__idm"],
+div[id*="idm_floating"],
+div[class*="idm_floating"],
+div[style*="z-index: 2147483647"][style*="right"],
+div[style*="z-index: 2147483646"][style*="right"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+

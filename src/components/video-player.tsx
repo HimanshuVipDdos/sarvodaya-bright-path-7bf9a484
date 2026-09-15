@@ -44,19 +44,34 @@ export function extractYouTubeId(url: string): string | null {
     target = iframeMatch[1];
   }
 
-  // Common YouTube URL regex matching various path/query patterns
-  const regExp = /^.*(?:youtu\.be\/|v\/|u\/\w\/|embed\/|live\/|shorts\/|watch\?v=|&v=)([^#&?]*).*/i;
-  const match = target.match(regExp);
-  if (match && match[1] && match[1].length === 11) {
-    return match[1];
+  // Comprehensive regex matching all standard YouTube formats:
+  // youtu.be/ID, youtube.com/embed/ID, /v/ID, /live/ID, /shorts/ID, /watch?v=ID
+  const patterns = [
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|live\/|shorts\/))([a-zA-Z0-9_-]{11})/i,
+    /[?&]v=([a-zA-Z0-9_-]{11})/i,
+    /youtube\.com\/.*[?&]v=([a-zA-Z0-9_-]{11})/i,
+    /\/([a-zA-Z0-9_-]{11})(?:[?#&/]|$)/,
+  ];
+
+  for (const pat of patterns) {
+    const m = target.match(pat);
+    if (m && m[1] && m[1].length === 11) {
+      return m[1];
+    }
   }
 
   // Fallback URL parser for queries with multiple parameters
   try {
     const parsed = new URL(target.startsWith("http") ? target : `https://${target}`);
     const v = parsed.searchParams.get("v");
-    if (v && v.length === 11) {
+    if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) {
       return v;
+    }
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    for (const part of parts) {
+      if (/^[a-zA-Z0-9_-]{11}$/.test(part)) {
+        return part;
+      }
     }
   } catch {
     // ignore
@@ -90,7 +105,7 @@ export function getEmbedableSource(url: string): {
     };
   }
 
-  // YouTube
+  // YouTube - always resolve videoId
   const ytId = extractYouTubeId(target);
   if (ytId) {
     return {
@@ -102,12 +117,12 @@ export function getEmbedableSource(url: string): {
   }
 
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
+    const fallbackId = extractYouTubeId(target);
     return {
       type: "youtube",
-      embedUrl: target.includes("?")
-        ? `${target}&autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`
-        : `${target}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
+      embedUrl: `https://www.youtube.com/embed/${fallbackId || ""}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
       rawUrl: target,
+      videoId: fallbackId || undefined,
     };
   }
 
@@ -317,6 +332,7 @@ function CustomYouTubePlayer({
 
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => getStoredVolume());
@@ -478,9 +494,11 @@ function CustomYouTubePlayer({
           }
           if (typeof d.info.playerState === "number") {
             // 1 = playing, 2 = paused, 0 = ended, 3 = buffering
-            setPlaying(d.info.playerState === 1);
-            if (d.info.playerState === 1) {
+            const isP = d.info.playerState === 1;
+            setPlaying(isP);
+            if (isP) {
               setReady(true);
+              setHasStarted(true);
               setIsEnded(false);
             } else if (d.info.playerState === 0) {
               setIsEnded(true);
@@ -510,6 +528,20 @@ function CustomYouTubePlayer({
     if (w && w.YT && w.YT.Player && iframeRef.current) {
       try {
         ytPlayerRef.current = new w.YT.Player(iframeRef.current, {
+          playerVars: {
+            autoplay: 0,
+            controls: 0,
+            disablekb: 1,
+            enablejsapi: 1,
+            fs: 0,
+            iv_load_policy: 3,
+            modestbranding: 1,
+            rel: 0,
+            showinfo: 0,
+            autohide: 1,
+            playsinline: 1,
+            origin: typeof window !== "undefined" ? window.location.origin : undefined,
+          },
           events: {
             onReady: (e: any) => {
               setReady(true);
@@ -517,7 +549,9 @@ function CustomYouTubePlayer({
               if (d) setDuration(d);
               const state = e.target.getPlayerState?.();
               if (typeof state === "number") {
-                setPlaying(state === 1);
+                const isP = state === 1;
+                setPlaying(isP);
+                if (isP) setHasStarted(true);
               }
               updateAvailableLevels();
             },
@@ -525,9 +559,14 @@ function CustomYouTubePlayer({
               updateAvailableLevels();
             },
             onStateChange: (e: any) => {
-              setPlaying(e.data === 1);
-              if (e.data === 1) setIsEnded(false);
-              else if (e.data === 0) setIsEnded(true);
+              const isP = e.data === 1;
+              setPlaying(isP);
+              if (isP) {
+                setHasStarted(true);
+                setIsEnded(false);
+              } else if (e.data === 0) {
+                setIsEnded(true);
+              }
               const d = e.target.getDuration?.();
               if (d) setDuration(d);
               updateAvailableLevels();
@@ -631,17 +670,35 @@ function CustomYouTubePlayer({
   }, [resetHideTimer]);
 
   const togglePlay = useCallback(() => {
+    if (!hasStarted) {
+      setHasStarted(true);
+      setPlaying(true);
+      sendCommand("playVideo");
+      try {
+        ytPlayerRef.current?.playVideo?.();
+      } catch {}
+      showHud("Playing", <Play className="h-3.5 w-3.5 text-red-500 fill-current" />);
+      resetHideTimer();
+      return;
+    }
+
     if (playing) {
       sendCommand("pauseVideo");
+      try {
+        ytPlayerRef.current?.pauseVideo?.();
+      } catch {}
       setPlaying(false);
       showHud("Paused", <Pause className="h-3.5 w-3.5 text-zinc-300 fill-current" />);
     } else {
       sendCommand("playVideo");
+      try {
+        ytPlayerRef.current?.playVideo?.();
+      } catch {}
       setPlaying(true);
       showHud("Playing", <Play className="h-3.5 w-3.5 text-red-500 fill-current" />);
     }
     resetHideTimer();
-  }, [playing, sendCommand, resetHideTimer, showHud]);
+  }, [hasStarted, playing, sendCommand, resetHideTimer, showHud]);
 
   const seekTo = (t: number) => {
     const targetTime = Math.max(0, Math.min(duration || 0, t));
@@ -966,13 +1023,15 @@ function CustomYouTubePlayer({
     <div
       ref={wrapRef}
       onContextMenu={handleContextMenu}
+      data-idm-ignore="true"
+      data-extension-element="ignore"
       className={cn(
         "relative h-full w-full bg-black select-none overflow-hidden group",
         isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
       )}
       onMouseMove={resetHideTimer}
     >
-      {/* Real YouTube iframe with controls=0 (crystal-clear full frame, no cropping, no black masks, no blur) */}
+      {/* Real YouTube iframe with controls=0 (crystal-clear full frame, 100% 16:9 aspect, zero cropping, zero blur) */}
       <iframe
         ref={iframeRef}
         src={embedSrc}
@@ -981,7 +1040,12 @@ function CustomYouTubePlayer({
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
-        className="pointer-events-none absolute inset-0 h-full w-full border-0"
+        data-idm-ignore="true"
+        tabIndex={-1}
+        className={cn(
+          "pointer-events-none absolute inset-0 h-full w-full border-0 select-none transition-opacity duration-300",
+          hasStarted ? "opacity-100" : "opacity-0"
+        )}
       />
 
       {/* PhysicsWallah / Classplus Style Dynamic Forensic Watermark */}
@@ -990,8 +1054,61 @@ function CustomYouTubePlayer({
       {/* Real-time DevTools Blackout Security Overlay */}
       {isDevToolsOpen && <DevToolsSecurityOverlay />}
 
-      {/* Transparent surface over the iframe to catch clicks & gestures */}
-      <div className="yt-click-surface absolute inset-0 cursor-pointer" onClick={handleSurfaceClick} />
+      {/* 1. INITIAL COVER BEFORE START: 100% Zero YouTube Splash & Zero YouTube Play Button */}
+      {!hasStarted && (
+        <div
+          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white p-6 cursor-pointer select-none"
+          onClick={togglePlay}
+        >
+          {/* Subtle decorative radial glow */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(225,29,72,0.18),transparent_70%)] pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col items-center max-w-lg text-center">
+            {subtitle && (
+              <span className="mb-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/20 border border-red-500/30 text-rose-300 text-[11px] font-bold tracking-wide uppercase">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />
+                {subtitle}
+              </span>
+            )}
+            {title && (
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-white tracking-tight drop-shadow-lg mb-6 line-clamp-2 px-4">
+                {title}
+              </h1>
+            )}
+
+            {/* Glowing Red Circular Play Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePlay();
+              }}
+              aria-label="Start Lecture"
+              className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_0_40px_rgba(225,29,72,0.6)] ring-4 ring-white/30 hover:ring-white/50 transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer group/btn"
+            >
+              <Play className="h-8 w-8 sm:h-10 sm:w-10 fill-current translate-x-0.5 transition-transform group-hover/btn:scale-110" />
+            </button>
+
+            <p className="mt-4 text-xs text-white/70 font-medium">Click to begin lecture</p>
+          </div>
+        </div>
+      )}
+
+      {/* 2. PAUSE OVERLAY: 100% Zero YouTube 'More Videos' & Zero YouTube Pause UI */}
+      {hasStarted && !playing && !isEnded && (
+        <div
+          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[2px] cursor-pointer select-none transition-opacity duration-200"
+          onClick={togglePlay}
+        >
+          <div className="flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_35px_rgba(225,29,72,0.55)] ring-4 ring-white/30 hover:scale-110 transition-transform active:scale-95">
+            <Play className="h-8 w-8 fill-current translate-x-0.5" />
+          </div>
+          <span className="mt-3 text-xs font-semibold text-white/90 drop-shadow-md">Click to resume</span>
+        </div>
+      )}
+
+      {/* 3. TRANSPARENT CLICK SHIELD: Completely isolates YouTube iframe from hover and touch */}
+      <div className="yt-click-surface absolute inset-0 z-10 cursor-pointer" onClick={handleSurfaceClick} />
 
       {/* Double Tap / Click Ripple Feedback */}
       <AnimatePresence>
@@ -1058,10 +1175,13 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* Top Bar: Title/Subtitle + Live Clock */}
+      {/* 4. PERMANENT TOP HEADER MASK (Zero Crop, Zero Blur) — permanently conceals top 44px where YouTube title would show */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-black/90 via-black/45 to-transparent transition-opacity duration-300" />
+
+      {/* Top Bar Controls */}
       <div
         className={cn(
-          "absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/60 to-transparent p-3 sm:p-4 transition-opacity duration-300",
+          "absolute inset-x-0 top-0 z-25 flex items-start justify-between p-3 sm:p-4 transition-opacity duration-300",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
@@ -1108,9 +1228,9 @@ function CustomYouTubePlayer({
         </div>
       </div>
 
-      {/* Center Red Circular Play/Pause Button */}
+      {/* Center Red Circular Play/Pause Button during active playback */}
       <AnimatePresence>
-        {(!playing || controlsVisible) && (
+        {hasStarted && (!playing || controlsVisible) && (
           <motion.button
             key="center-play-btn"
             type="button"
@@ -1141,10 +1261,13 @@ function CustomYouTubePlayer({
         </div>
       )}
 
+      {/* 5. PERMANENT BOTTOM WATERMARK MASK (Zero Crop, Zero Blur) — permanently conceals bottom 48px where YouTube logo would show */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-black/90 via-black/45 to-transparent transition-opacity duration-300" />
+
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-2.5 pt-8 sm:px-5 transition-opacity duration-300",
+          "absolute inset-x-0 bottom-0 z-30 px-3 pb-2.5 pt-8 sm:px-5 transition-opacity duration-300",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -2014,6 +2137,8 @@ function CustomHtml5Player({
     <div
       ref={wrapRef}
       onContextMenu={handleContextMenu}
+      data-idm-ignore="true"
+      data-extension-element="ignore"
       className={cn(
         "relative h-full w-full bg-black select-none overflow-hidden group",
         isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen"
@@ -2026,6 +2151,10 @@ function CustomHtml5Player({
         poster={poster}
         playsInline
         autoPlay
+        disablePictureInPicture
+        controlsList="nodownload noplaybackrate nofullscreen"
+        data-idm-ignore="true"
+        data-extension-element="ignore"
         onLoadedMetadata={() => {
           setReady(true);
           if (videoRef.current) {
@@ -2053,7 +2182,7 @@ function CustomHtml5Player({
         onError={() => onError?.("HTML5 video error")}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        className="h-full w-full object-contain bg-black"
+        className="h-full w-full object-contain bg-black select-none"
       />
 
       {/* PhysicsWallah / Classplus Style Dynamic Forensic Watermark */}
@@ -2570,14 +2699,20 @@ export function VideoPlayer({
             />
           )
         ) : embedInfo.type === "youtube" ? (
-          <iframe
-            key={embedInfo.embedUrl}
-            src={embedInfo.embedUrl}
-            title={title || "Video Lecture"}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-            className="w-full h-full border-0"
+          <CustomYouTubePlayer
+            key={embedInfo.videoId || "yt-fallback"}
+            videoId={embedInfo.videoId || extractYouTubeId(src) || ""}
+            title={title}
+            subtitle={subtitle}
+            canShowChat={canShowChat}
+            chatOpen={chatVisible}
+            onChatToggle={handleChatToggle}
+            isLive={isLive}
+            initialTime={fallbackTime}
+            onTimeProgress={(t) => setFallbackTime(t)}
+            fullscreenTargetRef={effectiveFullscreenRef}
+            hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
+            onClose={onClose}
           />
         ) : (
           <CustomHtml5Player
