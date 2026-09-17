@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 
 import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
@@ -336,6 +337,7 @@ function RootComponent() {
           </AppLayout>
         )}
         <Toaster position="top-center" richColors />
+        <Analytics />
       </div>
     </QueryClientProvider>
   );
