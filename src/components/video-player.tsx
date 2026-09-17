@@ -1094,10 +1094,10 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* 2. PAUSE OVERLAY: 100% Zero YouTube 'More Videos' & Zero YouTube Pause UI */}
+      {/* 2. PAUSE OVERLAY: 100% Zero YouTube 'More Videos' & Zero YouTube Pause UI (Zero blur, crisp overlay) */}
       {hasStarted && !playing && !isEnded && (
         <div
-          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[2px] cursor-pointer select-none transition-opacity duration-200"
+          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/40 cursor-pointer select-none transition-opacity duration-200"
           onClick={togglePlay}
         >
           <div className="flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_35px_rgba(225,29,72,0.55)] ring-4 ring-white/30 hover:scale-110 transition-transform active:scale-95">

@@ -322,11 +322,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       {/* MAIN WRAPPER */}
       <div className="flex flex-1 flex-col md:pl-64 min-w-0">
-        {/* HEADER */}
-        <header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center gap-x-4 border-b border-border/40 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 px-4 backdrop-blur-xl sm:gap-x-6 sm:px-8 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        {/* HEADER (PW Vanguard Floating Glassmorphic Style) */}
+        <header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center gap-x-4 border-b border-white/10 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 px-4 backdrop-blur-xl sm:gap-x-6 sm:px-8 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
           <button 
             type="button" 
-            className="-m-2.5 p-2.5 text-slate-600 md:hidden"
+            className="-m-2.5 p-2.5 text-zinc-600 dark:text-zinc-300 md:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <span className="sr-only">Open sidebar</span>
@@ -336,12 +336,27 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex flex-1 items-center justify-between gap-x-4 lg:gap-x-6">
             {/* Left Header Area */}
             <div className="flex items-center gap-3">
+              {/* Live Batch Radar Pill if active */}
+              {hasActiveLiveClass && (
+                <Link
+                  to="/my-batches"
+                  className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/15 border border-red-500/30 text-red-500 hover:bg-red-600/25 transition-all text-xs font-bold shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  <Radio className="h-3.5 w-3.5" />
+                  <span>Live Lecture Now</span>
+                </Link>
+              )}
+
               {/* Goal selector - shows "Select Goal" until student picks */}
               <div ref={goalRef} className="relative hidden md:block">
                 <button
                   type="button"
                   onClick={() => setGoalOpen((o) => !o)}
-                  className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-4 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                  className="flex items-center gap-2 rounded-full border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 px-4 py-1.5 text-[13px] font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80 transition-colors"
                 >
                   {studentGoal ? (
                     <>
@@ -350,8 +365,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     </>
                   ) : (
                     <>
-                      <Target className="h-3.5 w-3.5 text-slate-400" />
-                      <span className="text-slate-400">Select Goal</span>
+                      <Target className="h-3.5 w-3.5 text-zinc-400" />
+                      <span className="text-zinc-400">Select Goal</span>
                     </>
                   )}
                   <ChevronDown className={cn("h-3.5 w-3.5 text-slate-400 transition-transform", goalOpen && "rotate-180")} />

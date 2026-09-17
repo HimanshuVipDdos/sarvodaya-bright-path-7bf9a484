@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { BatchCard } from "@/components/edtech/batch-card";
 import { cn, getStorageUrl, isClassLiveNow } from "@/lib/utils";
 
 const batchesQuery = queryOptions({
@@ -156,129 +157,9 @@ function BatchesPage() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filtered.map((b, i) => {
-           const discount = b.original_fees_inr && b.original_fees_inr > b.fees_inr 
-              ? Math.round(((b.original_fees_inr - b.fees_inr) / b.original_fees_inr) * 100) 
-              : 0;
-
-           return (
-          <motion.div
-            key={b.id}
-            initial={{ opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.3) }}
-          >
-            <Link to="/batches/$slug" params={{ slug: b.slug }} className="block h-full">
-              <div className={cn(
-                "group flex h-full flex-col overflow-hidden rounded-[20px] bg-white transition-all duration-300 relative",
-                b._isLive
-                  ? "border-2 border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.22)] ring-2 ring-red-500/30 hover:shadow-[0_0_35px_rgba(239,68,68,0.38)]"
-                  : "border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
-              )}>
-                {/* Top ambient glowing bar when Live */}
-                {b._isLive && (
-                  <div className="h-1 w-full bg-gradient-to-r from-red-500 via-rose-500 to-red-600 animate-pulse" />
-                )}
-                
-                {/* Image Section */}
-                <div className="relative w-full aspect-video overflow-hidden bg-slate-100">
-                  {b.thumbnail_url ? (
-                    <img
-                      src={getStorageUrl(b.thumbnail_url) || b.thumbnail_url}
-                      alt={b.title}
-                      loading="lazy"
-                      onError={(e) => {
-                        // If image fails to load, hide broken img and show fallback gradient
-                        e.currentTarget.style.display = "none";
-                        if (e.currentTarget.parentElement) {
-                          e.currentTarget.parentElement.classList.add("bg-gradient-to-br", "from-[#E0E7FF]", "to-[#DBEAFE]");
-                        }
-                      }}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#E0E7FF] to-[#DBEAFE] flex items-center justify-center">
-                       <span className="text-xl font-black text-[#4F46E5] opacity-20 uppercase tracking-widest px-4 text-center">{b.exam_category}</span>
-                    </div>
-                  )}
-                  
-                  {/* Top Badges */}
-                  <div className="absolute top-0 left-0 right-0 flex justify-between p-3 pointer-events-none">
-                     <div className="flex gap-1.5 flex-wrap">
-                       {b.is_featured && <span className="rounded bg-yellow-400 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-900 shadow-sm">Featured</span>}
-                       {b._isLive && (
-                        <div className="relative overflow-hidden flex items-center gap-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white live-badge-glow border border-red-300/50 shadow-sm pointer-events-none">
-                          <span className="live-shimmer" />
-                          <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-95" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                          </span>
-                          <Radio className="h-3 w-3 text-white animate-pulse" />
-                          <span>LIVE</span>
-                        </div>
-                      )}
-                     </div>
-                  </div>
-                </div>
-
-                {/* Content Section */}
-                <div className="flex flex-1 flex-col p-4 sm:p-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-bold text-red-500">{b.exam_category}</div>
-                    <div className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">HINGLISH</div>
-                  </div>
-                  
-                  <h3 className="text-[17px] font-bold text-slate-900 tracking-tight leading-snug mb-3 line-clamp-2">{b.title}</h3>
-                  
-                  <div className="space-y-1.5 mb-4 mt-auto">
-                     <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                        <BookOpen className="h-3.5 w-3.5 text-slate-400" /> 
-                        {b.exam_category} Target
-                     </div>
-                     <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                        <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
-                        {b._isLive ? (
-                          <span className="text-red-600 font-bold flex items-center gap-1.5 animate-pulse">
-                            <span className="relative flex h-2 w-2">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
-                            </span>
-                            <Radio className="h-3 w-3" /> Live Class Ongoing
-                          </span>
-                        ) : (
-                          <span className="text-green-600 font-semibold">Available</span>
-                        )}
-                        <span className="text-slate-400">|</span> 
-                        <span className="truncate">{b.duration}</span>
-                     </div>
-                  </div>
-
-                  {/* Pricing and Action */}
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <div>
-                      <div className="flex items-center gap-2">
-                         <span className="text-xl font-black text-slate-900">₹{b.fees_inr.toLocaleString("en-IN")}</span>
-                         {discount > 0 && <span className="text-xs font-bold text-slate-400 line-through">₹{b.original_fees_inr?.toLocaleString("en-IN")}</span>}
-                      </div>
-                      {discount > 0 && <div className="text-[11px] font-bold text-green-600">{discount}% OFF</div>}
-                    </div>
-                    
-                    <div className="flex">
-                       <button className="bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-2 px-4 rounded-l-lg transition-colors">
-                         Buy Now
-                       </button>
-                       <button className="bg-slate-800 hover:bg-slate-700 text-white px-3 rounded-r-lg border-l border-slate-700 transition-colors">
-                         <ArrowRight className="h-4 w-4" />
-                       </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          </motion.div>
-          );
-        })}
+        {filtered.map((b, i) => (
+          <BatchCard key={b.id} batch={b} index={i} featured={b.is_featured} />
+        ))}
       </div>
 
       {filtered.length === 0 && (

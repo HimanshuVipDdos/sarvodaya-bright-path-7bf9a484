@@ -48,6 +48,19 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* Tier-1 EdTech Custom Design Tokens (PhysicsWallah / Vanguard Style) */
+  --color-edtech-surface: var(--edtech-surface);
+  --color-edtech-elevated: var(--edtech-elevated);
+  --color-edtech-border: var(--edtech-border);
+  --color-edtech-crimson: #ef4444;
+  --color-edtech-crimson-hover: #dc2626;
+  --color-edtech-gold: #f59e0b;
+  --color-edtech-emerald: #10b981;
+
+  --shadow-glow-crimson: 0 0 25px -5px rgba(239, 68, 68, 0.45);
+  --shadow-glow-gold: 0 0 25px -5px rgba(245, 158, 11, 0.4);
+  --shadow-glow-emerald: 0 0 20px -5px rgba(16, 185, 129, 0.4);
+
   --font-display: "Outfit", "SF Pro Display", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   
   /* Adding some nice custom animations */
@@ -80,10 +93,18 @@
   --border: oklch(0.92 0.014 245);
   --input: oklch(0.92 0.014 245);
   --ring: oklch(0.54 0.22 260);
+
+  --edtech-surface: #ffffff;
+  --edtech-elevated: #f8fafc;
+  --edtech-border: #e2e8f0;
 }
 
 .dark {
   --radius: 1rem;
+
+  --edtech-surface: #101117;
+  --edtech-elevated: #161722;
+  --edtech-border: rgba(255, 255, 255, 0.08);
 
   /* Premium Deep Cyber/Tech Dark Mode (Default) */
   --background: oklch(0.12 0.02 270); /* Very deep purple/black */
@@ -303,6 +324,25 @@
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
     animation: live-shimmer-sweep 2.2s infinite;
   }
+}
+
+@utility glass-card {
+  background: rgba(18, 19, 26, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@utility glow-crimson {
+  box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.35);
+}
+
+@utility glow-gold {
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.35);
+}
+
+@utility glow-emerald {
+  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.35);
 }
 
 /* ==========================================================================
