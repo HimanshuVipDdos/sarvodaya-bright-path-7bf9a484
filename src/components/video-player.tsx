@@ -1047,7 +1047,7 @@ function CustomYouTubePlayer({
         data-idm-ignore="true"
         tabIndex={-1}
         className={cn(
-          "pointer-events-none absolute top-[-20px] left-0 w-full h-[calc(100%+54px)] border-0 select-none transition-opacity duration-300",
+          "pointer-events-none absolute inset-0 w-full h-full border-0 select-none transition-opacity duration-300",
           hasStarted ? "opacity-100" : "opacity-0"
         )}
       />
@@ -1101,23 +1101,6 @@ function CustomYouTubePlayer({
 
             <p className="mt-4 text-xs text-white/70 font-medium">Click or tap to begin lecture</p>
           </div>
-        </div>
-      )}
-
-      {/* 2. PAUSE OVERLAY: 100% Zero YouTube 'More Videos' & Zero YouTube Pause UI (Zero blur, crisp overlay) */}
-      {hasStarted && !playing && !isEnded && (
-        <div
-          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/40 cursor-pointer select-none transition-opacity duration-150 touch-manipulation"
-          onClick={togglePlay}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            togglePlay();
-          }}
-        >
-          <div className="flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_35px_rgba(225,29,72,0.55)] ring-4 ring-white/30 hover:scale-110 transition-transform active:scale-95">
-            <Play className="h-8 w-8 fill-current translate-x-0.5" />
-          </div>
-          <span className="mt-3 text-xs font-semibold text-white/90 drop-shadow-md">Tap to resume</span>
         </div>
       )}
 
@@ -1189,8 +1172,13 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* 4. PERMANENT TOP HEADER MASK (Zero Crop, Zero Blur) — permanently conceals top 44px where YouTube title would show */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-black/90 via-black/45 to-transparent transition-opacity duration-300" />
+      {/* 4. Top Header Mask: auto-fades during playback so 100% of lecture board is visible with zero blur and zero darkening */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-black/90 via-black/45 to-transparent transition-opacity duration-300",
+          controlsVisible || !playing ? "opacity-100" : "opacity-0"
+        )}
+      />
 
       {/* Top Bar Controls */}
       <div
@@ -1213,20 +1201,6 @@ function CustomYouTubePlayer({
         </div>
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
-          {sourceBadge === "youtube" && onToggleSourceMode && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleSourceMode();
-              }}
-              title="Try Direct Stream (0% YouTube UI)"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600/30 hover:bg-red-600/50 text-rose-300 border border-red-500/40 text-[10px] font-bold transition active:scale-95 shadow-xs"
-            >
-              <span>📺 YouTube Mode</span>
-              <span className="text-[9px] opacity-75 font-normal">Switch to ⚡ Direct</span>
-            </button>
-          )}
           <LiveClock />
           {onClose && (
             <button
@@ -2253,20 +2227,6 @@ function CustomHtml5Player({
         </div>
 
         <div className="shrink-0 flex items-center gap-2 pl-2">
-          {sourceBadge === "direct" && onToggleSourceMode && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleSourceMode();
-              }}
-              title="Direct stream active (0% YouTube UI). Click to switch to YouTube player"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold transition active:scale-95 shadow-xs"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>⚡ Direct Stream (0% UI)</span>
-            </button>
-          )}
           <LiveClock />
           {onClose && (
             <button
@@ -2623,6 +2583,7 @@ export function VideoPlayer({
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
         "group relative flex flex-row bg-black overflow-hidden transition-all duration-300 w-full h-full rounded-2xl border border-zinc-800 shadow-xl",
+        !className?.includes("h-") && !className?.includes("aspect-") && "aspect-video",
         className
       )}
     >
