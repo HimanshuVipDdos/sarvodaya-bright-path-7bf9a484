@@ -1275,9 +1275,13 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* 5. PERMANENT SOLID BOTTOM COVER: 100% blocks YouTube logo, share button, and controls with zero bleed */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-14 bg-black" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-14 z-20 h-8 bg-gradient-to-t from-black to-transparent" />
+      {/* 5. Bottom Control Bar Shield: provides high-contrast backdrop for seekbar & controls, auto-fading during playback so 100% of lecture is visible */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-black via-black/75 to-transparent transition-opacity duration-300",
+          controlsVisible || !playing ? "opacity-100" : "opacity-0"
+        )}
+      />
 
       {/* Bottom Control Bar */}
       <div
