@@ -16,6 +16,7 @@ import {
   Zap,
   Settings,
   X,
+  Link as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import Hls from "hls.js";
@@ -348,6 +349,17 @@ function CustomYouTubePlayer({
   const [showRemainingTime, setShowRemainingTime] = useState(true);
   const [embeddingDisabled, setEmbeddingDisabled] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyLink = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      toast.success("Lecture link copied to clipboard!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  }, []);
 
   // HUD Action Feedback
   const [hud, setHud] = useState<{ id: number; text: string; icon?: React.ReactNode } | null>(null);
@@ -567,7 +579,14 @@ function CustomYouTubePlayer({
                 setHasStarted(true);
                 setIsEnded(false);
               } else if (e.data === 0) {
+                // Intercept immediately before YouTube can render 12-tile recommendations grid:
+                try {
+                  e.target.pauseVideo?.();
+                  e.target.seekTo?.(0, false);
+                } catch {}
+                setPlaying(false);
                 setIsEnded(true);
+                setControlsVisible(true);
               }
               const d = e.target.getDuration?.();
               if (d) setDuration(d);
@@ -609,9 +628,12 @@ function CustomYouTubePlayer({
 
       try {
         if (ytPlayerRef.current) {
+          let curTime = 0;
+          let curDur = 0;
           if (!seekingRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
             const t = ytPlayerRef.current.getCurrentTime();
             if (typeof t === "number" && !isNaN(t)) {
+              curTime = t;
               setCurrentTime(t);
               onTimeProgress?.(t);
             }
@@ -619,16 +641,29 @@ function CustomYouTubePlayer({
           if (typeof ytPlayerRef.current.getDuration === "function") {
             const d = ytPlayerRef.current.getDuration();
             if (typeof d === "number" && d > 0 && !isNaN(d)) {
+              curDur = d;
               setDuration(d);
             }
           }
+
+          // Non-live video end interception: prevent YouTube recommendation grid
+          if (!isLive && curDur > 0 && curTime >= curDur - 0.35 && !isEnded) {
+            try {
+              ytPlayerRef.current.pauseVideo?.();
+              ytPlayerRef.current.seekTo?.(0, false);
+            } catch {}
+            setPlaying(false);
+            setIsEnded(true);
+            setControlsVisible(true);
+          }
+
           updateAvailableLevels();
         }
       } catch {}
     }, 80);
 
     return () => clearInterval(pollInterval);
-  }, [onTimeProgress, updateAvailableLevels]);
+  }, [isLive, isEnded, onTimeProgress, updateAvailableLevels]);
 
   // Live class auto-sync on load: start seekbar at live edge
   useEffect(() => {
@@ -1189,8 +1224,13 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* 4. PERMANENT TOP HEADER MASK (Zero Crop, Zero Blur) — permanently conceals top 44px where YouTube title would show */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-black/90 via-black/45 to-transparent transition-opacity duration-300" />
+      {/* 4. TOP HEADER MASK (Zero Crop, Zero Blur) — auto-fades during playback so 100% of the video is visible */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-black/90 via-black/45 to-transparent transition-opacity duration-300",
+          controlsVisible || !playing ? "opacity-100" : "opacity-0"
+        )}
+      />
 
       {/* Top Bar Controls */}
       <div
@@ -1313,11 +1353,11 @@ function CustomYouTubePlayer({
           )}
           <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
             <div
-              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+              className="absolute left-0 top-0 h-full rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]"
               style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-md ring-2 ring-red-500/50 transition-transform group-hover/seek:scale-125"
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-white shadow-sm transition-transform group-hover/seek:scale-125"
               style={{ left: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
           </div>
@@ -1332,6 +1372,26 @@ function CustomYouTubePlayer({
               className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            </button>
+
+            {/* Copy Link Button (Matches coaching player reference 1:1) */}
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              title="Copy Lecture Link"
+              aria-label="Copy Lecture Link"
+              className="relative rounded-full p-2 hover:bg-white/15 text-white/90 hover:text-white transition active:scale-95"
+            >
+              {copiedLink ? (
+                <Check className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <LinkIcon className="h-4 w-4" />
+              )}
+              {copiedLink && (
+                <span className="absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap shadow-md">
+                  Copied!
+                </span>
+              )}
             </button>
 
             {/* Live Indicator / Go Live Button */}
@@ -1375,7 +1435,7 @@ function CustomYouTubePlayer({
                 max={100}
                 value={muted ? 0 : volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="hidden sm:block h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-red-500 transition-opacity"
+                className="hidden sm:block h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-white transition-opacity"
               />
             </div>
 
@@ -1522,6 +1582,21 @@ function CustomYouTubePlayer({
               )}
             </div>
 
+            {/* YouTube Badge Button (Matches coaching player reference 1:1) */}
+            <a
+              href={`https://www.youtube.com/watch?v=${videoId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded bg-black/60 hover:bg-black/85 px-2 py-1 text-[11px] font-medium text-white/95 hover:text-white border border-white/15 transition shadow-sm"
+              title="Watch on YouTube"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <svg className="h-3 w-3 fill-red-600 shrink-0" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+              <span>YouTube</span>
+            </a>
+
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -1608,6 +1683,17 @@ function CustomHtml5Player({
   const [seeking, setSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [showRemainingTime, setShowRemainingTime] = useState(true);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyLink = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      toast.success("Lecture link copied to clipboard!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  }, []);
 
   const activeQualityOptions = useMemo(() => {
     return getFilteredHtml5QualityOptions(actualHeight);
@@ -2339,11 +2425,11 @@ function CustomHtml5Player({
           )}
           <div className="relative h-1 group-hover/seek:h-1.5 w-full rounded-full bg-white/25 transition-all">
             <div
-              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+              className="absolute left-0 top-0 h-full rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]"
               style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-md ring-2 ring-red-500/50 transition-transform group-hover/seek:scale-125"
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-white shadow-sm transition-transform group-hover/seek:scale-125"
               style={{ left: `${duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0}%` }}
             />
           </div>
@@ -2357,6 +2443,26 @@ function CustomHtml5Player({
               className="rounded-full p-2 hover:bg-white/15 text-white transition active:scale-95"
             >
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            </button>
+
+            {/* Copy Link Button */}
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              title="Copy Lecture Link"
+              aria-label="Copy Lecture Link"
+              className="relative rounded-full p-2 hover:bg-white/15 text-white/90 hover:text-white transition active:scale-95"
+            >
+              {copiedLink ? (
+                <Check className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <LinkIcon className="h-4 w-4" />
+              )}
+              {copiedLink && (
+                <span className="absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap shadow-md">
+                  Copied!
+                </span>
+              )}
             </button>
 
             {/* Live Indicator / Go Live Button */}
@@ -2397,7 +2503,7 @@ function CustomHtml5Player({
                 max={100}
                 value={muted ? 0 : volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="hidden sm:block h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-red-500 transition-opacity"
+                className="hidden sm:block h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-white transition-opacity"
               />
             </div>
 
