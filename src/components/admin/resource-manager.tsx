@@ -26,6 +26,7 @@ import { BatchFolderManager, getStoredPremadeFolders } from "@/components/admin/
 import { cn, getStorageUrl } from "@/lib/utils";
 import { normalizePdfUrl, isGoogleDriveLink, toEmbeddableDocumentUrl } from "@/lib/document-utils";
 import { adminSaveResource, adminDeleteResource } from "@/lib/admin-resource.functions";
+import { VideoLinkInputWithPreview } from "@/components/admin/video-link-preview";
 
 export type Field = {
   name: string;
@@ -59,6 +60,7 @@ type Props<T extends Record<string, unknown>> = {
   searchKeys?: string[];
   presetFilter?: { column: string; value: unknown };
   rowKey?: string;
+  headerBanner?: ReactNode;
 };
 
 type FormState = Record<string, unknown>;
@@ -74,7 +76,7 @@ function coerceArrayField(value: unknown): string[] {
 export function ResourceManager<T extends Record<string, unknown>>({
   table, title, eyebrow, description, columns, fields, defaults = {},
   orderBy = { column: "created_at", ascending: false }, searchKeys = ["title"],
-  presetFilter, rowKey = "id",
+  presetFilter, rowKey = "id", headerBanner,
 }: Props<T>) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -251,6 +253,7 @@ export function ResourceManager<T extends Record<string, unknown>>({
 
   return (
     <Section>
+      {headerBanner}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           {eyebrow && (
@@ -438,12 +441,13 @@ function FieldsForm({
     enabled: Boolean(form.batch_id),
     queryFn: async () => {
       const [lecturesRes, materialsRes, liveRes] = await Promise.all([
-        supabase.from("lectures").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("lectures").select("subject,chapter,lecture_number").eq("batch_id", form.batch_id as string),
         supabase.from("study_materials").select("subject,chapter").eq("batch_id", form.batch_id as string),
-        supabase.from("live_classes").select("subject,chapter").eq("batch_id", form.batch_id as string),
+        supabase.from("live_classes").select("subject,chapter,lecture_number").eq("batch_id", form.batch_id as string),
       ]);
       const subjectsSet = new Set<string>();
       const subjectToChapters = new Map<string, Set<string>>();
+      const maxLectureByFolder = new Map<string, number>();
 
       const addPair = (sub: string | null, ch: string | null) => {
         if (!sub?.trim()) return;
@@ -452,10 +456,15 @@ function FieldsForm({
         if (!subjectToChapters.has(s)) subjectToChapters.set(s, new Set());
         if (ch?.trim()) subjectToChapters.get(s)!.add(ch.trim());
       };
+      const trackLectureNumber = (sub: string | null, ch: string | null, num: number | null) => {
+        if (!sub?.trim() || !ch?.trim() || num == null) return;
+        const key = `${sub.trim()}|||${ch.trim()}`;
+        maxLectureByFolder.set(key, Math.max(maxLectureByFolder.get(key) ?? 0, num));
+      };
 
-      (lecturesRes.data ?? []).forEach((l: any) => addPair(l.subject, l.chapter));
+      (lecturesRes.data ?? []).forEach((l: any) => { addPair(l.subject, l.chapter); trackLectureNumber(l.subject, l.chapter, l.lecture_number); });
       (materialsRes.data ?? []).forEach((m: any) => addPair(m.subject, m.chapter));
-      (liveRes.data ?? []).forEach((lc: any) => addPair(lc.subject, lc.chapter));
+      (liveRes.data ?? []).forEach((lc: any) => { addPair(lc.subject, lc.chapter); trackLectureNumber(lc.subject, lc.chapter, lc.lecture_number); });
 
       // Merge premade custom batch folders
       if (form.batch_id) {
@@ -472,9 +481,19 @@ function FieldsForm({
         subjectToChapters: Object.fromEntries(
           Array.from(subjectToChapters.entries()).map(([k, v]) => [k, Array.from(v).sort()])
         ),
+        nextLectureByFolder: Object.fromEntries(
+          Array.from(maxLectureByFolder.entries()).map(([k, v]) => [k, v + 1])
+        ) as Record<string, number>,
       };
     },
   });
+
+  const suggestedLectureNumber = (() => {
+    const sub = (form.subject as string)?.trim();
+    const ch = (form.chapter as string)?.trim();
+    if (!sub || !ch || !folderOptions) return null;
+    return folderOptions.nextLectureByFolder?.[`${sub}|||${ch}`] ?? 1;
+  })();
 
   // Fetch faculty options from faculty table and current batch
   const { data: facultyOptions = [] } = useQuery({
@@ -549,10 +568,11 @@ function FieldsForm({
       )}
       {fields.map((f) => {
         const v = form[f.name];
-        const full = ["textarea", "array"].includes(f.type) || f.type === "document" || (f.type === "text" && f.name === "title");
+        const isVideoField = f.name === "video_url" || (f.type === "url" && f.name.toLowerCase().includes("video"));
+        const full = ["textarea", "array"].includes(f.type) || f.type === "document" || (f.type === "text" && f.name === "title") || isVideoField;
         return (
           <div key={f.name} className={full ? "sm:col-span-2" : ""}>
-            <Label className="text-xs">{f.label}{f.required && " *"}</Label>
+            {!isVideoField && <Label className="text-xs">{f.label}{f.required && " *"}</Label>}
             {f.type === "textarea" && (
               <Textarea
                 rows={4}
@@ -567,7 +587,21 @@ function FieldsForm({
                 <span className="text-sm text-muted-foreground">{Boolean(v) ? "Yes" : "No"}</span>
               </div>
             )}
-            {(f.type === "text" || f.type === "url" || f.type === "array") && (
+            {isVideoField ? (
+              <VideoLinkInputWithPreview
+                value={(v as string) ?? ""}
+                onChange={(url, autoThumb) => {
+                  set(f.name, url);
+                  if (autoThumb && (!form.thumbnail_url || String(form.thumbnail_url).includes("img.youtube.com"))) {
+                    set("thumbnail_url", autoThumb);
+                  }
+                }}
+                label={f.label}
+                helper={f.helper}
+                required={f.required}
+                placeholder={f.placeholder}
+              />
+            ) : (f.type === "text" || f.type === "url" || f.type === "array") ? (
               <>
                 <Input
                   value={(v as string) ?? ""}
@@ -661,14 +695,28 @@ function FieldsForm({
                   })()
                 )}
               </>
-            )}
+            ) : null}
 
             {f.type === "number" && (
-              <Input
-                type="number"
-                value={(v as number | string) ?? ""}
-                onChange={(e) => set(f.name, e.target.value)}
-              />
+              <>
+                <Input
+                  type="number"
+                  value={(v as number | string) ?? ""}
+                  onChange={(e) => set(f.name, e.target.value)}
+                  placeholder={f.placeholder}
+                />
+                {f.name === "lecture_number" && suggestedLectureNumber != null && String(v ?? "") !== String(suggestedLectureNumber) && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      onClick={() => set("lecture_number", suggestedLectureNumber)}
+                      className="px-2 py-0.5 rounded-md text-[11px] font-semibold border transition bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 cursor-pointer"
+                    >
+                      🔢 Auto-Next: Lecture #{suggestedLectureNumber}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
             {f.type === "date" && (
               <Input
@@ -698,12 +746,20 @@ function FieldsForm({
               </Select>
             )}
             {f.type === "image" && (
-              <ImageUploadField
-                value={(v as string) ?? ""}
-                bucket={f.bucket ?? "batch-covers"}
-                aspect={f.aspect ?? 4 / 3}
-                onChange={(url) => setForm({ ...form, [f.name]: url })}
-              />
+              <div className="space-y-2">
+                {typeof v === "string" && v.includes("img.youtube.com") && (
+                  <div className="flex items-center gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400">
+                    <img src={v} alt="" className="w-12 h-8 rounded object-cover border shrink-0" />
+                    <span>Auto-thumbnail from YouTube video ✓ (Aap chahein to neeche se apni photo bhi upload kar sakte hain)</span>
+                  </div>
+                )}
+                <ImageUploadField
+                  value={(v as string) ?? ""}
+                  bucket={f.bucket ?? "batch-covers"}
+                  aspect={f.aspect ?? 4 / 3}
+                  onChange={(url) => setForm({ ...form, [f.name]: url })}
+                />
+              </div>
             )}
             {f.type === "file" && (
               <FileUploadField
