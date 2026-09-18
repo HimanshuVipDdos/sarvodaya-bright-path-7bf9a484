@@ -45,7 +45,7 @@ export const grantBatchAccess = createServerFn({ method: "POST" })
       .maybeSingle();
     const adminName = adminProfile?.full_name ?? "Admin";
 
-    const { error: upErr } = await supabaseAdmin.from("enrollments").upsert(
+    const { error: upErr } = await (supabaseAdmin.from("enrollments") as any).upsert(
       {
         user_id: userId,
         batch_id: data.batch_id,

@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -250,7 +250,7 @@ function Index() {
                   size="lg"
                   className="rounded-xl border-white/20 bg-zinc-900/80 hover:bg-zinc-800 text-white font-bold px-7 py-6 text-base shadow-sm transition-all"
                 >
-                  <Link to="/cbt">Take Free Mock Test</Link>
+                  <Link to="/mock-tests">Take Free Mock Test</Link>
                 </Button>
               </motion.div>
             </div>
@@ -453,8 +453,8 @@ function Index() {
                   <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mt-1">
                     {f.subject || "Senior Faculty"}
                   </p>
-                  {f.experience && (
-                    <p className="mt-2 text-xs text-zinc-400 font-medium">{f.experience} Experience</p>
+                  {f.experience_years && (
+                    <p className="mt-2 text-xs text-zinc-400 font-medium">{f.experience_years}+ Years Experience</p>
                   )}
                   {f.bio && (
                     <p className="mt-3 text-xs text-zinc-400 line-clamp-2 border-t border-white/5 pt-3">

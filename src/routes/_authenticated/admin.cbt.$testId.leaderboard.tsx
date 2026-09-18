@@ -54,7 +54,7 @@ function LeaderboardPage() {
     ctx.fillStyle = "#a5b4fc";
     ctx.fillText("RANK", 28, y);
     ctx.fillText("STUDENT", 100, y);
-    ctx.fillText(`${formatScore(a.score)}/${a.max_score}`, 520, y);
+    ctx.fillText("SCORE", 520, y);
     ctx.fillText("CORRECT", 620, y);
     y += 14;
     ctx.strokeStyle = "rgba(255,255,255,0.15)";

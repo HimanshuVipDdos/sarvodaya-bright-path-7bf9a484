@@ -22,7 +22,7 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
 
     // Confirm the test is published & the user is eligible (re-checked here
     // even though RLS also checks this, since we use the admin client below).
-    const { data: test, error: testErr } = await context.supabase
+    const { data: test, error: testErr } = await (context.supabase as any)
       .from("cbt_tests")
       .select("id,title,description,duration_minutes,marks_per_question,is_published,access_mode,batch_id,question_limit")
       .eq("id", data.test_id)
@@ -31,7 +31,7 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
     if (!test || !test.is_published) throw new Error("This test is not available.");
 
     // Resume an existing attempt if one is already in progress or submitted.
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await (supabaseAdmin as any)
       .from("cbt_attempts")
       .select("id,status,question_ids")
       .eq("test_id", data.test_id)
@@ -57,7 +57,7 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
     let questionIds = existing?.question_ids as string[] | null | undefined;
 
     if (!attemptId) {
-      const { data: created, error: insErr } = await supabaseAdmin
+      const { data: created, error: insErr } = await (supabaseAdmin as any)
         .from("cbt_attempts")
         .insert({ test_id: data.test_id, user_id: userId, status: "in_progress" })
         .select("id")
@@ -81,11 +81,11 @@ export const startCbtAttempt = createServerFn({ method: "POST" })
     if (test.question_limit && test.question_limit > 0 && questions.length > test.question_limit) {
       if (!questionIds || questionIds.length === 0) {
         const shuffled = [...questions].sort(() => Math.random() - 0.5);
-        questionIds = shuffled.slice(0, test.question_limit).map((q) => q.id);
-        await supabaseAdmin.from("cbt_attempts").update({ question_ids: questionIds }).eq("id", attemptId);
+        questionIds = shuffled.slice(0, test.question_limit).map((q: any) => q.id);
+        await (supabaseAdmin as any).from("cbt_attempts").update({ question_ids: questionIds }).eq("id", attemptId);
       }
       const idSet = new Set(questionIds);
-      questions = questions.filter((q) => idSet.has(q.id));
+      questions = questions.filter((q: any) => idSet.has(q.id));
     }
 
     return {
@@ -108,7 +108,7 @@ export const submitCbtAttempt = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = context.userId;
 
-    const { data: attempt, error: attErr } = await supabaseAdmin
+    const { data: attempt, error: attErr } = await (supabaseAdmin as any)
       .from("cbt_attempts")
       .select("id,test_id,user_id,status,question_ids")
       .eq("id", data.attempt_id)
@@ -117,7 +117,7 @@ export const submitCbtAttempt = createServerFn({ method: "POST" })
     if (!attempt || attempt.user_id !== userId) throw new Error("Attempt not found.");
     if (attempt.status === "submitted") throw new Error("This test was already submitted.");
 
-    const { data: test, error: testErr } = await supabaseAdmin
+    const { data: test, error: testErr } = await (supabaseAdmin as any)
       .from("cbt_tests")
       .select("negative_marking,negative_marks")
       .eq("id", attempt.test_id)
@@ -187,7 +187,7 @@ export const submitCbtAttempt = createServerFn({ method: "POST" })
       if (ansErr) throw new Error(ansErr.message);
     }
 
-    const { error: updErr } = await supabaseAdmin
+    const { error: updErr } = await (supabaseAdmin as any)
       .from("cbt_attempts")
       .update({
         status: "submitted",

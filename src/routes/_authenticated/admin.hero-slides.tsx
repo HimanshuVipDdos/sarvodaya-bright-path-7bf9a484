@@ -50,7 +50,7 @@ const fields: Field[] = [
 export const Route = createFileRoute("/_authenticated/admin/hero-slides")({
   component: () => (
     <ResourceManager<HeroSlideRow>
-      table="hero_slides"
+      table={"hero_slides" as any}
       eyebrow="Admin"
       title="Homepage Slider"
       description="Manage the promotional image slider shown at the top of the homepage."

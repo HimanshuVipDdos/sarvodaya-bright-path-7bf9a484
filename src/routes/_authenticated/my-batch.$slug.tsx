@@ -57,13 +57,14 @@ const batchPortalQuery = (slug: string) =>
       if (!enrollment && !isAdmin) {
         return {
           userId,
-          batch,
+          batch: batch as any,
           enrolled: false,
           lectures: [],
-          liveClasses: [],
+          liveClasses: [] as any[],
           materials: [],
           notifications: [],
           tests: [],
+          facultyList: [],
         };
       }
 
@@ -123,10 +124,10 @@ const batchPortalQuery = (slug: string) =>
 
       return {
         userId,
-        batch,
+        batch: batch as any,
         enrolled: true,
         lectures: lectures.data ?? [],
-        liveClasses: liveClasses.data ?? [],
+        liveClasses: (liveClasses.data ?? []) as any[],
         materials: materials.data ?? [],
         notifications: notifications.data ?? [],
         facultyList: facultyList.data ?? [],
@@ -136,7 +137,7 @@ const batchPortalQuery = (slug: string) =>
   });
 
 export const Route = createFileRoute("/_authenticated/my-batch/$slug")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { liveClassId?: string } => ({
     liveClassId: typeof search.liveClassId === "string" ? search.liveClassId : undefined,
   }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(batchPortalQuery(params.slug)),

@@ -162,7 +162,7 @@ function ResultPage() {
             <Button onClick={downloadCertificate} className="gap-2">
               <Award className="h-4 w-4" /> Download Certificate
             </Button>
-            <a href={`/cbt/${testId}/mistakes?attempt=${attemptId}`}>
+            <a href={`/cbt/${testId}/mistakes?attempt=${a.id}`}>
               <Button variant="outline" className="gap-2">
                 <Search className="h-4 w-4" /> Review My Mistakes
               </Button>

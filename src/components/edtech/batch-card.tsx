@@ -1,4 +1,4 @@
-﻿import { Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { BookOpen, Radio, Users, CheckCircle2, ArrowRight, Sparkles, Clock } from "lucide-react";
 import { cn, getStorageUrl } from "@/lib/utils";
@@ -15,7 +15,7 @@ export interface BatchCardData {
   language?: string;
   validity?: string;
   faculty_names?: string[];
-  features?: string[];
+  features?: string[] | null;
   _isLive?: boolean;
 }
 

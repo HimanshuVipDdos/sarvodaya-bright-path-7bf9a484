@@ -25,7 +25,7 @@ type LiveClass = {
   faculty: string | null;
 };
 type Batch = { id: string; title: string };
-type Form = Omit<LiveClass, "id" | "scheduled_at" | "end_at" | "duration_minutes" | "recorded_lecture_id"> & {
+type Form = Omit<LiveClass, "id" | "scheduled_at" | "end_at" | "duration_minutes" | "recorded_lecture_id" | "subject" | "chapter" | "lecture_number" | "faculty"> & {
   date: string; startTime: string; endTime: string;
   subject: string; chapter: string; lecture_number: string; faculty: string;
 };
@@ -72,7 +72,7 @@ function LiveClassesAdmin() {
     queryFn: async () => {
       const { data, error } = await supabase.from("live_classes").select("*").order("scheduled_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as LiveClass[];
+      return (data ?? []) as any as LiveClass[];
     },
   });
   const { data: batches = [] } = useQuery({
@@ -151,7 +151,7 @@ function LiveClassesAdmin() {
 
   const endNow = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("end_live_class_now", { p_class_id: id });
+      const { error } = await (supabase as any).rpc("end_live_class_now", { p_class_id: id });
       if (error) throw error;
     },
     onSuccess: () => {

@@ -92,7 +92,7 @@ function EnrollmentsAdmin() {
     queryKey: ["admin", "enrollment-graph", range, selectedAdmin],
     queryFn: async () => {
       const from = new Date(Date.now() - rangeOption.days * 86400000).toISOString();
-      const { data } = await supabase.rpc("admin_enrollment_graph", {
+      const { data } = await (supabase as any).rpc("admin_enrollment_graph", {
         p_admin_id: selectedAdmin ?? null,
         p_from: from,
         p_to: new Date().toISOString(),

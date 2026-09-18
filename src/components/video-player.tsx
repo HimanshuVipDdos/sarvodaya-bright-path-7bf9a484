@@ -1630,6 +1630,18 @@ function CustomHtml5Player({
   const lagSeconds = isLive && duration > 0 ? Math.max(0, duration - currentTime) : 0;
   const isAtLiveEdge = isLive ? lagSeconds <= 8 : true;
 
+  // HUD Action Feedback
+  const [hud, setHud] = useState<{ id: number; text: string; icon?: React.ReactNode } | null>(null);
+  const hudTimerRef = useRef<number | null>(null);
+
+  const showHud = useCallback((text: string, icon?: React.ReactNode) => {
+    if (hudTimerRef.current) window.clearTimeout(hudTimerRef.current);
+    setHud({ id: Date.now(), text, icon });
+    hudTimerRef.current = window.setTimeout(() => {
+      setHud(null);
+    }, 1100);
+  }, []);
+
   const handleGoLive = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -1644,18 +1656,6 @@ function CustomHtml5Player({
     v.play().catch(() => {});
     showHud("Live Edge", <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />);
   }, [duration, showHud]);
-
-  // HUD Action Feedback
-  const [hud, setHud] = useState<{ id: number; text: string; icon?: React.ReactNode } | null>(null);
-  const hudTimerRef = useRef<number | null>(null);
-
-  const showHud = useCallback((text: string, icon?: React.ReactNode) => {
-    if (hudTimerRef.current) window.clearTimeout(hudTimerRef.current);
-    setHud({ id: Date.now(), text, icon });
-    hudTimerRef.current = window.setTimeout(() => {
-      setHud(null);
-    }, 1100);
-  }, []);
 
   // Hover Tooltip on Seekbar
   const [hoverTooltip, setHoverTooltip] = useState<{ visible: boolean; x: number; time: number }>({

@@ -102,7 +102,7 @@ function StudentsAdmin() {
       const [profilesRes, enrollmentsRes, attemptsRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, phone, email, created_at, class_level, exam_target")
+          .select("id, full_name, phone, created_at, class_level, exam_target")
           .order("full_name", { ascending: true }),
         supabase
           .from("enrollments")
@@ -153,6 +153,7 @@ function StudentsAdmin() {
 
         return {
           ...p,
+          email: null,
           enrollments: userEnrollments,
           tests_count: testsCount,
           avg_score: avgScore,

@@ -148,7 +148,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   // --- JSON Parser (Unlimited Questions, cleans markdown fences, repairs trailing commas) ---
   function parseJSONQuestions(raw: string): ParsedQuestion[] {
     return parseFromJSON(raw, {
-      defaultTopic: defaultTopic || null,
+      defaultTopic: defaultTopic || undefined,
       defaultMarks,
     });
   }
@@ -314,12 +314,12 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
 
       if (parserMode === "delimited") {
         questions = parseFromDelimited(bulkText, "|", {
-          defaultTopic: defaultTopic || null,
+          defaultTopic: defaultTopic || undefined,
           defaultMarks,
         });
       } else if (parserMode === "labeled") {
         questions = parseFromLabeledFormat(bulkText, {
-          defaultTopic: defaultTopic || null,
+          defaultTopic: defaultTopic || undefined,
           defaultMarks,
         });
       }

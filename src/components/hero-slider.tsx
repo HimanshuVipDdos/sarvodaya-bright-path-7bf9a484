@@ -28,7 +28,7 @@ export function HeroSlider() {
   const { data: slides = [] } = useQuery({
     queryKey: ["hero-slides"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("hero_slides")
         .select("id, image_url, link_type, link_value")
         .eq("is_active", true)

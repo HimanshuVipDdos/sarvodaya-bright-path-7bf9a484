@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated")({
       const hasPhone = !!profile?.phone?.trim();
 
       if (!hasName || !hasPhone) {
-        throw redirect({ to: "/profile", search: { setup: "1" } });
+        throw redirect({ to: "/profile", search: { setup: true } });
       }
     }
 

@@ -76,15 +76,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         const [enrollmentsRes, liveRes] = await Promise.all([
           supabase.from("enrollments").select("batch_id").eq("user_id", userId),
-          supabase.from("live_classes").select("id, batch_id, is_live, status, scheduled_at, end_at, duration_minutes, recorded_lecture_id"),
+          (supabase as any).from("live_classes").select("id, batch_id, is_live, status, scheduled_at, end_at, duration_minutes, recorded_lecture_id"),
         ]);
 
         const enrolledSet = new Set((enrollmentsRes.data ?? []).map((e) => e.batch_id));
         if (enrolledSet.size === 0) return false;
 
         const nowMs = Date.now();
-        return (liveRes.data ?? []).some(
-          (lc) => lc.batch_id && enrolledSet.has(lc.batch_id) && isClassLiveNow(lc, nowMs)
+        return ((liveRes.data ?? []) as any[]).some(
+          (lc: any) => lc.batch_id && enrolledSet.has(lc.batch_id) && isClassLiveNow(lc, nowMs)
         );
       } catch {
         return false;
@@ -207,9 +207,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
     setGoalOpen(false);
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user) return;
-    await supabase
+    await (supabase as any)
       .from("profiles")
-      .update({ exam_goal: goal } as Record<string, string>)
+      .update({ exam_goal: goal })
       .eq("id", userData.user.id);
   }, []);
 

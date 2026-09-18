@@ -128,9 +128,6 @@ export function extractQuestionsFromText(
     .split(/(?:\n|\r)\s*(?:Q(?:uestion)?[.\s]*(\d+)[.):\s]*|\n(\d+)[.):\s]+)/i)
     .filter(Boolean);
 
-  // Better approach: use regex to find each question with its options
-  const questionRegex =
-    /(?:^|\n)\s*(?:Q(?:uestion)?[.\s]*(\d+)[.):\s]*)?\s*(.+?)(?=\n\s*(?:[a-dA-D][).]\s|\n\s*(?:Q(?:uestion)?[.\s]*\d+[.):\s]*|\d+[.):\s]+[A-Z]))/s;
 
   // Find all question blocks
   const lines = text.split("\n");

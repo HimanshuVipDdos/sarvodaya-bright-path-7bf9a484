@@ -36,8 +36,8 @@ function isValidPhone(p: string) {
 }
 
 export const Route = createFileRoute("/_authenticated/profile")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    setup: search.setup === "1",
+  validateSearch: (search: Record<string, unknown>): { setup?: boolean } => ({
+    setup: search.setup === "1" || search.setup === true ? true : undefined,
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(profileQuery),
   component: ProfilePage,

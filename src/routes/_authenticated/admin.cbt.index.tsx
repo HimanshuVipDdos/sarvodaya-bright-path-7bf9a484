@@ -58,7 +58,7 @@ function CbtAdmin() {
         .select("*, batch:batches(title)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as TestRow[];
+      return (data ?? []) as any as TestRow[];
     },
   });
 
@@ -107,10 +107,10 @@ function CbtAdmin() {
       };
       if (form.access_mode === "batch" && !payload.batch_id) throw new Error("Select a batch for a batch-restricted test.");
       if (editingId) {
-        const { error } = await supabase.from("cbt_tests").update(payload).eq("id", editingId);
+        const { error } = await (supabase.from("cbt_tests") as any).update(payload).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("cbt_tests").insert(payload);
+        const { error } = await (supabase.from("cbt_tests") as any).insert(payload);
         if (error) throw error;
       }
     },
