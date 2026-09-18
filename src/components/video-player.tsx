@@ -22,7 +22,7 @@ import Hls from "hls.js";
 import { useVideoFullscreen } from "@/hooks/use-video-fullscreen";
 import { cn, getStorageUrl } from "@/lib/utils";
 import { resolveVideoStream, type ResolvedStream } from "@/lib/stream-resolver";
-import { useDevToolsGuard, DynamicWatermark, DevToolsSecurityOverlay } from "./video-security";
+import { useDevToolsGuard, DevToolsSecurityOverlay } from "./video-security";
 
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
@@ -1051,9 +1051,6 @@ function CustomYouTubePlayer({
           hasStarted ? "opacity-100" : "opacity-0"
         )}
       />
-
-      {/* PhysicsWallah / Classplus Style Dynamic Forensic Watermark */}
-      <DynamicWatermark />
 
       {/* Real-time DevTools Blackout Security Overlay */}
       {isDevToolsOpen && <DevToolsSecurityOverlay />}
@@ -2185,9 +2182,6 @@ function CustomHtml5Player({
         onPause={() => setPlaying(false)}
         className="h-full w-full object-contain bg-black select-none"
       />
-
-      {/* PhysicsWallah / Classplus Style Dynamic Forensic Watermark */}
-      <DynamicWatermark />
 
       {/* Real-time DevTools Blackout Security Overlay */}
       {isDevToolsOpen && <DevToolsSecurityOverlay />}
