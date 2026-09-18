@@ -11,7 +11,8 @@ import {
   Flame, Zap, HelpCircle, ChevronRight, Share2, Copy,
   CheckCheck, RotateCcw, AlertTriangle, Lightbulb, Compass,
   Layers, PieChart as PieChartIcon, Table as TableIcon,
-  LayoutGrid, ArrowUpRight, Gauge, Clock, Medal
+  LayoutGrid, ArrowUpRight, Gauge, Clock, Medal, Timer,
+  CheckSquare, FileSpreadsheet
 } from "lucide-react";
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
@@ -56,38 +57,76 @@ function getSectionMeta(name: string) {
   return { icon: "📝", badge: "Section", color: "from-slate-600 to-slate-800", border: "border-slate-200", bg: "bg-slate-50", text: "text-slate-700" };
 }
 
-// -- Robust Math Formula & Image Renderer --
+// -- Robust Math Formula, Subscripts, Superscripts & Image Renderer --
 function renderQuestionContent(text: string) {
   if (!text) return null;
   // If it's literally just a raw image URL
-  if (text.startsWith("http") && (text.endsWith(".png") || text.endsWith(".jpg") || text.endsWith(".jpeg") || text.endsWith(".webp") || text.includes("supabase.co/storage"))) {
+  if (
+    (text.startsWith("http://") || text.startsWith("https://")) &&
+    (text.endsWith(".png") || text.endsWith(".jpg") || text.endsWith(".jpeg") || text.endsWith(".webp") || text.includes("supabase.co/storage"))
+  ) {
     return <img src={text} alt="Question visual" className="max-w-full max-h-[300px] object-contain rounded-2xl shadow-xs border border-slate-200/80 my-2" />;
   }
 
-  // Pre-process common LaTeX math symbols into crisp unicode equivalents
-  const cleanMathText = text
-    .replace(/\\times/g, "×")
-    .replace(/\\div/g, "÷")
-    .replace(/\\pm/g, "±")
-    .replace(/\\approx/g, "≈")
-    .replace(/\\neq/g, "≠")
+  // Pre-process common LaTeX math symbols and greek letters into crisp unicode equivalents
+  let clean = text
+    // Inequalities: leq/geq before le/ge to prevent prefix collision
+    .replace(/\\leq/g, "≤")
+    .replace(/\\geq/g, "≥")
     .replace(/\\le/g, "≤")
     .replace(/\\ge/g, "≥")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\approx/g, "≈")
+    .replace(/\\equiv/g, "≡")
+    .replace(/\\pm/g, "±")
+    .replace(/\\times/g, "×")
+    .replace(/\\div/g, "÷")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\degree/g, "°")
+    .replace(/\^\\circ/g, "°")
+    .replace(/\\circ/g, "°")
     .replace(/\\rightarrow/g, "→")
+    .replace(/\\leftarrow/g, "←")
+    .replace(/\\Rightarrow/g, "⇒")
     .replace(/\\infty/g, "∞")
+    .replace(/\\sum/g, "∑")
+    .replace(/\\int/g, "∫")
+    // Greek letters
     .replace(/\\alpha/g, "α")
     .replace(/\\beta/g, "β")
-    .replace(/\\theta/g, "θ")
-    .replace(/\\pi/g, "π")
+    .replace(/\\gamma/g, "γ")
     .replace(/\\Delta/g, "Δ")
+    .replace(/\\delta/g, "δ")
+    .replace(/\\epsilon/g, "ε")
+    .replace(/\\theta/g, "θ")
+    .replace(/\\lambda/g, "λ")
+    .replace(/\\mu/g, "μ")
+    .replace(/\\pi/g, "π")
+    .replace(/\\rho/g, "ρ")
+    .replace(/\\sigma/g, "σ")
+    .replace(/\\Sigma/g, "Σ")
+    .replace(/\\phi/g, "φ")
+    .replace(/\\omega/g, "ω")
+    .replace(/\\Omega/g, "Ω")
+    // Square root and fractions
     .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)")
-    .replace(/\^2/g, "²")
-    .replace(/\^3/g, "³")
-    .replace(/\^([0-9])/g, (_, d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[parseInt(d)] || `^${d}`);
+    // Subscripts: H_2O -> H₂O, x_1 -> x₁
+    .replace(/_([0-9]+)/g, (_, digits) => {
+      const subMap: Record<string, string> = { "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉" };
+      return digits.split("").map((d: string) => subMap[d] || d).join("");
+    })
+    // Superscripts: x^2 -> x², x^3 -> x³
+    .replace(/\^\{?([0-9]+)\}?/g, (_, digits) => {
+      const superMap: Record<string, string> = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+      return digits.split("").map((d: string) => superMap[d] || d).join("");
+    })
+    // Strip redundant dollar delimiters ($x+y$ -> x+y)
+    .replace(/\$\$([^$]+)\$\$/g, "$1")
+    .replace(/\$([^$]+)\$/g, "$1");
 
   // Split on markdown images: ![alt](url)
-  const parts = cleanMathText.split(/(!\[.*?\]\(.*?\))/g);
+  const parts = clean.split(/(!\[.*?\]\(.*?\))/g);
   return (
     <div className="whitespace-pre-wrap break-words leading-relaxed font-medium">
       {parts.map((part, i) => {
@@ -123,7 +162,8 @@ function ResultPage() {
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sectionViewMode, setSectionViewMode] = useState<"cards" | "table">("cards");
-  const [chartTab, setChartTab] = useState<"peer" | "radar" | "breakdown">("peer");
+  const [chartTab, setChartTab] = useState<"peer" | "sectional" | "efficiency" | "breakdown">("peer");
+  const [sectionalChartType, setSectionalChartType] = useState<"radar" | "bars">("radar");
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [copiedShare, setCopiedShare] = useState(false);
   const [isClientMounted, setIsClientMounted] = useState(false);
@@ -160,7 +200,7 @@ function ResultPage() {
     queryFn: () => fetchResult({ data: { attempt_id: effectiveAttemptId! } }),
   });
 
-  // Certificate Download Generator (High-Res 1200x840 Canvas)
+  // Certificate Download Generator (High-Res 1200x840 Canvas with Dynamic Font Scaling & Official Borders)
   function downloadCertificate() {
     if (!data) return;
     const canvas = document.createElement("canvas");
@@ -205,39 +245,51 @@ function ResultPage() {
     // Top Brand Sub-heading
     ctx.fillStyle = "#92400E";
     ctx.font = "bold 18px sans-serif";
-    ctx.fillText("SARVODAYA ADHYETA • STANDARDIZED ASSESSMENT SYSTEM", 600, 115);
+    ctx.fillText("SARVODAYA ADHYETA • STANDARDIZED NATIONAL CBT ASSESSMENT", 600, 115);
 
     // Main Certificate Heading
     ctx.fillStyle = "#451A03";
-    ctx.font = "bold 46px serif";
-    ctx.fillText("Certificate of Performance & Merit", 600, 180);
+    ctx.font = "bold 44px serif";
+    ctx.fillText("Certificate of Performance & Merit", 600, 175);
 
     ctx.fillStyle = "#78716C";
     ctx.font = "18px sans-serif";
-    ctx.fillText("This is officially awarded to", 600, 245);
+    ctx.fillText("This is officially awarded to", 600, 235);
 
-    // Candidate Name
+    // Candidate Name with dynamic font size to prevent overflow
     ctx.fillStyle = "#1E1B4B";
-    ctx.font = "bold 52px serif";
-    ctx.fillText(data.student_name, 600, 320);
+    const candidateName = data.student_name || "Aspirant";
+    ctx.font = "bold 50px serif";
+    let nameWidth = ctx.measureText(candidateName).width;
+    if (nameWidth > 860) {
+      const scaledSize = Math.max(28, Math.floor((860 / nameWidth) * 50));
+      ctx.font = `bold ${scaledSize}px serif`;
+    }
+    ctx.fillText(candidateName, 600, 310);
 
     // Test completion text
     ctx.fillStyle = "#57534E";
-    ctx.font = "18px sans-serif";
-    ctx.fillText("for successfully appearing in the competitive examination", 600, 380);
+    ctx.font = "17px sans-serif";
+    ctx.fillText("for successfully appearing in the competitive examination", 600, 365);
 
-    // Test Title
+    // Test Title with dynamic scaling to prevent overflow
     ctx.fillStyle = "#4338CA";
-    ctx.font = "bold 32px sans-serif";
-    ctx.fillText(`"${data.attempt.test?.title ?? "Standardized CBT Examination"}"`, 600, 435);
+    const rawTestTitle = data.attempt.test?.title ?? "Standardized CBT Examination";
+    ctx.font = "bold 30px sans-serif";
+    let titleWidth = ctx.measureText(`"${rawTestTitle}"`).width;
+    if (titleWidth > 900) {
+      const scaledTitleSize = Math.max(20, Math.floor((900 / titleWidth) * 30));
+      ctx.font = `bold ${scaledTitleSize}px sans-serif`;
+    }
+    ctx.fillText(`"${rawTestTitle}"`, 600, 420);
 
     // Score & Rank Metric Ribbon Line
     ctx.fillStyle = "#0F172A";
-    ctx.font = "bold 24px sans-serif";
+    ctx.font = "bold 23px sans-serif";
     ctx.fillText(
       `Score: ${formatScore(data.attempt.score)} / ${data.attempt.max_score}   •   All-India Rank #${data.rank} of ${data.total_participants}`,
       600,
-      500,
+      485,
     );
 
     // Accuracy & Percentile Sub-text
@@ -250,21 +302,21 @@ function ResultPage() {
 
     ctx.fillStyle = "#64748B";
     ctx.font = "16px sans-serif";
-    ctx.fillText(`Percentile: ${percentileVal}%ile   •   Accuracy: ${accuracyVal}%   •   Score: ${percentVal}%`, 600, 540);
+    ctx.fillText(`Percentile: ${percentileVal}%ile   •   Accuracy: ${accuracyVal}%   •   Score: ${percentVal}%`, 600, 525);
 
     // Seal Simulation
     ctx.strokeStyle = "#B45309";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(600, 640, 42, 0, Math.PI * 2);
+    ctx.arc(600, 625, 40, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.fillStyle = "#92400E";
     ctx.font = "bold 11px sans-serif";
-    ctx.fillText("VERIFIED TEST", 600, 638);
-    ctx.fillText("SARVODAYA", 600, 652);
+    ctx.fillText("VERIFIED TEST", 600, 622);
+    ctx.fillText("SARVODAYA", 600, 636);
 
-    // Date and Signatures
+    // Date, Signatures & Verification ID
     ctx.fillStyle = "#78716C";
     ctx.font = "15px sans-serif";
     const dateStr = new Date(data.attempt.submitted_at ?? Date.now()).toLocaleDateString("en-IN", {
@@ -285,36 +337,93 @@ function ResultPage() {
     ctx.lineTo(1030, 690);
     ctx.stroke();
 
+    // Unique Certificate Verification ID at footer
+    ctx.fillStyle = "#A8A29E";
+    ctx.font = "11px monospace";
+    ctx.fillText(`CERT ID: SARVODAYA-CBT-${(data.attempt.id || "").slice(0, 8).toUpperCase()}`, 600, 760);
+
     const link = document.createElement("a");
-    link.download = `Certificate-${data.student_name.replace(/\s+/g, "-")}.png`;
+    link.download = `Certificate-${candidateName.replace(/\s+/g, "-")}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
     toast.success("Official Certificate downloaded successfully!");
   }
 
-  // Share scorecard summary handler
+  // Share scorecard summary handler with robust clipboard fallback
   function handleShareScore() {
     if (!data) return;
     const a = data.attempt;
-    const totalQ = a.total_questions || (a.correct_count + a.wrong_count + a.unanswered_count);
-    const text = `🎯 CBT Test Result — Sarvodaya Adhyeta\n📝 Test: ${a.test?.title ?? "CBT Exam"}\n👤 Candidate: ${data.student_name}\n📊 Score: ${formatScore(a.score)} / ${a.max_score}\n🏆 All-India Rank: #${data.rank} of ${data.total_participants}\n⚡ Percentile: ${percentile}%ile\n🎯 Accuracy: ${accuracyPercent}%\nCheck live rank & analysis at: ${window.location.href}`;
+    const attemptedCount = a.correct_count + a.wrong_count;
+    const accuracyPercent = attemptedCount > 0 ? ((a.correct_count / attemptedCount) * 100).toFixed(1) : "0.0";
+    const percentile = data.total_participants > 0
+      ? Math.max(1, Math.min(99.9, Math.round(((data.total_participants - data.rank + 1) / data.total_participants) * 100 * 10) / 10))
+      : 100;
+
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    const text = `🎯 CBT Test Result — Sarvodaya Adhyeta\n📝 Test: ${a.test?.title ?? "CBT Exam"}\n👤 Candidate: ${data.student_name}\n📊 Score: ${formatScore(a.score)} / ${a.max_score}\n🏆 All-India Rank: #${data.rank} of ${data.total_participants}\n⚡ Percentile: ${percentile}%ile\n🎯 Accuracy: ${accuracyPercent}%\nCheck live rank & analysis at: ${shareUrl}`;
     
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedShare(true);
-      setTimeout(() => setCopiedShare(false), 3000);
-      toast.success("Score summary copied to clipboard! Ready to share.");
+    if (typeof navigator !== "undefined" && navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          setCopiedShare(true);
+          setTimeout(() => setCopiedShare(false), 3000);
+          toast.success("Score summary copied to clipboard! Ready to share.");
+        })
+        .catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
     }
   }
 
-  // Smooth scroll to a question card
-  function scrollToQuestion(idx: number) {
-    const el = document.getElementById(`question-card-${idx}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      setActiveQuestionId(`question-${idx}`);
-      setTimeout(() => setActiveQuestionId(null), 2500);
+  function fallbackCopy(text: string) {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 3000);
+      toast.success("Score summary copied to clipboard!");
+    } catch {
+      toast.error("Could not copy automatically. Please copy the URL directly.");
     }
+  }
+
+  // Smooth jump to question card with intelligent filter auto-adjust
+  function jumpToQuestion(q: any) {
+    if (!q) return;
+    // If the question is currently filtered out, reset conflicting filters
+    if (reviewFilter === "mistakes" && (q.is_correct || q.selected_option === null)) {
+      setReviewFilter("all");
+    } else if (reviewFilter === "correct" && !q.is_correct) {
+      setReviewFilter("all");
+    } else if (reviewFilter === "unanswered" && q.selected_option !== null) {
+      setReviewFilter("all");
+    }
+
+    if (selectedSectionFilter !== "all" && q.topic !== selectedSectionFilter) {
+      setSelectedSectionFilter("all");
+    }
+
+    if (searchQuery.trim()) {
+      setSearchQuery("");
+    }
+
+    setActiveQuestionId(q.id);
+
+    // Allow React state updates to render the card before scrolling
+    setTimeout(() => {
+      const el = document.getElementById(`question-card-${q.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
+
+    setTimeout(() => setActiveQuestionId(null), 3500);
   }
 
   // Parse Section-wise breakdown safely from attempt
@@ -359,17 +468,29 @@ function ResultPage() {
       const secScore = Math.max(0, Math.round((secGross - secPenalty) * 100) / 100);
       const secMax = secTotal * marksPerQ;
       const secPercentage = secMax > 0 ? Math.round((secScore / secMax) * 100) : 0;
+      const secAttemptRate = secTotal > 0 ? Math.round((secAttempted / secTotal) * 100) : 0;
+
+      // Sectional Cutoff Estimation: standard 35% qualifying threshold
+      const secCutoff = Math.round(secMax * 0.35 * 10) / 10;
+      const secCutoffCleared = secScore >= secCutoff;
+      const secCutoffMargin = Math.round((secScore - secCutoff) * 10) / 10;
 
       let status = {
         label: "Solid Strength 💪",
         badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
         advice: "Outstanding accuracy! Maintain this momentum and speed.",
       };
-      if (secAccuracy < 45) {
+      if (secAttempted > 0 && secAccuracy < 45) {
         status = {
           label: "Critical Focus 🚨",
           badgeColor: "bg-rose-50 text-rose-700 border-rose-200",
           advice: "High negative marks and error rate. Needs topic-wise re-reading.",
+        };
+      } else if (secAccuracy >= 70 && secAttemptRate < 50) {
+        status = {
+          label: "Needs Speed ⚡",
+          badgeColor: "bg-cyan-50 text-cyan-700 border-cyan-200",
+          advice: "High accuracy but low attempt volume. Boost solving speed to unlock easy marks.",
         };
       } else if (secAccuracy < 70) {
         status = {
@@ -384,12 +505,16 @@ function ResultPage() {
         stats,
         secTotal,
         secAttempted,
+        secAttemptRate,
         secAccuracy,
         secGross,
         secPenalty,
         secScore,
         secMax,
         secPercentage,
+        secCutoff,
+        secCutoffCleared,
+        secCutoffMargin,
         status,
         meta: getSectionMeta(name),
       };
@@ -424,6 +549,26 @@ function ResultPage() {
       return true;
     });
   }, [data?.all_answers, reviewFilter, selectedSectionFilter, searchQuery]);
+
+  // Topic-wise Negative Mark Leakage Breakdown
+  const negativeLeakageTopics = useMemo(() => {
+    if (!data?.all_answers) return [];
+    const topicMap: Record<string, { topic: string; wrongCount: number; marksLost: number; totalInTopic: number }> = {};
+    for (const ans of data.all_answers) {
+      const topic = ans.topic || "General";
+      if (!topicMap[topic]) {
+        topicMap[topic] = { topic, wrongCount: 0, marksLost: 0, totalInTopic: 0 };
+      }
+      topicMap[topic].totalInTopic += 1;
+      if (!ans.is_correct && ans.selected_option !== null) {
+        topicMap[topic].wrongCount += 1;
+        topicMap[topic].marksLost += negativeMarks;
+      }
+    }
+    return Object.values(topicMap)
+      .filter((t) => t.wrongCount > 0)
+      .sort((a, b) => b.marksLost - a.marksLost);
+  }, [data?.all_answers, negativeMarks]);
 
   if (findingAttempt || isLoading) {
     return (
@@ -465,6 +610,18 @@ function ResultPage() {
   const attemptRate = totalQuestions > 0 ? ((attemptedCount / totalQuestions) * 100).toFixed(1) : "0.0";
   const grossMarks = a.correct_count * marksPerQ;
   const negativePenalty = negativeMarking ? (a.wrong_count * negativeMarks) : 0;
+
+  // Time & Speed Diagnostics
+  const startedAtMs = a.started_at ? new Date(a.started_at).getTime() : 0;
+  const submittedAtMs = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+  const timeTakenSec = (startedAtMs > 0 && submittedAtMs > startedAtMs) ? Math.round((submittedAtMs - startedAtMs) / 1000) : 0;
+  const totalDurationMin = a.test?.duration_minutes ?? 60;
+  const timeTakenMinStr = timeTakenSec > 0 
+    ? `${Math.floor(timeTakenSec / 60)}m ${timeTakenSec % 60}s` 
+    : "N/A";
+  const avgSecPerQuestion = (timeTakenSec > 0 && attemptedCount > 0) 
+    ? Math.round(timeTakenSec / attemptedCount) 
+    : 0;
 
   // Estimated Percentile
   const percentile = data.total_participants > 0
@@ -543,6 +700,23 @@ function ResultPage() {
     accuracy: sec.secAccuracy,
     scoreRate: sec.secPercentage,
     fullMark: 100,
+  }));
+
+  // Recharts: Sectional Scores Bar Data
+  const sectionalBarData = sectionPerformanceList.map((sec) => ({
+    subject: sec.name.length > 12 ? `${sec.name.slice(0, 10)}..` : sec.name,
+    fullName: sec.name,
+    "Net Score": sec.secScore,
+    "Max Marks": sec.secMax,
+    "Penalty Lost": sec.secPenalty,
+  }));
+
+  // Recharts: Sectional Efficiency (Attempt Rate vs Accuracy)
+  const efficiencyChartData = sectionPerformanceList.map((sec) => ({
+    subject: sec.name.length > 12 ? `${sec.name.slice(0, 10)}..` : sec.name,
+    fullName: sec.name,
+    "Accuracy %": sec.secAccuracy,
+    "Attempt Rate %": sec.secAttemptRate,
   }));
 
   // Recharts: Donut Breakdown Data
@@ -646,6 +820,14 @@ function ResultPage() {
                   <span className="text-slate-400">
                     Evaluated: {new Date(a.submitted_at ?? Date.now()).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
+                  {timeTakenSec > 0 && (
+                    <>
+                      <span className="text-slate-500">•</span>
+                      <span className="text-indigo-300 font-semibold flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-indigo-400" /> Time Spent: {timeTakenMinStr} / {totalDurationMin}m
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -768,7 +950,7 @@ function ResultPage() {
                       "h-full transition-all duration-500 rounded-full",
                       cutoffCleared ? "bg-gradient-to-r from-indigo-500 to-emerald-400" : "bg-gradient-to-r from-rose-500 to-amber-500"
                     )}
-                    style={{ width: `${Math.min(100, Math.max(5, (a.score / (a.max_score || 100)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, Math.max(0, (a.score / (a.max_score || 100)) * 100))}%` }}
                   />
                   {/* Cutoff threshold mark */}
                   <div
@@ -786,6 +968,24 @@ function ResultPage() {
               </div>
             </div>
 
+            {/* Speed & Pace Diagnostic Bar */}
+            {avgSecPerQuestion > 0 && (
+              <div className="rounded-2xl bg-white/[0.02] p-3.5 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Timer className="w-4 h-4 text-cyan-400" />
+                  <span className="font-bold text-slate-200">Solving Pace:</span>
+                  <span className="font-mono text-cyan-300 font-extrabold">{avgSecPerQuestion} seconds / question</span>
+                  <span className="text-slate-400">({attemptedCount} attempted in {timeTakenMinStr})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-300">Pace Benchmark:</span>
+                  <Badge variant="outline" className="border-cyan-400/40 bg-cyan-500/10 text-cyan-300 text-[10px] font-bold">
+                    {avgSecPerQuestion < 50 ? "Rapid & Decisive ⚡" : avgSecPerQuestion < 90 ? "Optimal & Steady ⚖️" : "Deliberate / Deep Thinker 🔍"}
+                  </Badge>
+                </div>
+              </div>
+            )}
+
             {/* Question Breakdown Strip */}
             <div className="rounded-2xl bg-black/30 p-4 border border-white/5 space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-300">
@@ -796,26 +996,31 @@ function ResultPage() {
               </div>
 
               {/* Multi-segment Strip */}
-              <div className="h-3.5 w-full rounded-full bg-white/10 overflow-hidden flex shadow-inner">
-                <div 
-                  style={{ width: `${(a.correct_count / totalQuestions) * 100}%` }} 
-                  className="bg-emerald-500 hover:brightness-110 transition-all cursor-pointer" 
-                  title={`Correct: ${a.correct_count}`} 
-                  onClick={() => setReviewFilter("correct")}
-                />
-                <div 
-                  style={{ width: `${(a.wrong_count / totalQuestions) * 100}%` }} 
-                  className="bg-rose-500 hover:brightness-110 transition-all cursor-pointer" 
-                  title={`Incorrect: ${a.wrong_count}`} 
-                  onClick={() => setReviewFilter("mistakes")}
-                />
-                <div 
-                  style={{ width: `${(a.unanswered_count / totalQuestions) * 100}%` }} 
-                  className="bg-slate-500 hover:brightness-110 transition-all cursor-pointer" 
-                  title={`Unattempted: ${a.unanswered_count}`} 
-                  onClick={() => setReviewFilter("unanswered")}
-                />
-              </div>
+              {(() => {
+                const safeTotal = totalQuestions || 1;
+                return (
+                  <div className="h-3.5 w-full rounded-full bg-white/10 overflow-hidden flex shadow-inner">
+                    <div 
+                      style={{ width: `${(a.correct_count / safeTotal) * 100}%` }} 
+                      className="bg-emerald-500 hover:brightness-110 transition-all cursor-pointer" 
+                      title={`Correct: ${a.correct_count}`} 
+                      onClick={() => setReviewFilter("correct")}
+                    />
+                    <div 
+                      style={{ width: `${(a.wrong_count / safeTotal) * 100}%` }} 
+                      className="bg-rose-500 hover:brightness-110 transition-all cursor-pointer" 
+                      title={`Incorrect: ${a.wrong_count}`} 
+                      onClick={() => setReviewFilter("mistakes")}
+                    />
+                    <div 
+                      style={{ width: `${(a.unanswered_count / safeTotal) * 100}%` }} 
+                      className="bg-slate-500 hover:brightness-110 transition-all cursor-pointer" 
+                      title={`Unattempted: ${a.unanswered_count}`} 
+                      onClick={() => setReviewFilter("unanswered")}
+                    />
+                  </div>
+                );
+              })()}
 
               {/* Legend & Score Formula */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">
@@ -1035,7 +1240,7 @@ function ResultPage() {
             </div>
 
             {/* Chart Navigation Tabs */}
-            <div className="flex rounded-2xl bg-slate-100 p-1 text-xs font-bold self-start sm:self-auto">
+            <div className="flex rounded-2xl bg-slate-100 p-1 text-xs font-bold flex-wrap gap-1 self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => setChartTab("peer")}
@@ -1046,18 +1251,29 @@ function ResultPage() {
               >
                 <Trophy className="w-3.5 h-3.5" /> Peer Benchmark
               </button>
-              {sectionNames.length >= 3 && (
-                <button
-                  type="button"
-                  onClick={() => setChartTab("radar")}
-                  className={cn(
-                    "px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5",
-                    chartTab === "radar" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-                  )}
-                >
-                  <Compass className="w-3.5 h-3.5" /> Sectional Radar
-                </button>
-              )}
+
+              <button
+                type="button"
+                onClick={() => setChartTab("sectional")}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5",
+                  chartTab === "sectional" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <Compass className="w-3.5 h-3.5" /> Sectional Mastery
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setChartTab("efficiency")}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5",
+                  chartTab === "efficiency" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <TrendingUp className="w-3.5 h-3.5" /> Efficiency Curve
+              </button>
+
               <button
                 type="button"
                 onClick={() => setChartTab("breakdown")}
@@ -1074,6 +1290,7 @@ function ResultPage() {
           {/* Chart Display Area */}
           {isClientMounted ? (
             <div className="h-72 sm:h-80 w-full pt-2">
+              {/* 1. Peer Comparison Bar Chart */}
               {chartTab === "peer" && (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={peerChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
@@ -1091,22 +1308,77 @@ function ResultPage() {
                 </ResponsiveContainer>
               )}
 
-              {chartTab === "radar" && (
+              {/* 2. Sectional Mastery Chart (Radar or Bar depending on count and preference) */}
+              {chartTab === "sectional" && (
+                <div className="w-full h-full flex flex-col">
+                  {sectionNames.length >= 3 && (
+                    <div className="flex justify-end pb-2">
+                      <div className="flex bg-slate-100 p-0.5 rounded-lg text-[11px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setSectionalChartType("radar")}
+                          className={cn("px-2.5 py-1 rounded-md transition cursor-pointer", sectionalChartType === "radar" ? "bg-white shadow-xs text-indigo-600" : "text-slate-500")}
+                        >
+                          Radar (Spider)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSectionalChartType("bars")}
+                          className={cn("px-2.5 py-1 rounded-md transition cursor-pointer", sectionalChartType === "bars" ? "bg-white shadow-xs text-indigo-600" : "text-slate-500")}
+                        >
+                          Bar Comparison
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-h-0">
+                    {sectionNames.length >= 3 && sectionalChartType === "radar" ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                          <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fill: "#334155", fontSize: 11, fontWeight: 700 }} />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                          <Radar name="Accuracy %" dataKey="accuracy" stroke="#6366F1" fill="#6366F1" fillOpacity={0.4} />
+                          <Radar name="Score Rate %" dataKey="scoreRate" stroke="#10B981" fill="#10B981" fillOpacity={0.25} />
+                          <Tooltip contentStyle={{ borderRadius: 14, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={sectionalBarData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                          <XAxis dataKey="subject" tick={{ fill: "#475569", fontSize: 12, fontWeight: 700 }} />
+                          <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                          <Tooltip contentStyle={{ borderRadius: 14, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                          <Bar dataKey="Net Score" fill="#10B981" radius={[6, 6, 0, 0]} barSize={28} />
+                          <Bar dataKey="Max Marks" fill="#E2E8F0" radius={[6, 6, 0, 0]} barSize={28} />
+                          <Bar dataKey="Penalty Lost" fill="#F43F5E" radius={[6, 6, 0, 0]} barSize={28} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Accuracy vs Attempt Efficiency Chart */}
+              {chartTab === "efficiency" && (
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
-                    <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: "#334155", fontSize: 11, fontWeight: 700 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                    <Radar name="Accuracy %" dataKey="accuracy" stroke="#6366F1" fill="#6366F1" fillOpacity={0.4} />
-                    <Radar name="Score Rate %" dataKey="scoreRate" stroke="#10B981" fill="#10B981" fillOpacity={0.25} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: 14, border: "1px solid #e2e8f0", fontSize: 12 }} 
-                    />
+                  <BarChart data={efficiencyChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="subject" tick={{ fill: "#475569", fontSize: 12, fontWeight: 700 }} />
+                    <YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 11 }} unit="%" />
+                    <Tooltip contentStyle={{ borderRadius: 14, border: "1px solid #e2e8f0", fontSize: 12 }} />
                     <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  </RadarChart>
+                    <Bar dataKey="Accuracy %" fill="#10B981" radius={[6, 6, 0, 0]} barSize={32} />
+                    <Bar dataKey="Attempt Rate %" fill="#6366F1" radius={[6, 6, 0, 0]} barSize={32} />
+                  </BarChart>
                 </ResponsiveContainer>
               )}
 
+              {/* 4. Question Donut Chart */}
               {chartTab === "breakdown" && (
                 <div className="flex flex-col sm:flex-row items-center justify-center h-full gap-6">
                   <div className="w-56 h-56 sm:w-64 sm:h-64 relative">
@@ -1134,24 +1406,36 @@ function ResultPage() {
                   </div>
 
                   <div className="space-y-3 min-w-[200px]">
-                    <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("correct")}
+                      className="w-full flex items-center justify-between text-xs bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 p-2.5 rounded-xl transition cursor-pointer text-left"
+                    >
                       <span className="flex items-center gap-2 font-bold text-emerald-800">
                         <span className="w-3 h-3 rounded-full bg-emerald-500" /> Correct
                       </span>
-                      <span className="font-mono font-black text-emerald-900">{a.correct_count} ({Math.round((a.correct_count / totalQuestions) * 100)}%)</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs bg-rose-50 border border-rose-100 p-2.5 rounded-xl">
+                      <span className="font-mono font-black text-emerald-900">{a.correct_count} ({Math.round((a.correct_count / (totalQuestions || 1)) * 100)}%)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("mistakes")}
+                      className="w-full flex items-center justify-between text-xs bg-rose-50 hover:bg-rose-100 border border-rose-100 p-2.5 rounded-xl transition cursor-pointer text-left"
+                    >
                       <span className="flex items-center gap-2 font-bold text-rose-800">
                         <span className="w-3 h-3 rounded-full bg-rose-500" /> Incorrect
                       </span>
-                      <span className="font-mono font-black text-rose-900">{a.wrong_count} ({Math.round((a.wrong_count / totalQuestions) * 100)}%)</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+                      <span className="font-mono font-black text-rose-900">{a.wrong_count} ({Math.round((a.wrong_count / (totalQuestions || 1)) * 100)}%)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("unanswered")}
+                      className="w-full flex items-center justify-between text-xs bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl transition cursor-pointer text-left"
+                    >
                       <span className="flex items-center gap-2 font-bold text-slate-700">
                         <span className="w-3 h-3 rounded-full bg-slate-400" /> Skipped
                       </span>
-                      <span className="font-mono font-black text-slate-800">{a.unanswered_count} ({Math.round((a.unanswered_count / totalQuestions) * 100)}%)</span>
-                    </div>
+                      <span className="font-mono font-black text-slate-800">{a.unanswered_count} ({Math.round((a.unanswered_count / (totalQuestions || 1)) * 100)}%)</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1172,7 +1456,7 @@ function ResultPage() {
                   <BookOpen className="w-5 h-5 text-indigo-600" /> Sectional & Subject Performance Matrix
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Comprehensive audit of marks, precision accuracy, and negative marks per exam portion.
+                  Comprehensive audit of marks, precision accuracy, cutoff margins, and negative marks per exam portion.
                 </p>
               </div>
 
@@ -1269,9 +1553,25 @@ function ResultPage() {
                           />
                         </div>
                         <div className="flex justify-between text-[11px] text-slate-500 pt-0.5 font-medium">
-                          <span>Net Score: <strong className="text-slate-900 font-mono">{formatScore(sec.secScore)} / {sec.secMax}</strong></span>
-                          <span>Att: <strong>{sec.secAttempted}/{sec.secTotal}</strong></span>
+                          <span>Net: <strong className="text-slate-900 font-mono">{formatScore(sec.secScore)} / {sec.secMax}</strong></span>
+                          <span className="font-mono text-slate-400">+{sec.secGross} / -{sec.secPenalty.toFixed(2)}</span>
                         </div>
+                      </div>
+
+                      {/* Sectional Cutoff Estimation */}
+                      <div className="flex items-center justify-between text-[11px] bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-600">
+                          Cutoff: <strong>{sec.secCutoff} M</strong>
+                        </span>
+                        {sec.secCutoffCleared ? (
+                          <span className="text-emerald-700 font-bold flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Cleared (+{sec.secCutoffMargin} M)
+                          </span>
+                        ) : (
+                          <span className="text-rose-700 font-bold flex items-center gap-1">
+                            <X className="w-3 h-3" /> Missed ({sec.secCutoffMargin} M)
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1298,9 +1598,10 @@ function ResultPage() {
                         <th className="py-3.5 px-3 font-extrabold text-center text-emerald-700">Correct</th>
                         <th className="py-3.5 px-3 font-extrabold text-center text-rose-700">Wrong</th>
                         <th className="py-3.5 px-3 font-extrabold text-center text-slate-500">Skipped</th>
-                        <th className="py-3.5 px-3 font-extrabold text-center">Accuracy %</th>
+                        <th className="py-3.5 px-3 font-extrabold text-center">Accuracy</th>
                         <th className="py-3.5 px-3 font-extrabold text-right">Net Score</th>
-                        <th className="py-3.5 px-4 font-extrabold text-right">Status</th>
+                        <th className="py-3.5 px-3 font-extrabold text-center">Cutoff Status</th>
+                        <th className="py-3.5 px-4 font-extrabold text-right">Diagnosis</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1310,12 +1611,28 @@ function ResultPage() {
                             <span>{sec.meta.icon}</span> {sec.name}
                           </td>
                           <td className="py-3.5 px-3 text-center font-mono">{sec.secTotal}</td>
-                          <td className="py-3.5 px-3 text-center font-mono font-medium">{sec.secAttempted}</td>
+                          <td className="py-3.5 px-3 text-center font-mono font-medium">{sec.secAttempted} ({sec.secAttemptRate}%)</td>
                           <td className="py-3.5 px-3 text-center font-mono font-bold text-emerald-600">+{sec.stats.correct}</td>
                           <td className="py-3.5 px-3 text-center font-mono font-bold text-rose-600">-{sec.stats.wrong}</td>
                           <td className="py-3.5 px-3 text-center font-mono text-slate-400">{sec.stats.unanswered}</td>
                           <td className="py-3.5 px-3 text-center font-mono font-extrabold text-indigo-700">{sec.secAccuracy}%</td>
-                          <td className="py-3.5 px-3 text-right font-mono font-black text-slate-900">{formatScore(sec.secScore)} / {sec.secMax}</td>
+                          <td className="py-3.5 px-3 text-right font-mono font-black text-slate-900">
+                            {formatScore(sec.secScore)} / {sec.secMax}
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              +{sec.secGross} / -{sec.secPenalty.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center">
+                            {sec.secCutoffCleared ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                                Qualified (+{sec.secCutoffMargin})
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold">
+                                Missed ({sec.secCutoffMargin})
+                              </Badge>
+                            )}
+                          </td>
                           <td className="py-3.5 px-4 text-right">
                             <Badge variant="outline" className={cn("text-[10px] font-bold border", sec.status.badgeColor)}>
                               {sec.status.label}
@@ -1343,7 +1660,7 @@ function ResultPage() {
                 Marks Booster Plan: How to Gain +15 to +20 Marks
               </h2>
               <p className="text-xs text-slate-600">
-                Data-driven strategic recommendations based on your mistakes and attempt efficiency.
+                Data-driven strategic recommendations based on your mistakes, leaked penalty marks, and attempt efficiency.
               </p>
             </div>
             <div className="bg-indigo-600 text-white px-4 py-2 rounded-2xl text-xs font-black self-start sm:self-auto shadow-md">
@@ -1360,7 +1677,7 @@ function ResultPage() {
               </div>
               <h3 className="font-extrabold text-sm text-slate-900">1. Negative Mark Containment</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                You lost <strong className="text-rose-600">-{negativePenalty.toFixed(2)} marks</strong> to incorrect answers. In competitive exams, eliminating blind guesses can elevate your percentile by <strong>~8-12%</strong> instantly.
+                You lost <strong className="text-rose-600">-{negativePenalty.toFixed(2)} marks</strong> to {a.wrong_count} incorrect answers. In competitive exams, eliminating blind guesses can elevate your percentile by <strong>~8-12%</strong> instantly.
               </p>
               <div className="text-[11px] font-semibold text-rose-700 bg-rose-50/80 p-2 rounded-xl border border-rose-100">
                 Rule: Never guess unless you can eliminate at least 2 options!
@@ -1402,6 +1719,34 @@ function ResultPage() {
             </div>
 
           </div>
+
+          {/* Negative Marks Leakage Breakdown Table / Pills */}
+          {negativeLeakageTopics.length > 0 && (
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4 text-rose-500" /> Negative Marks Leakage Breakdown by Topic:
+                </span>
+                <span className="text-xs text-rose-600 font-bold">
+                  Total Lost: -{negativePenalty.toFixed(2)} Marks
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                {negativeLeakageTopics.map((item) => (
+                  <div key={item.topic} className="flex items-center justify-between p-2.5 rounded-xl border border-rose-100 bg-rose-50/40 text-xs">
+                    <div className="min-w-0 pr-2">
+                      <span className="font-bold text-slate-800 block truncate">{item.topic}</span>
+                      <span className="text-[10px] text-slate-500">{item.wrongCount} mistakes in this topic</span>
+                    </div>
+                    <span className="font-mono font-black text-rose-700 shrink-0">
+                      -{item.marksLost.toFixed(2)} M
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ================= 6. IN-DEPTH QUESTION & SOLUTION REVIEW ENGINE ================= */}
@@ -1439,7 +1784,7 @@ function ResultPage() {
             </div>
           </div>
 
-          {/* Interactive Question Jump Palette (1..N Matrix) */}
+          {/* Interactive Question Jump Palette (1..N Matrix with Auto-Filter-Sync) */}
           {data.all_answers && data.all_answers.length > 0 && (
             <div className="rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-600">
@@ -1454,12 +1799,13 @@ function ResultPage() {
                   const isCorrect = ans.is_correct;
                   const isUnanswered = ans.selected_option === null;
                   const isWrong = !isCorrect && !isUnanswered;
+                  const qNum = ans.sort_order ?? idx + 1;
 
                   return (
                     <button
-                      key={idx}
+                      key={ans.id ?? idx}
                       type="button"
-                      onClick={() => scrollToQuestion(idx)}
+                      onClick={() => jumpToQuestion(ans)}
                       className={cn(
                         "w-8 h-8 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center shrink-0 border",
                         isCorrect
@@ -1468,9 +1814,9 @@ function ResultPage() {
                           ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
                           : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
                       )}
-                      title={`Q.${idx + 1}: ${isCorrect ? "Correct" : isWrong ? "Incorrect" : "Unattempted"}`}
+                      title={`Q.${qNum}: ${isCorrect ? "Correct" : isWrong ? "Incorrect" : "Unattempted"}`}
                     >
-                      {idx + 1}
+                      {qNum}
                     </button>
                   );
                 })}
@@ -1590,12 +1936,12 @@ function ResultPage() {
                 const isWrong = !isCorrect && !isUnanswered;
                 const secMeta = getSectionMeta(q.topic || "General");
                 const qNumber = q.sort_order ?? idx + 1;
-                const isHighlighted = activeQuestionId === `question-${idx}`;
+                const isHighlighted = activeQuestionId === q.id;
 
                 return (
                   <div
                     key={q.id ?? idx}
-                    id={`question-card-${idx}`}
+                    id={`question-card-${q.id}`}
                     className={cn(
                       "rounded-3xl border bg-white p-5 sm:p-7 shadow-xs space-y-5 transition-all duration-300",
                       isHighlighted
@@ -1646,8 +1992,10 @@ function ResultPage() {
                         const optText = q[`option_${opt}`];
                         if (!optText) return null;
 
-                        const isStudentChoice = q.selected_option === opt;
-                        const isCorrectAnswer = q.correct_option === opt;
+                        const studentChoiceLower = (q.selected_option || "").toLowerCase();
+                        const correctChoiceLower = (q.correct_option || "").toLowerCase();
+                        const isStudentChoice = studentChoiceLower === opt;
+                        const isCorrectAnswer = correctChoiceLower === opt;
 
                         let style = "border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50";
                         let badge = null;
@@ -1706,7 +2054,7 @@ function ResultPage() {
                             <strong className="text-emerald-700">Answered correctly on your first attempt (+{marksPerQ} Marks).</strong>
                           ) : isWrong ? (
                             <span className="text-rose-700 font-semibold">
-                              You selected <strong>Option {q.selected_option?.toUpperCase()}</strong>, but official answer key is <strong>Option {q.correct_option?.toUpperCase()}</strong> (-{negativeMarks} marks).
+                              You selected <strong>Option {q.selected_option?.toUpperCase()}</strong>, but official answer key is <strong>Option {q.correct_option?.toUpperCase()}</strong> (-{negativeMarks} marks penalty).
                             </span>
                           ) : (
                             <span className="text-slate-600 font-medium">
