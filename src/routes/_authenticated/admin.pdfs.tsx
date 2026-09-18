@@ -3,6 +3,7 @@ import { Eye } from "lucide-react";
 import { ResourceManager, type Column, type Field } from "@/components/admin/resource-manager";
 import { DocumentViewer } from "@/components/document-viewer";
 import { Button } from "@/components/ui/button";
+import { MaterialNavSwitcher } from "@/components/admin/material-nav-switcher";
 
 type Material = {
   id: string;
@@ -88,21 +89,68 @@ const columns: Column<Material>[] = [
 ];
 
 const typeOptions = [
-  { value: "pdf", label: "PDF" },
-  { value: "notes", label: "Notes" },
-  { value: "pyq", label: "Previous Year Paper" },
-  { value: "answer_key", label: "Answer Key" },
+  { value: "pdf", label: "PDF Document" },
+  { value: "notes", label: "Class Notes (हैंडरिटेन / टाइप्ड)" },
+  { value: "pyq", label: "Previous Year Paper (PYQ)" },
+  { value: "answer_key", label: "Answer Key (उत्तर कुंजी)" },
 ];
 
 const fields: Field[] = [
-  { name: "title", label: "Title / Document Name", type: "text", required: true, placeholder: "e.g. Chapter 01 Class Notes (Handwritten)" },
-  { name: "batch_id", label: "Target Batch", type: "batch", required: true, helper: "Select which batch students can access this material in." },
-  { name: "subject", label: "Subject Folder", type: "text", required: true, placeholder: "e.g. General Hindi, Mathematics, Reasoning" },
-  { name: "chapter", label: "Chapter / Topic", type: "text", required: true, placeholder: "e.g. Varnamala, Number System" },
-  { name: "file_url", label: "PDF Document (Google Drive Link or Upload)", type: "document", required: true, helper: "Paste Google Drive share link (e.g. drive.google.com/...) or upload a PDF file." },
-  { name: "material_type", label: "Material Type", type: "select", options: typeOptions, required: true },
-  { name: "description", label: "Description / Notes", type: "textarea", placeholder: "Optional notes for students" },
-  { name: "is_free", label: "Make Free for Everyone", type: "boolean", helper: "If checked, this document will also be available publicly on the Free Resources page." },
+  {
+    name: "file_url",
+    label: "PDF Document (Google Drive Link or Upload File)",
+    type: "document",
+    required: true,
+    placeholder: "Google Drive link yahan paste karein ya PDF upload karein",
+    helper: "💡 Teacher Tip: Google Drive share link ya device se direct PDF upload karein.",
+  },
+  {
+    name: "title",
+    label: "Title / Document Name (नोट्स का नाम)",
+    type: "text",
+    required: true,
+    placeholder: "e.g. Chapter 01 Class Notes (Handwritten)",
+  },
+  {
+    name: "batch_id",
+    label: "Target Batch (किस बैच के लिए है?)",
+    type: "batch",
+    required: true,
+    helper: "Select which batch students can access this material in.",
+  },
+  {
+    name: "subject",
+    label: "Subject Folder (सब्जेक्ट)",
+    type: "text",
+    required: true,
+    placeholder: "e.g. General Hindi, Mathematics, Reasoning",
+  },
+  {
+    name: "chapter",
+    label: "Chapter / Topic (चैप्टर)",
+    type: "text",
+    required: true,
+    placeholder: "e.g. Varnamala, Number System",
+  },
+  {
+    name: "material_type",
+    label: "Material Type (प्रकार)",
+    type: "select",
+    options: typeOptions,
+    required: true,
+  },
+  {
+    name: "description",
+    label: "Description / Notes (Optional विवरण)",
+    type: "textarea",
+    placeholder: "Optional notes for students",
+  },
+  {
+    name: "is_free",
+    label: "Make Free for Everyone (डेमो / फ्री एक्सेस)",
+    type: "boolean",
+    helper: "If checked, this document will also be available publicly on the Free Resources page.",
+  },
 ];
 
 export const Route = createFileRoute("/_authenticated/admin/pdfs")({
@@ -116,6 +164,7 @@ export const Route = createFileRoute("/_authenticated/admin/pdfs")({
       fields={fields}
       defaults={{ material_type: "pdf", is_free: false }}
       searchKeys={["title", "subject", "chapter"]}
+      headerBanner={<MaterialNavSwitcher current="notes" />}
     />
   ),
 });

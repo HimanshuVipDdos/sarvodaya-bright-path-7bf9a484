@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, Search, Loader2, Save, X, FolderPlus, FolderOpen, FileText, Sparkles, Eye, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, Save, X, FolderPlus, FolderOpen, FileText, Sparkles, Eye, Check, Clipboard } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import Cropper, { type Area } from "react-easy-crop";
@@ -112,6 +112,7 @@ export function ResourceManager<T extends Record<string, unknown>>({
   });
 
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>("ALL");
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("ALL");
 
   const { data: batchOptions = [] } = useQuery({
     queryKey: ["admin", "batch-options"],
@@ -131,17 +132,33 @@ export function ResourceManager<T extends Record<string, unknown>>({
     [fields]
   );
 
+  const availableSubjects = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      const s = (r as Record<string, unknown>).subject;
+      if (s && typeof s === "string" && s.trim()) {
+        if (selectedBatchFilter === "ALL" || (r as Record<string, unknown>).batch_id === selectedBatchFilter) {
+          set.add(s.trim());
+        }
+      }
+    });
+    return Array.from(set).sort();
+  }, [rows, selectedBatchFilter]);
+
   const filtered = useMemo(() => {
     let list = rows;
     if (selectedBatchFilter !== "ALL") {
       list = list.filter((r) => (r as Record<string, unknown>).batch_id === selectedBatchFilter);
+    }
+    if (selectedSubjectFilter !== "ALL") {
+      list = list.filter((r) => (r as Record<string, unknown>).subject === selectedSubjectFilter);
     }
     const term = search.trim().toLowerCase();
     if (!term) return list;
     return list.filter((r) =>
       searchKeys.some((k) => String((r as Record<string, unknown>)[k] ?? "").toLowerCase().includes(term))
     );
-  }, [rows, search, searchKeys, selectedBatchFilter]);
+  }, [rows, search, searchKeys, selectedBatchFilter, selectedSubjectFilter]);
 
   function openCreate() {
     setEditing(null);
@@ -286,7 +303,13 @@ export function ResourceManager<T extends Record<string, unknown>>({
           {hasBatchField && batchOptions.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground hidden sm:inline font-medium">Batch:</span>
-              <Select value={selectedBatchFilter} onValueChange={setSelectedBatchFilter}>
+              <Select
+                value={selectedBatchFilter}
+                onValueChange={(val) => {
+                  setSelectedBatchFilter(val);
+                  setSelectedSubjectFilter("ALL");
+                }}
+              >
                 <SelectTrigger className="w-[180px] sm:w-[220px] rounded-xl text-xs font-semibold">
                   <SelectValue placeholder="All Batches" />
                 </SelectTrigger>
@@ -303,6 +326,47 @@ export function ResourceManager<T extends Record<string, unknown>>({
           )}
           <div className="text-xs text-muted-foreground">{filtered.length} item{filtered.length === 1 ? "" : "s"}</div>
         </div>
+
+        {availableSubjects.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
+              Subject Filter:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedSubjectFilter("ALL")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer",
+                selectedSubjectFilter === "ALL"
+                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                  : "bg-background hover:bg-muted text-foreground border-border/70"
+              )}
+            >
+              All Subjects
+            </button>
+            {availableSubjects.map((sub) => {
+              const count = rows.filter((r: any) =>
+                (selectedBatchFilter === "ALL" || r.batch_id === selectedBatchFilter) && r.subject === sub
+              ).length;
+              return (
+                <button
+                  key={sub}
+                  type="button"
+                  onClick={() => setSelectedSubjectFilter(sub === selectedSubjectFilter ? "ALL" : sub)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1",
+                    selectedSubjectFilter === sub
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-background hover:bg-muted text-foreground border-border/70"
+                  )}
+                >
+                  <span>📁 {sub}</span>
+                  <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -572,7 +636,28 @@ function FieldsForm({
         const full = ["textarea", "array"].includes(f.type) || f.type === "document" || (f.type === "text" && f.name === "title") || isVideoField;
         return (
           <div key={f.name} className={full ? "sm:col-span-2" : ""}>
-            {!isVideoField && <Label className="text-xs">{f.label}{f.required && " *"}</Label>}
+            {!isVideoField && (
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs">{f.label}{f.required && " *"}</Label>
+                {f.name === "title" && Boolean(form.subject || form.chapter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const parts: string[] = [];
+                      if (form.subject && String(form.subject).trim()) parts.push(String(form.subject).trim());
+                      if (form.chapter && String(form.chapter).trim()) parts.push(String(form.chapter).trim());
+                      if (form.lecture_number) parts.push(`Lecture ${form.lecture_number}`);
+                      else if (form.material_type === "dpp") parts.push("DPP Practice Sheet");
+                      else if (form.material_type === "notes") parts.push("Class Notes");
+                      if (parts.length > 0) set("title", parts.join(" – "));
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+                  >
+                    <Sparkles className="h-3 w-3" /> Auto-Fill Title
+                  </button>
+                )}
+              </div>
+            )}
             {f.type === "textarea" && (
               <Textarea
                 rows={4}
@@ -1194,8 +1279,41 @@ function DocumentUploadField({
     }
   }
 
+  const handlePaste = async () => {
+    try {
+      if (navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text?.trim()) {
+          handleInputChange(text.trim());
+          toast.success("Document link pasted!");
+        } else {
+          toast.info("Clipboard is empty. Please copy document link first.");
+        }
+      } else {
+        toast.info("Please use Ctrl+V to paste.");
+      }
+    } catch {
+      toast.info("Please use Ctrl+V to paste.");
+    }
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
+      {/* Quick Paste & Upload Header */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+          <FileText className="h-3.5 w-3.5 text-primary" /> Document File or Google Drive Link
+        </span>
+        <button
+          type="button"
+          onClick={handlePaste}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition cursor-pointer bg-primary/10 hover:bg-primary/15 px-2.5 py-1 rounded-lg"
+        >
+          <Clipboard className="h-3 w-3" />
+          <span>Paste Link (पेस्ट करें)</span>
+        </button>
+      </div>
+
       {/* Input row */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <Input

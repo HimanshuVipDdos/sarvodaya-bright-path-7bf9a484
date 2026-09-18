@@ -3,7 +3,7 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Shield, Users, BookOpen, Bell, FileText, Video, Image as ImageIcon,
-  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks, LayoutDashboard, Sparkles,
+  GraduationCap, Trophy, Inbox, Newspaper, ArrowRight, MessageSquare, ListChecks, LayoutDashboard, Sparkles, Radio,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "@/components/section";
@@ -205,11 +205,135 @@ function AdminPage() {
 
   return (
     <Section>
-      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">Admin</div>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">Control Panel</h1>
         <p className="mt-1 text-sm text-muted-foreground">Manage everything that powers Sarvodaya Adhyeta.</p>
       </motion.div>
+
+      {/* Teacher Quick Launchpad / शिक्षक त्वरित कार्य */}
+      <div className="mb-8 rounded-3xl border border-border/80 bg-gradient-to-r from-primary/5 via-purple-500/5 to-indigo-500/5 p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary text-primary-foreground shadow-xs">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
+                Teacher Quick Launchpad
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-black uppercase">
+                  शिक्षक केंद्र
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Live class, lectures, notes aur DPPs manage karne ke liye 1-tap shortcuts:
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Link
+            to="/admin/live-classes"
+            className="group flex flex-col p-3.5 rounded-2xl bg-background/80 hover:bg-background border border-border/60 hover:border-red-500/50 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-2 rounded-xl bg-red-500/10 text-red-600 group-hover:bg-red-500 group-hover:text-white transition">
+                <Radio className="h-4 w-4 animate-pulse" />
+              </div>
+              <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded">
+                Live
+              </span>
+            </div>
+            <div className="mt-2.5 font-bold text-xs sm:text-sm text-foreground group-hover:text-red-600 transition">
+              Live Classes
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              तुरंत लाइव या शेड्यूल करें
+            </div>
+          </Link>
+
+          <Link
+            to="/admin/lectures"
+            className="group flex flex-col p-3.5 rounded-2xl bg-background/80 hover:bg-background border border-border/60 hover:border-indigo-500/50 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition">
+                <Video className="h-4 w-4" />
+              </div>
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+                Videos
+              </span>
+            </div>
+            <div className="mt-2.5 font-bold text-xs sm:text-sm text-foreground group-hover:text-indigo-600 transition">
+              Recorded Lectures
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              रिकॉर्डेड क्लास अपलोड करें
+            </div>
+          </Link>
+
+          <Link
+            to="/admin/pdfs"
+            className="group flex flex-col p-3.5 rounded-2xl bg-background/80 hover:bg-background border border-border/60 hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition">
+                <FileText className="h-4 w-4" />
+              </div>
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
+                PDFs
+              </span>
+            </div>
+            <div className="mt-2.5 font-bold text-xs sm:text-sm text-foreground group-hover:text-blue-600 transition">
+              Class Notes & PDFs
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              नोट्स और किताबें अपलोड करें
+            </div>
+          </Link>
+
+          <Link
+            to="/admin/dpps"
+            className="group flex flex-col p-3.5 rounded-2xl bg-background/80 hover:bg-background border border-border/60 hover:border-amber-500/50 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition">
+                <BookOpen className="h-4 w-4" />
+              </div>
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
+                Practice
+              </span>
+            </div>
+            <div className="mt-2.5 font-bold text-xs sm:text-sm text-foreground group-hover:text-amber-600 transition">
+              DPP Sheets
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              डेली प्रैक्टिस शीट डालें
+            </div>
+          </Link>
+
+          <Link
+            to="/admin/live-chat"
+            className="group flex flex-col p-3.5 rounded-2xl bg-background/80 hover:bg-background border border-border/60 hover:border-emerald-500/50 hover:shadow-md transition-all cursor-pointer col-span-2 sm:col-span-1"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                Live Chat
+              </span>
+            </div>
+            <div className="mt-2.5 font-bold text-xs sm:text-sm text-foreground group-hover:text-emerald-600 transition">
+              Live Comments
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              लाइव क्लास के डाउट्स देखें
+            </div>
+          </Link>
+        </div>
+      </div>
 
       {/* Confidential Owner-Only Financial & Revenue Analytics */}
       {data.isOwner && data.revenueStats && (
