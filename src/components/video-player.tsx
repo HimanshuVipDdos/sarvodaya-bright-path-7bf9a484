@@ -111,7 +111,7 @@ export function getEmbedableSource(url: string): {
   if (ytId) {
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}?rel=0&playsinline=1&controls=1&fs=1&iv_load_policy=3&enablejsapi=1`,
       rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
       videoId: ytId,
     };
@@ -121,7 +121,7 @@ export function getEmbedableSource(url: string): {
     const fallbackId = extractYouTubeId(target);
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${fallbackId || ""}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${fallbackId || ""}?rel=0&playsinline=1&controls=1&fs=1&iv_load_policy=3&enablejsapi=1`,
       rawUrl: target,
       videoId: fallbackId || undefined,
     };
@@ -2703,14 +2703,6 @@ export function VideoPlayer({
 
   const embedInfo = getEmbedableSource(src);
 
-  // Default to clean YouTube player for 100% reliability and 0-delay playback
-  const [streamMode, setStreamMode] = useState<"direct" | "youtube">("youtube");
-  const [fallbackTime, setFallbackTime] = useState<number>(0);
-
-  const directStreamUrl = embedInfo?.type === "youtube" && embedInfo.videoId 
-    ? `/api/stream?v=${embedInfo.videoId}`
-    : null;
-
   if (!src?.trim()) {
     return <VideoUnavailable message="No video link has been added for this class yet." className={className} />;
   }
@@ -2742,65 +2734,15 @@ export function VideoPlayer({
             referrerPolicy="strict-origin-when-cross-origin"
             className="w-full h-full border-0"
           />
-        ) : embedInfo.type === "youtube" && embedInfo.videoId ? (
-          streamMode === "direct" && directStreamUrl ? (
-            <CustomHtml5Player
-              key={`direct-${embedInfo.videoId}`}
-              src={directStreamUrl}
-              streamType="mp4"
-              poster={poster}
-              title={title}
-              subtitle={subtitle}
-              canShowChat={canShowChat}
-              chatOpen={chatVisible}
-              onChatToggle={handleChatToggle}
-              isLive={isLive}
-              initialTime={fallbackTime}
-              onTimeProgress={(t) => setFallbackTime(t)}
-              onError={(err) => {
-                console.warn("[VideoPlayer] Direct stream proxy failed, seamlessly switching to clean YouTube player:", err);
-                setStreamMode("youtube");
-              }}
-              fullscreenTargetRef={effectiveFullscreenRef}
-              hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
-              onClose={onClose}
-              sourceBadge="direct"
-              onToggleSourceMode={() => setStreamMode("youtube")}
-            />
-          ) : (
-            <CustomYouTubePlayer
-              key={embedInfo.videoId}
-              videoId={embedInfo.videoId}
-              title={title}
-              subtitle={subtitle}
-              canShowChat={canShowChat}
-              chatOpen={chatVisible}
-              onChatToggle={handleChatToggle}
-              isLive={isLive}
-              initialTime={fallbackTime}
-              onTimeProgress={(t) => setFallbackTime(t)}
-              fullscreenTargetRef={effectiveFullscreenRef}
-              hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
-              onClose={onClose}
-              sourceBadge="youtube"
-              onToggleSourceMode={() => setStreamMode("direct")}
-            />
-          )
         ) : embedInfo.type === "youtube" ? (
-          <CustomYouTubePlayer
-            key={embedInfo.videoId || "yt-fallback"}
-            videoId={embedInfo.videoId || extractYouTubeId(src) || ""}
-            title={title}
-            subtitle={subtitle}
-            canShowChat={canShowChat}
-            chatOpen={chatVisible}
-            onChatToggle={handleChatToggle}
-            isLive={isLive}
-            initialTime={fallbackTime}
-            onTimeProgress={(t) => setFallbackTime(t)}
-            fullscreenTargetRef={effectiveFullscreenRef}
-            hideTopTitleWhenNotFullscreen={hideTopTitleWhenNotFullscreen}
-            onClose={onClose}
+          <iframe
+            key={embedInfo.embedUrl}
+            src={embedInfo.embedUrl}
+            title={title || "Video Lecture"}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="w-full h-full border-0 aspect-video"
           />
         ) : (
           <CustomHtml5Player
