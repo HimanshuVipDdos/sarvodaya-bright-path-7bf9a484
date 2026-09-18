@@ -216,7 +216,7 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
 
     const { data: attempt, error } = await supabaseAdmin
       .from("cbt_attempts")
-      .select("*, test:cbt_tests(id,title,marks_per_question)")
+      .select("*, test:cbt_tests(id,title,marks_per_question,negative_marking,negative_marks,duration_minutes)")
       .eq("id", data.attempt_id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -240,15 +240,59 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
 
     const rank = (higherScores ?? 0) + 1;
 
+    // Fetch peer attempts for real peer benchmarking (Topper vs Average vs You)
+    const { data: peerAttempts } = await supabaseAdmin
+      .from("cbt_attempts")
+      .select("score, correct_count, wrong_count, unanswered_count, total_questions")
+      .eq("test_id", attempt.test_id)
+      .eq("status", "submitted")
+      .order("score", { ascending: false });
+
+    const peers = peerAttempts ?? [];
+    const topperAttempt = peers[0];
+    const topperScore = topperAttempt ? Number(topperAttempt.score) : Number(attempt.score);
+    const topperAttempted = topperAttempt
+      ? (topperAttempt.correct_count + topperAttempt.wrong_count)
+      : (attempt.correct_count + attempt.wrong_count);
+    const topperAccuracy = topperAttempted > 0 ? Math.round((topperAttempt.correct_count / topperAttempted) * 100) : 0;
+    const topperCorrect = topperAttempt ? topperAttempt.correct_count : attempt.correct_count;
+
+    const cohortCount = peers.length || 1;
+    let sumScores = 0;
+    let sumCorrect = 0;
+    let sumAttempted = 0;
+    for (const p of peers) {
+      sumScores += Number(p.score || 0);
+      sumCorrect += Number(p.correct_count || 0);
+      sumAttempted += Number((p.correct_count || 0) + (p.wrong_count || 0));
+    }
+    const averageScore = Math.round((sumScores / cohortCount) * 10) / 10;
+    const averageCorrect = Math.round((sumCorrect / cohortCount) * 10) / 10;
+    const averageAttempted = Math.round((sumAttempted / cohortCount) * 10) / 10;
+    const averageAccuracy = sumAttempted > 0 ? Math.round((sumCorrect / sumAttempted) * 100) : 0;
+
+    // Cutoff estimation (standard 45% qualifying threshold for general mock)
+    const maxScore = Number(attempt.max_score || 100);
+    const cutoffScore = Math.round(maxScore * 0.45 * 10) / 10;
+
     // Mistake review: wrongly-answered + unanswered questions with correct answers revealed
     const { data: answers } = await supabaseAdmin
       .from("cbt_answers")
-      .select("selected_option,is_correct,question:cbt_questions(id,question_text,option_a,option_b,option_c,option_d,correct_option,topic)")
+      .select("selected_option,is_correct,question:cbt_questions(id,question_text,option_a,option_b,option_c,option_d,correct_option,topic,marks,sort_order)")
       .eq("attempt_id", attempt.id);
 
-    const mistakes = (answers ?? [])
+    // Sort by question sort_order so Q1, Q2, Q3 maintain test order
+    const sortedAnswers = [...(answers ?? [])].sort((a, b) => {
+      const soA = (a.question as any)?.sort_order ?? 0;
+      const soB = (b.question as any)?.sort_order ?? 0;
+      return soA - soB;
+    });
+
+    const mistakes = sortedAnswers
       .filter((a) => !a.is_correct)
       .map((a) => ({
+        id: (a.question as any)?.id,
+        sort_order: (a.question as any)?.sort_order,
         question_text: (a.question as any)?.question_text,
         option_a: (a.question as any)?.option_a,
         option_b: (a.question as any)?.option_b,
@@ -256,12 +300,14 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
         option_d: (a.question as any)?.option_d,
         correct_option: (a.question as any)?.correct_option,
         selected_option: a.selected_option,
+        marks: Number((a.question as any)?.marks ?? 1),
         topic: (a.question as any)?.topic || "General",
       }));
 
-    // Full review: every question the student saw, correct or not, so they
-    // can see what they got right too, not just their mistakes.
-    const allAnswers = (answers ?? []).map((a) => ({
+    // Full review: every question the student saw, correct or not
+    const allAnswers = sortedAnswers.map((a, idx) => ({
+      id: (a.question as any)?.id,
+      sort_order: (a.question as any)?.sort_order ?? idx + 1,
       question_text: (a.question as any)?.question_text,
       option_a: (a.question as any)?.option_a,
       option_b: (a.question as any)?.option_b,
@@ -270,6 +316,7 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
       correct_option: (a.question as any)?.correct_option,
       selected_option: a.selected_option,
       is_correct: a.is_correct,
+      marks: Number((a.question as any)?.marks ?? 1),
       topic: (a.question as any)?.topic || "General",
     }));
 
@@ -280,6 +327,17 @@ export const getCbtAttemptResult = createServerFn({ method: "GET" })
       total_participants: totalParticipants ?? 0,
       mistakes,
       all_answers: allAnswers,
+      peer_benchmark: {
+        topper_score: topperScore,
+        topper_accuracy: topperAccuracy,
+        topper_correct: topperCorrect,
+        topper_attempted: topperAttempted,
+        average_score: averageScore,
+        average_accuracy: averageAccuracy,
+        average_correct: averageCorrect,
+        average_attempted: averageAttempted,
+        cutoff_score: cutoffScore,
+      },
     };
   });
 

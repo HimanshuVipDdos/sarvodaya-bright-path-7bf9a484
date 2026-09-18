@@ -235,6 +235,9 @@ export type Database = {
           id: string
           is_published: boolean
           marks_per_question: number
+          negative_marking: boolean
+          negative_marks: number
+          question_limit: number | null
           title: string
           updated_at: string
         }
@@ -247,6 +250,9 @@ export type Database = {
           id?: string
           is_published?: boolean
           marks_per_question?: number
+          negative_marking?: boolean
+          negative_marks?: number
+          question_limit?: number | null
           title: string
           updated_at?: string
         }
@@ -259,6 +265,9 @@ export type Database = {
           id?: string
           is_published?: boolean
           marks_per_question?: number
+          negative_marking?: boolean
+          negative_marks?: number
+          question_limit?: number | null
           title?: string
           updated_at?: string
         }
