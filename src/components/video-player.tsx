@@ -433,7 +433,7 @@ function CustomYouTubePlayer({
     }
   }, [activeQualityOptions, maxAvailableOption, quality]);
 
-  const handleSeekFromPointer = (clientX: number) => {
+  const handleSeekFromPointer = (clientX: number, commit = false) => {
     if (!seekbarRef.current) return;
     const rect = seekbarRef.current.getBoundingClientRect();
     if (rect.width <= 0) return;
@@ -441,13 +441,15 @@ function CustomYouTubePlayer({
     const target = duration > 0 ? pct * duration : 0;
     setSeekPreview(target);
     setCurrentTime(target);
-    sendCommand("seekTo", [target, true]);
+    if (commit) {
+      sendCommand("seekTo", [target, true]);
+    }
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     seekingRef.current = true;
     setSeeking(true);
-    handleSeekFromPointer(e.clientX);
+    handleSeekFromPointer(e.clientX, false);
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
@@ -455,7 +457,7 @@ function CustomYouTubePlayer({
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (seekingRef.current) {
-      handleSeekFromPointer(e.clientX);
+      handleSeekFromPointer(e.clientX, false);
     }
   };
 
@@ -463,7 +465,7 @@ function CustomYouTubePlayer({
     if (seekingRef.current) {
       seekingRef.current = false;
       setSeeking(false);
-      handleSeekFromPointer(e.clientX);
+      handleSeekFromPointer(e.clientX, true);
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {}
@@ -598,7 +600,7 @@ function CustomYouTubePlayer({
     initYTPlayer();
   };
 
-  // Continuously poll duration & currentTime, and send listening handshake
+  // Continuously poll duration & currentTime, and send listening handshake with 80ms interval for 60fps-smooth seekbar
   useEffect(() => {
     const pollInterval = window.setInterval(() => {
       try {
@@ -623,7 +625,7 @@ function CustomYouTubePlayer({
           updateAvailableLevels();
         }
       } catch {}
-    }, 250);
+    }, 80);
 
     return () => clearInterval(pollInterval);
   }, [onTimeProgress, updateAvailableLevels]);
@@ -675,6 +677,7 @@ function CustomYouTubePlayer({
       setPlaying(true);
       sendCommand("playVideo");
       try {
+        ytPlayerRef.current?.unMute?.();
         ytPlayerRef.current?.playVideo?.();
       } catch {}
       showHud("Playing", <Play className="h-3.5 w-3.5 text-red-500 fill-current" />);
@@ -692,6 +695,7 @@ function CustomYouTubePlayer({
     } else {
       sendCommand("playVideo");
       try {
+        ytPlayerRef.current?.unMute?.();
         ytPlayerRef.current?.playVideo?.();
       } catch {}
       setPlaying(true);
@@ -1031,7 +1035,7 @@ function CustomYouTubePlayer({
       )}
       onMouseMove={resetHideTimer}
     >
-      {/* Real YouTube iframe with controls=0 (crystal-clear full frame, 100% 16:9 aspect, zero cropping, zero blur) */}
+      {/* Real YouTube iframe with controls=0: Sized and offset so native YouTube top title & bottom bar/logo sit outside visible frame */}
       <iframe
         ref={iframeRef}
         src={embedSrc}
@@ -1043,7 +1047,7 @@ function CustomYouTubePlayer({
         data-idm-ignore="true"
         tabIndex={-1}
         className={cn(
-          "pointer-events-none absolute inset-0 h-full w-full border-0 select-none transition-opacity duration-300",
+          "pointer-events-none absolute top-[-20px] left-0 w-full h-[calc(100%+54px)] border-0 select-none transition-opacity duration-300",
           hasStarted ? "opacity-100" : "opacity-0"
         )}
       />
@@ -1057,8 +1061,12 @@ function CustomYouTubePlayer({
       {/* 1. INITIAL COVER BEFORE START: 100% Zero YouTube Splash & Zero YouTube Play Button */}
       {!hasStarted && (
         <div
-          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white p-6 cursor-pointer select-none"
+          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white p-6 cursor-pointer select-none touch-manipulation"
           onClick={togglePlay}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            togglePlay();
+          }}
         >
           {/* Subtle decorative radial glow */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(225,29,72,0.18),transparent_70%)] pointer-events-none" />
@@ -1083,13 +1091,18 @@ function CustomYouTubePlayer({
                 e.stopPropagation();
                 togglePlay();
               }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                togglePlay();
+              }}
               aria-label="Start Lecture"
-              className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_0_40px_rgba(225,29,72,0.6)] ring-4 ring-white/30 hover:ring-white/50 transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer group/btn"
+              className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_0_40px_rgba(225,29,72,0.6)] ring-4 ring-white/30 hover:ring-white/50 transition-all duration-150 hover:scale-105 active:scale-95 cursor-pointer group/btn"
             >
               <Play className="h-8 w-8 sm:h-10 sm:w-10 fill-current translate-x-0.5 transition-transform group-hover/btn:scale-110" />
             </button>
 
-            <p className="mt-4 text-xs text-white/70 font-medium">Click to begin lecture</p>
+            <p className="mt-4 text-xs text-white/70 font-medium">Click or tap to begin lecture</p>
           </div>
         </div>
       )}
@@ -1097,18 +1110,22 @@ function CustomYouTubePlayer({
       {/* 2. PAUSE OVERLAY: 100% Zero YouTube 'More Videos' & Zero YouTube Pause UI (Zero blur, crisp overlay) */}
       {hasStarted && !playing && !isEnded && (
         <div
-          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/40 cursor-pointer select-none transition-opacity duration-200"
+          className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/40 cursor-pointer select-none transition-opacity duration-150 touch-manipulation"
           onClick={togglePlay}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            togglePlay();
+          }}
         >
           <div className="flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-full bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_35px_rgba(225,29,72,0.55)] ring-4 ring-white/30 hover:scale-110 transition-transform active:scale-95">
             <Play className="h-8 w-8 fill-current translate-x-0.5" />
           </div>
-          <span className="mt-3 text-xs font-semibold text-white/90 drop-shadow-md">Click to resume</span>
+          <span className="mt-3 text-xs font-semibold text-white/90 drop-shadow-md">Tap to resume</span>
         </div>
       )}
 
       {/* 3. TRANSPARENT CLICK SHIELD: Completely isolates YouTube iframe from hover and touch */}
-      <div className="yt-click-surface absolute inset-0 z-10 cursor-pointer" onClick={handleSurfaceClick} />
+      <div className="yt-click-surface absolute inset-0 z-10 cursor-pointer touch-manipulation" onClick={handleSurfaceClick} />
 
       {/* Double Tap / Click Ripple Feedback */}
       <AnimatePresence>
@@ -1261,34 +1278,18 @@ function CustomYouTubePlayer({
         </div>
       )}
 
-      {/* 5. PERMANENT BOTTOM WATERMARK MASK (Zero Crop, Zero Blur) — permanently conceals bottom 48px where YouTube logo would show */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-black/90 via-black/45 to-transparent transition-opacity duration-300" />
+      {/* 5. PERMANENT SOLID BOTTOM COVER: 100% blocks YouTube logo, share button, and controls with zero bleed */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-14 bg-black" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-14 z-20 h-8 bg-gradient-to-t from-black to-transparent" />
 
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-30 px-3 pb-2.5 pt-8 sm:px-5 transition-opacity duration-300",
+          "absolute inset-x-0 bottom-0 z-30 px-3 pb-2.5 pt-4 sm:px-5 transition-opacity duration-200",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Floating Return to Live button if student scrubbed back in live class */}
-        {isLive && !isAtLiveEdge && (
-          <div className="flex justify-center mb-1.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleGoLive();
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg animate-pulse ring-2 ring-white/30 transition active:scale-95 cursor-pointer"
-            >
-              <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-              <span>Go Live</span>
-              <span className="text-[10px] font-normal opacity-85">(-{formatTime(lagSeconds)})</span>
-            </button>
-          </div>
-        )}
 
         {/* Modern Scrubber / Seek Bar with hover timestamp tooltip */}
         <div
@@ -1774,7 +1775,7 @@ function CustomHtml5Player({
     };
   }, [src, streamType, initialTime, rate, onError]);
 
-  const handleSeekFromPointer = (clientX: number) => {
+  const handleSeekFromPointer = (clientX: number, commit = false) => {
     if (!seekbarRef.current) return;
     const rect = seekbarRef.current.getBoundingClientRect();
     if (rect.width <= 0) return;
@@ -1782,7 +1783,7 @@ function CustomHtml5Player({
     const target = duration > 0 ? pct * duration : 0;
     setSeekPreview(target);
     setCurrentTime(target);
-    if (videoRef.current) {
+    if (commit && videoRef.current) {
       videoRef.current.currentTime = target;
     }
   };
@@ -1790,7 +1791,7 @@ function CustomHtml5Player({
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     seekingRef.current = true;
     setSeeking(true);
-    handleSeekFromPointer(e.clientX);
+    handleSeekFromPointer(e.clientX, false);
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
@@ -1798,7 +1799,7 @@ function CustomHtml5Player({
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (seekingRef.current) {
-      handleSeekFromPointer(e.clientX);
+      handleSeekFromPointer(e.clientX, false);
     }
   };
 
@@ -1806,7 +1807,7 @@ function CustomHtml5Player({
     if (seekingRef.current) {
       seekingRef.current = false;
       setSeeking(false);
-      handleSeekFromPointer(e.clientX);
+      handleSeekFromPointer(e.clientX, true);
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {}
@@ -2312,28 +2313,11 @@ function CustomHtml5Player({
       {/* Bottom Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-2.5 pt-8 sm:px-5 transition-opacity duration-300",
+          "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-2.5 pt-4 sm:px-5 transition-opacity duration-200",
           controlsVisible || !playing ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Floating Return to Live button if student scrubbed back in live class */}
-        {isLive && !isAtLiveEdge && (
-          <div className="flex justify-center mb-1.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleGoLive();
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg animate-pulse ring-2 ring-white/30 transition active:scale-95 cursor-pointer"
-            >
-              <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-              <span>Go Live</span>
-              <span className="text-[10px] font-normal opacity-85">(-{formatTime(lagSeconds)})</span>
-            </button>
-          </div>
-        )}
 
         {/* Modern Scrubber / Seek Bar */}
         <div
@@ -2733,7 +2717,7 @@ export function VideoPlayer({
       </div>
 
       {chatComponent && chatVisible && canShowChat && (
-        <div className="w-[320px] sm:w-[360px] md:w-[400px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-200 z-30 shadow-2xl">
+        <div className="absolute inset-y-0 right-0 w-full max-w-[380px] md:relative md:w-[360px] lg:w-[400px] shrink-0 border-l border-white/10 h-full flex flex-col bg-[#0f0f0f] animate-in slide-in-from-right duration-150 z-40 shadow-2xl">
           {chatComponent}
         </div>
       )}

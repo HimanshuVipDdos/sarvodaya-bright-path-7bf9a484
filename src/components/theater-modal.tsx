@@ -76,9 +76,12 @@ export function TheaterModal({
   isCompleted,
   onToggleComplete,
 }: Props) {
-  const isLive = Boolean(liveClassId || currentLecture?.isLive);
+  const isLive = Boolean(liveClassId || (currentLecture?.isLive && (currentLecture as any)?.status === "live"));
   const [panelMode, setPanelMode] = useState<"chat" | "materials">(isLive ? "chat" : "materials");
-  const [panelOpen, setPanelOpen] = useState(isLive);
+  const [panelOpen, setPanelOpen] = useState(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) return false;
+    return isLive;
+  });
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<{ url: string; title: string } | null>(null);
   const [materialsTab, setMaterialsTab] = useState<"all" | "notes" | "dpp">("all");
@@ -117,6 +120,18 @@ export function TheaterModal({
   }, [dpp, currentChapter, currentSubject]);
 
   const totalMaterials = relevantNotes.length + relevantDpp.length;
+
+  useEffect(() => {
+    if (open) {
+      if (isLive) {
+        setPanelMode("chat");
+        const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+        setPanelOpen(!isMobile);
+      } else {
+        setPanelMode("materials");
+      }
+    }
+  }, [open, isLive]);
 
   const handleClose = useCallback(() => {
     try {
@@ -187,17 +202,6 @@ export function TheaterModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [open, viewingDoc, shortcutsOpen, handleClose]);
-
-  useEffect(() => {
-    if (open) {
-      if (isLive) {
-        setPanelMode("chat");
-        setPanelOpen(true);
-      } else {
-        setPanelMode("materials");
-      }
-    }
-  }, [open, isLive]);
 
   if (!open) return null;
 

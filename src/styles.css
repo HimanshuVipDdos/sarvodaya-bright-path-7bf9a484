@@ -372,3 +372,33 @@ div[style*="z-index: 2147483646"][style*="right"] {
   clip: rect(0, 0, 0, 0) !important;
 }
 
+/* ==========================================================================
+   Zero-Delay Interactive Performance
+   Instant touch & click responses across the entire application (mobile + desktop).
+   ========================================================================== */
+html,
+body,
+button,
+a,
+input,
+select,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+button,
+a,
+[role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transition-duration: 0ms !important;
+  transform: scale(0.985);
+}
+
+
