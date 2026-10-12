@@ -675,10 +675,13 @@ function FieldsForm({
             {isVideoField ? (
               <VideoLinkInputWithPreview
                 value={(v as string) ?? ""}
-                onChange={(url, autoThumb) => {
+                onChange={(url, autoThumb, suggestedTitle) => {
                   set(f.name, url);
                   if (autoThumb && (!form.thumbnail_url || String(form.thumbnail_url).includes("img.youtube.com"))) {
                     set("thumbnail_url", autoThumb);
+                  }
+                  if (suggestedTitle && (!form.title || !String(form.title).trim())) {
+                    set("title", suggestedTitle);
                   }
                 }}
                 label={f.label}

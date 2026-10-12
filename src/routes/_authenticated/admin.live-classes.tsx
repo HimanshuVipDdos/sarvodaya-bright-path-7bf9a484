@@ -567,15 +567,18 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
         </div>
         <VideoLinkInputWithPreview
           value={form.youtube_url ?? ""}
-          onChange={(url, autoThumb) => {
+          onChange={(url, autoThumb, suggestedTitle) => {
             set("youtube_url", url);
             if (autoThumb && (!form.thumbnail_url || form.thumbnail_url.includes("img.youtube.com"))) {
               set("thumbnail_url", autoThumb);
             }
+            if (suggestedTitle && (!form.title || !form.title.trim())) {
+              set("title", suggestedTitle);
+            }
           }}
-          label="YouTube Live Stream Link (यूट्यूब लाइव लिंक डालें)"
-          helper="यूट्यूब पर Live stream create करें और उसका लिंक यहाँ पेस्ट करें। थंबनेल अपने आप लग जाएगा!"
-          placeholder="https://youtu.be/... ya https://youtube.com/live/..."
+          label="YouTube / SpoilShield Video Link (यूट्यूब या SpoilShield लिंक)"
+          helper="YouTube (Live/Watch) ya SpoilShield (spoilshield.com/v/...) लिंक यहाँ पेस्ट करें। Zero-distraction player और थंबनेल अपने आप लग जाएगा!"
+          placeholder="https://youtu.be/... ya https://spoilshield.com/v/..."
         />
       </div>
 

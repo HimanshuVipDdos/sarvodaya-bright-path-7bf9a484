@@ -1,16 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
-import { CheckCircle2, Clipboard, Play, Video, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clipboard, Play, Video, AlertCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { extractYouTubeId } from "@/components/video-player";
+import { extractYouTubeId, isSpoilShieldLink, extractVideoTitleFromUrl } from "@/components/video-player";
 import { isGoogleDriveLink } from "@/lib/document-utils";
 
 interface VideoLinkInputWithPreviewProps {
   value: string;
-  onChange: (url: string, autoThumbnailUrl?: string) => void;
+  onChange: (url: string, autoThumbnailUrl?: string, suggestedTitle?: string) => void;
   label?: string;
   placeholder?: string;
   helper?: string;
@@ -21,7 +21,7 @@ export function VideoLinkInputWithPreview({
   value,
   onChange,
   label = "Video / Live Class Link",
-  placeholder = "YouTube link yahan paste karein (e.g. https://youtu.be/... ya https://youtube.com/live/...)",
+  placeholder = "YouTube ya SpoilShield link yahan paste karein (e.g. https://youtu.be/... ya https://spoilshield.com/v/...)",
   helper,
   required = false,
 }: VideoLinkInputWithPreviewProps) {
@@ -29,6 +29,8 @@ export function VideoLinkInputWithPreview({
 
   const youtubeId = useMemo(() => extractYouTubeId(value), [value]);
   const isDrive = useMemo(() => isGoogleDriveLink(value), [value]);
+  const isSpoil = useMemo(() => isSpoilShieldLink(value), [value]);
+  const detectedTitle = useMemo(() => extractVideoTitleFromUrl(value), [value]);
 
   const autoThumb = useMemo(() => {
     if (youtubeId) {
@@ -37,12 +39,12 @@ export function VideoLinkInputWithPreview({
     return null;
   }, [youtubeId]);
 
-  // When a valid YouTube ID is detected, notify parent with the auto thumbnail URL
+  // When a valid YouTube/SpoilShield ID is detected, notify parent with auto thumbnail URL & detected title
   useEffect(() => {
-    if (autoThumb) {
-      onChange(value, autoThumb);
+    if (autoThumb || detectedTitle) {
+      onChange(value, autoThumb || undefined, detectedTitle || undefined);
     }
-  }, [youtubeId, autoThumb]);
+  }, [youtubeId, autoThumb, detectedTitle]);
 
   const handlePaste = async () => {
     try {
@@ -52,8 +54,13 @@ export function VideoLinkInputWithPreview({
           const trimmed = text.trim();
           const ytId = extractYouTubeId(trimmed);
           const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
-          onChange(trimmed, thumb);
-          toast.success("Link pasted successfully!");
+          const title = extractVideoTitleFromUrl(trimmed) || undefined;
+          onChange(trimmed, thumb, title);
+          if (isSpoilShieldLink(trimmed)) {
+            toast.success("SpoilShield link pasted successfully!");
+          } else {
+            toast.success("Link pasted successfully!");
+          }
         } else {
           toast.info("Clipboard is empty. Please copy your video link first.");
         }
@@ -90,7 +97,8 @@ export function VideoLinkInputWithPreview({
             const val = e.target.value;
             const ytId = extractYouTubeId(val);
             const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
-            onChange(val, thumb);
+            const title = extractVideoTitleFromUrl(val) || undefined;
+            onChange(val, thumb, title);
             setTestPlaying(false);
           }}
           placeholder={placeholder}
@@ -100,7 +108,7 @@ export function VideoLinkInputWithPreview({
           <button
             type="button"
             onClick={() => {
-              onChange("", undefined);
+              onChange("", undefined, undefined);
               setTestPlaying(false);
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
@@ -113,7 +121,7 @@ export function VideoLinkInputWithPreview({
 
       {/* Helpful instruction for teachers */}
       <p className="text-[11px] text-muted-foreground">
-        {helper || "💡 Teacher Tip: YouTube App ya Browser se koi bhi link (Watch, Live, ya Share) copy karke yahan paste karein. Thumbnail apne aap lag jayega."}
+        {helper || "💡 Teacher Tip: YouTube ya SpoilShield (spoilshield.com/v/...) link copy karke yahan paste karein. Zero-distraction player aur thumbnail apne aap lag jayega."}
       </p>
 
       {/* Instant Validation & Preview Box */}
@@ -122,17 +130,34 @@ export function VideoLinkInputWithPreview({
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>Valid YouTube Video Detected! (पहचान लिया गया)</span>
+              <span>
+                {isSpoil ? "Valid SpoilShield Video Detected! (पहचान लिया गया)" : "Valid YouTube Video Detected! (पहचान लिया गया)"}
+              </span>
             </div>
-            <Badge variant="outline" className="text-[10px] bg-emerald-500/15 text-emerald-600 border-emerald-500/30 font-mono">
-              ID: {youtubeId}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              {isSpoil && (
+                <Badge variant="secondary" className="text-[10px] bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/30 font-semibold">
+                  SpoilShield
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] bg-emerald-500/15 text-emerald-600 border-emerald-500/30 font-mono">
+                ID: {youtubeId}
+              </Badge>
+            </div>
           </div>
+
+          {detectedTitle && (
+            <div className="mb-2 flex items-center gap-1.5 text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/40 px-2 py-1 rounded-md border border-emerald-500/20">
+              <Sparkles className="h-3 w-3 text-emerald-600 shrink-0" />
+              <span className="font-semibold">Detected Title:</span>
+              <span className="italic truncate">{detectedTitle}</span>
+            </div>
+          )}
 
           <div className="relative rounded-lg overflow-hidden border border-emerald-500/20 bg-black aspect-video max-w-sm">
             {testPlaying ? (
               <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
+                src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1`}
                 title="Lecture Preview"
                 className="w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -178,7 +203,7 @@ export function VideoLinkInputWithPreview({
           <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-[11px] text-amber-800 dark:text-amber-300">
             <span className="font-bold">Check link: </span>
-            Aapne jo link daala hai wo YouTube ya Google Drive link jaisa nahi lag raha. Kripya check karein ki pura link copy hua hai.
+            Aapne jo link daala hai wo YouTube, SpoilShield ya Google Drive link jaisa nahi lag raha. Kripya check karein ki pura link copy hua hai.
           </div>
         </div>
       ) : null}

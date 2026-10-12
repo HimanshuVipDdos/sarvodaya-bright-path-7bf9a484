@@ -20,11 +20,11 @@ const columns: Column<Lecture>[] = [
 const fields: Field[] = [
   {
     name: "video_url",
-    label: "Video / Lecture Link (YouTube / Drive)",
+    label: "Video / Lecture Link (YouTube / SpoilShield / Drive)",
     type: "url",
     required: true,
-    placeholder: "YouTube link paste karein (e.g. https://youtu.be/... ya https://youtube.com/watch?v=...)",
-    helper: "💡 Teacher Tip: YouTube link yahan paste karein. Thumbnail apne aap detect ho jayega.",
+    placeholder: "YouTube ya SpoilShield link paste karein (e.g. https://youtu.be/... ya https://spoilshield.com/v/...)",
+    helper: "💡 Teacher Tip: YouTube ya SpoilShield (spoilshield.com/v/...) link paste karein. Zero-distraction player aur thumbnail automatically lag jayega.",
   },
   {
     name: "title",

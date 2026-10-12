@@ -44,12 +44,15 @@ export function extractYouTubeId(url: string): string | null {
     target = iframeMatch[1];
   }
 
-  // Comprehensive regex matching all standard YouTube formats:
+  // Comprehensive regex matching all standard YouTube & SpoilShield formats:
   // youtu.be/ID, youtube.com/embed/ID, /v/ID, /live/ID, /shorts/ID, /watch?v=ID (including m.youtube.com, etc.)
+  // spoilshield.com/v/ID, spoilshield.com/embed/ID, spoilshield.com/video/ID, spoilshield.com/watch?v=ID, etc.
   const patterns = [
     /(?:youtu\.be\/|(?:[a-zA-Z0-9_-]+\.)?youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|live\/|shorts\/))([a-zA-Z0-9_-]{11})/i,
+    /(?:[a-zA-Z0-9_-]+\.)?spoilshield\.com\/(?:v\/|embed\/|video\/|watch\?v=)?([a-zA-Z0-9_-]{11})/i,
     /[?&]v=([a-zA-Z0-9_-]{11})/i,
     /(?:[a-zA-Z0-9_-]+\.)?youtube(?:-nocookie)?\.com\/.*[?&]v=([a-zA-Z0-9_-]{11})/i,
+    /(?:[a-zA-Z0-9_-]+\.)?spoilshield\.com\/.*[?&]v=([a-zA-Z0-9_-]{11})/i,
     /\/([a-zA-Z0-9_-]{11})(?:[?#&/]|$)/,
   ];
 
@@ -80,11 +83,69 @@ export function extractYouTubeId(url: string): string | null {
   return null;
 }
 
+export function isSpoilShieldLink(url: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  return /(?:[a-zA-Z0-9_-]+\.)?spoilshield\.com/i.test(url);
+}
+
+export function extractVideoTitleFromUrl(url: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  try {
+    const target = url.trim();
+    const parsed = new URL(target.startsWith("http") ? target : `https://${target}`);
+    const title = parsed.searchParams.get("title");
+    if (title && title.trim()) {
+      return decodeURIComponent(title.trim());
+    }
+  } catch {
+    const m = url.match(/[?&]title=([^&#]+)/i);
+    if (m && m[1]) {
+      try {
+        return decodeURIComponent(m[1].replace(/\+/g, " ").trim());
+      } catch {
+        return m[1].trim();
+      }
+    }
+  }
+  return null;
+}
+
+export function extractStartTimeFromUrl(url: string): number {
+  if (!url || typeof url !== "string") return 0;
+  try {
+    const target = url.trim();
+    const parsed = new URL(target.startsWith("http") ? target : `https://${target}`);
+    const start = parsed.searchParams.get("start") || parsed.searchParams.get("t");
+    if (start) {
+      if (/^\d+$/.test(start)) {
+        return parseInt(start, 10);
+      }
+      const match = start.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/i);
+      if (match) {
+        const h = parseInt(match[1] || "0", 10);
+        const m = parseInt(match[2] || "0", 10);
+        const s = parseInt(match[3] || "0", 10);
+        return h * 3600 + m * 60 + s;
+      }
+    }
+  } catch {
+    const m = url.match(/[?&](?:start|t)=([^&#]+)/i);
+    if (m && m[1]) {
+      const val = m[1];
+      if (/^\d+$/.test(val)) return parseInt(val, 10);
+    }
+  }
+  return 0;
+}
+
 export function getEmbedableSource(url: string): {
   type: "youtube" | "drive" | "video";
   embedUrl: string;
   rawUrl: string;
   videoId?: string;
+  startTime?: number;
+  extractedTitle?: string;
+  isSpoilShield?: boolean;
 } | null {
   if (!url || !url.trim()) return null;
   let target = url.trim();
@@ -105,19 +166,27 @@ export function getEmbedableSource(url: string): {
     };
   }
 
-  // YouTube - always resolve videoId
+  // YouTube / SpoilShield - always resolve videoId
   const ytId = extractYouTubeId(target);
+  const startTime = extractStartTimeFromUrl(target);
+  const extractedTitle = extractVideoTitleFromUrl(target) || undefined;
+  const isSpoil = isSpoilShieldLink(target);
+
   if (ytId) {
+    const startParam = startTime > 0 ? `&start=${startTime}` : "";
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}?controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}?controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1${startParam}`,
       rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
       videoId: ytId,
+      startTime: startTime > 0 ? startTime : undefined,
+      extractedTitle,
+      isSpoilShield: isSpoil,
     };
   }
 
-  // If input was a YouTube link but could not resolve an 11-char video ID, do NOT generate an invalid embed URL (which causes YouTube 404 TV screen)
-  if (target.includes("youtube.com") || target.includes("youtu.be")) {
+  // If input was a YouTube or SpoilShield link but could not resolve an 11-char video ID, do NOT generate an invalid embed URL (which causes YouTube 404 TV screen)
+  if (target.includes("youtube.com") || target.includes("youtu.be") || target.includes("spoilshield.com")) {
     return null;
   }
 
@@ -2577,7 +2646,16 @@ export function VideoPlayer({
 
   // Default to clean YouTube player for 100% reliability and 0-delay playback
   const [streamMode, setStreamMode] = useState<"direct" | "youtube">("youtube");
-  const [fallbackTime, setFallbackTime] = useState<number>(0);
+  const [fallbackTime, setFallbackTime] = useState<number>(() => embedInfo?.startTime || 0);
+
+  useEffect(() => {
+    if (embedInfo?.startTime && embedInfo.startTime > 0) {
+      setFallbackTime(embedInfo.startTime);
+    }
+  }, [src, embedInfo?.startTime]);
+
+  const displayTitle = title || embedInfo?.extractedTitle;
+  const displaySubtitle = subtitle || (embedInfo?.isSpoilShield ? "SpoilShield" : undefined);
 
   const directStreamUrl = embedInfo?.type === "youtube" && embedInfo.videoId 
     ? `/api/stream?v=${embedInfo.videoId}`
@@ -2609,7 +2687,7 @@ export function VideoPlayer({
         {embedInfo.type === "drive" ? (
           <iframe
             src={embedInfo.embedUrl}
-            title={title || "Video Lecture"}
+            title={displayTitle || "Video Lecture"}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin"
@@ -2622,8 +2700,8 @@ export function VideoPlayer({
               src={directStreamUrl}
               streamType="mp4"
               poster={poster}
-              title={title}
-              subtitle={subtitle}
+              title={displayTitle}
+              subtitle={displaySubtitle}
               canShowChat={canShowChat}
               chatOpen={chatVisible}
               onChatToggle={handleChatToggle}
@@ -2644,8 +2722,8 @@ export function VideoPlayer({
             <CustomYouTubePlayer
               key={embedInfo.videoId}
               videoId={embedInfo.videoId}
-              title={title}
-              subtitle={subtitle}
+              title={displayTitle}
+              subtitle={displaySubtitle}
               canShowChat={canShowChat}
               chatOpen={chatVisible}
               onChatToggle={handleChatToggle}
@@ -2663,8 +2741,8 @@ export function VideoPlayer({
           <CustomYouTubePlayer
             key={embedInfo.videoId || "yt-fallback"}
             videoId={embedInfo.videoId || extractYouTubeId(src) || ""}
-            title={title}
-            subtitle={subtitle}
+            title={displayTitle}
+            subtitle={displaySubtitle}
             canShowChat={canShowChat}
             chatOpen={chatVisible}
             onChatToggle={handleChatToggle}
@@ -2680,8 +2758,8 @@ export function VideoPlayer({
             key={embedInfo.embedUrl}
             src={embedInfo.embedUrl}
             poster={poster}
-            title={title}
-            subtitle={subtitle}
+            title={displayTitle}
+            subtitle={displaySubtitle}
             canShowChat={canShowChat}
             chatOpen={chatVisible}
             onChatToggle={handleChatToggle}
