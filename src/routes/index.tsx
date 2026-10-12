@@ -42,6 +42,11 @@ import {
   ICON_MAP,
   COLOR_MAP,
 } from "@/lib/landing-stats";
+import {
+  LandingPageConfig,
+  defaultLandingPageConfig,
+  parseLandingPageConfig,
+} from "@/lib/landing-config";
 
 const landingQuery = queryOptions({
   queryKey: ["landing-data"],
@@ -57,6 +62,7 @@ const landingQuery = queryOptions({
       notifications,
       currentAffairs,
       statsConfigRes,
+      pageConfigRes,
       studentCount,
       testCount,
       materialCount,
@@ -70,6 +76,7 @@ const landingQuery = queryOptions({
       supabase.from("notifications").select("*").eq("is_active", true).order("created_at", { ascending: false }).limit(5),
       supabase.from("current_affairs").select("*").eq("is_active", true).order("publish_date", { ascending: false }).limit(4),
       supabase.from("notifications").select("body").eq("category", "landing_stats_config").eq("title", "landing_stats").maybeSingle().then(res => res, () => ({ data: null, error: null })),
+      supabase.from("notifications").select("body").eq("category", "landing_page_config").eq("title", "landing_settings").maybeSingle().then(res => res, () => ({ data: null, error: null })),
       supabase.from("profiles").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
       supabase.from("cbt_tests").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
       supabase.from("study_materials").select("id", { count: "exact", head: true }).then(res => res.count ?? 0, () => 0),
@@ -93,6 +100,16 @@ const landingQuery = queryOptions({
       try {
         const cached = localStorage.getItem("sarvodaya_landing_stats_config");
         if (cached) statsConfig = JSON.parse(cached);
+      } catch {}
+    }
+
+    let pageConfig: LandingPageConfig = defaultLandingPageConfig;
+    if (pageConfigRes?.data?.body) {
+      pageConfig = parseLandingPageConfig(pageConfigRes.data.body);
+    } else if (typeof window !== "undefined") {
+      try {
+        const cachedPage = localStorage.getItem("sarvodaya_landing_page_config");
+        if (cachedPage) pageConfig = parseLandingPageConfig(cachedPage);
       } catch {}
     }
 
@@ -128,6 +145,7 @@ const landingQuery = queryOptions({
       notifications: notifications.data ?? [],
       currentAffairs: currentAffairs.data ?? [],
       statsConfig,
+      pageConfig,
       actualCounts,
     };
   },
@@ -147,12 +165,15 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { data } = useSuspenseQuery(landingQuery);
   const statsConfig = data.statsConfig;
+  const pageConfig = data.pageConfig;
   const actualCounts = data.actualCounts;
   const visibleCards = (statsConfig?.cards ?? []).filter((c) => c.is_visible);
 
-  const [selectedExamCategory, setSelectedExamCategory] = useState<string>("All");
+  const categories = pageConfig.batches_categories && pageConfig.batches_categories.length > 0
+    ? pageConfig.batches_categories
+    : ["All", "UP Police", "SSC", "Banking", "Teaching", "Railway", "UPSC / UPPSC"];
 
-  const categories = ["All", "UP Police", "SSC", "Banking", "Teaching", "Railway", "UPSC / UPPSC"];
+  const [selectedExamCategory, setSelectedExamCategory] = useState<string>("All");
 
   const filteredBatches = data.batches.filter((b) => {
     if (selectedExamCategory === "All") return true;
@@ -164,6 +185,26 @@ function Index() {
       {/* Ambient background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-600/10 blur-[130px] pointer-events-none rounded-full" />
       <div className="absolute top-[800px] right-0 w-[500px] h-[500px] bg-amber-500/5 blur-[150px] pointer-events-none rounded-full" />
+
+      {/* TOP ANNOUNCEMENT TICKER BANNER (ADMIN CUSTOMIZABLE) */}
+      {pageConfig.announcement_bar_enabled && pageConfig.announcement_bar_text && (
+        <div className="relative z-30 bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white text-xs font-bold py-2.5 px-4 text-center border-b border-white/10 flex items-center justify-center gap-2 flex-wrap shadow-sm">
+          {pageConfig.announcement_bar_badge && (
+            <span className="bg-black/30 text-white px-2.5 py-0.5 rounded-full text-[10px] uppercase font-black tracking-wider">
+              {pageConfig.announcement_bar_badge}
+            </span>
+          )}
+          <span>{pageConfig.announcement_bar_text}</span>
+          {pageConfig.announcement_bar_link && (
+            <Link
+              to={pageConfig.announcement_bar_link as any}
+              className="underline font-black hover:opacity-85 transition inline-flex items-center gap-1 ml-1"
+            >
+              Learn More <ArrowRight className="w-3 h-3" />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* PROMOTIONAL SLIDER */}
       <HeroSlider />
@@ -181,7 +222,7 @@ function Index() {
                 className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-bold text-rose-300 shadow-sm mb-6"
               >
                 <Flame className="h-3.5 w-3.5 text-red-500 animate-pulse" />
-                <span>Bharat's #1 Dedicated Competitive Exam Institute</span>
+                <span>{pageConfig.hero_badge_text}</span>
               </motion.div>
 
               <motion.h1
@@ -190,9 +231,9 @@ function Index() {
                 transition={{ duration: 0.55, ease: "easeOut" }}
                 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.12] tracking-tight"
               >
-                Apka Selection, <br />
+                {pageConfig.hero_headline_line1} <br />
                 <span className="bg-gradient-to-r from-red-500 via-rose-400 to-amber-400 bg-clip-text text-transparent">
-                  Hamara Sankalp.
+                  {pageConfig.hero_headline_highlight}
                 </span>
               </motion.h1>
 
@@ -202,7 +243,7 @@ function Index() {
                 transition={{ duration: 0.55, delay: 0.15, ease: "easeOut" }}
                 className="mt-5 text-base sm:text-lg text-zinc-400 max-w-xl font-normal leading-relaxed"
               >
-                Prepare with Top Kota & Delhi Faculty, Daily Interactive Live Classes, High-Yield DPPs, and All-India Rank CBT Mock Tests.
+                {pageConfig.hero_subtitle}
               </motion.p>
 
               {/* Trust Counter Strip */}
@@ -212,18 +253,24 @@ function Index() {
                 transition={{ duration: 0.5, delay: 0.25 }}
                 className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs font-semibold text-zinc-300"
               >
-                <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 px-3 py-1.5 rounded-full">
-                  <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                  <span>4.9/5 Rating</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 px-3 py-1.5 rounded-full">
-                  <Users className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>50,000+ Students</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 px-3 py-1.5 rounded-full">
-                  <Trophy className="h-3.5 w-3.5 text-amber-400" />
-                  <span>1,200+ Selections</span>
-                </div>
+                {pageConfig.hero_trust_rating && (
+                  <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 px-3 py-1.5 rounded-full">
+                    <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                    <span>{pageConfig.hero_trust_rating}</span>
+                  </div>
+                )}
+                {pageConfig.hero_trust_students && (
+                  <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 px-3 py-1.5 rounded-full">
+                    <Users className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>{pageConfig.hero_trust_students}</span>
+                  </div>
+                )}
+                {pageConfig.hero_trust_selections && (
+                  <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 px-3 py-1.5 rounded-full">
+                    <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                    <span>{pageConfig.hero_trust_selections}</span>
+                  </div>
+                )}
               </motion.div>
 
               {/* Dual Action CTAs */}
@@ -238,8 +285,8 @@ function Index() {
                   size="lg"
                   className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-black px-8 py-6 text-base shadow-[0_0_30px_rgba(239,68,68,0.4)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 >
-                  <Link to="/batches">
-                    <span>Explore Batches</span>
+                  <Link to={pageConfig.hero_primary_btn_link as any}>
+                    <span>{pageConfig.hero_primary_btn_text}</span>
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -250,19 +297,21 @@ function Index() {
                   size="lg"
                   className="rounded-xl border-white/20 bg-zinc-900/80 hover:bg-zinc-800 text-white font-bold px-7 py-6 text-base shadow-sm transition-all"
                 >
-                  <Link to="/mock-tests">Take Free Mock Test</Link>
+                  <Link to={pageConfig.hero_secondary_btn_link as any}>{pageConfig.hero_secondary_btn_text}</Link>
                 </Button>
               </motion.div>
             </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-              className="flex-1 relative flex justify-center lg:justify-end w-full max-w-md lg:max-w-none"
-            >
-              <Hero3DModel />
-            </motion.div>
+            {pageConfig.hero_show_3d_model && (
+              <motion.div
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+                className="flex-1 relative flex justify-center lg:justify-end w-full max-w-md lg:max-w-none"
+              >
+                <Hero3DModel />
+              </motion.div>
+            )}
           </div>
 
           {/* ADMIN-MANAGED TRUST COUNTERS (PW Live Stats Strip) */}
@@ -311,115 +360,119 @@ function Index() {
       </section>
 
       {/* EXAM CATEGORIES SWITCHER + BATCHES SHOWCASE */}
-      <section className="py-20 relative">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Popular Targeted Batches
-            </h2>
-            <p className="mt-3 text-zinc-400 text-sm max-w-2xl mx-auto">
-              Choose your targeted competitive exam to view tailored, structured curriculum led by expert educators.
-            </p>
+      {pageConfig.batches_section_enabled && (
+        <section className="py-20 relative">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                {pageConfig.batches_title}
+              </h2>
+              <p className="mt-3 text-zinc-400 text-sm max-w-2xl mx-auto">
+                {pageConfig.batches_subtitle}
+              </p>
 
-            {/* Category Filter Pills */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-              {categories.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setSelectedExamCategory(c)}
-                  className={cn(
-                    "px-5 py-2 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer border",
-                    selectedExamCategory === c
-                      ? "bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                      : "bg-zinc-900/80 border-white/10 text-zinc-400 hover:text-white hover:border-white/25"
-                  )}
-                >
-                  {c}
-                </button>
+              {/* Category Filter Pills */}
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+                {categories.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setSelectedExamCategory(c)}
+                    className={cn(
+                      "px-5 py-2 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                      selectedExamCategory === c
+                        ? "bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                        : "bg-zinc-900/80 border-white/10 text-zinc-400 hover:text-white hover:border-white/25"
+                    )}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Batch Cards Grid */}
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredBatches.map((b, i) => (
+                <BatchCard key={b.id} batch={b} index={i} featured={b.is_featured} />
               ))}
             </div>
-          </div>
 
-          {/* Batch Cards Grid */}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredBatches.map((b, i) => (
-              <BatchCard key={b.id} batch={b} index={i} featured={b.is_featured} />
-            ))}
+            <div className="mt-12 text-center">
+              <Button
+                asChild
+                variant="outline"
+                className="rounded-xl border-white/20 bg-zinc-900 hover:bg-zinc-800 text-white font-bold px-8 py-5 text-sm shadow-md transition-transform hover:scale-105"
+              >
+                <Link to={pageConfig.batches_view_all_btn_link as any}>
+                  <span>{pageConfig.batches_view_all_btn_text}</span>
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           </div>
-
-          <div className="mt-12 text-center">
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-xl border-white/20 bg-zinc-900 hover:bg-zinc-800 text-white font-bold px-8 py-5 text-sm shadow-md transition-transform hover:scale-105"
-            >
-              <Link to="/batches">
-                <span>View All Batches</span>
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* HALL OF FAME: TOPPERS & SELECTIONS (PW Gold Metallic Showcase) */}
-      <section className="py-20 bg-zinc-900/60 border-t border-b border-white/5 relative overflow-hidden">
-        {/* Background text decoration */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02]">
-          <span className="text-[12rem] md:text-[18rem] font-black leading-none whitespace-nowrap text-white">
-            TOPPERS
-          </span>
-        </div>
-
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-black text-amber-400 shadow-sm mb-4">
-            <Trophy className="h-4 w-4 fill-current" />
-            <span>ACADEMIC EXCELLENCE</span>
+      {pageConfig.toppers_section_enabled && (
+        <section className="py-20 bg-zinc-900/60 border-t border-b border-white/5 relative overflow-hidden">
+          {/* Background text decoration */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02]">
+            <span className="text-[12rem] md:text-[18rem] font-black leading-none whitespace-nowrap text-white">
+              {pageConfig.toppers_bg_watermark}
+            </span>
           </div>
 
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-            Hall of Fame & Selections
-          </h2>
-          <p className="mt-3 text-zinc-400 text-sm max-w-2xl mx-auto">
-            Honoring the dedication, discipline, and outstanding ranks of our brilliant achievers.
-          </p>
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-black text-amber-400 shadow-sm mb-4">
+              <Trophy className="h-4 w-4 fill-current" />
+              <span>{pageConfig.toppers_badge}</span>
+            </div>
 
-          <div className="mt-14 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
-            {data.results.slice(0, 12).map((r, i) => (
-              <TopperCard key={r.id} topper={r} index={i} />
-            ))}
-          </div>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+              {pageConfig.toppers_title}
+            </h2>
+            <p className="mt-3 text-zinc-400 text-sm max-w-2xl mx-auto">
+              {pageConfig.toppers_subtitle}
+            </p>
 
-          <div className="mt-12 text-center">
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-xl border-amber-500/30 bg-zinc-900/80 hover:bg-zinc-800 text-amber-400 font-bold px-8 py-5 text-sm shadow-md hover:border-amber-400"
-            >
-              <Link to="/results">
-                <span>Explore All Selections</span>
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            <div className="mt-14 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+              {data.results.slice(0, 12).map((r, i) => (
+                <TopperCard key={r.id} topper={r} index={i} />
+              ))}
+            </div>
+
+            <div className="mt-12 text-center">
+              <Button
+                asChild
+                variant="outline"
+                className="rounded-xl border-amber-500/30 bg-zinc-900/80 hover:bg-zinc-800 text-amber-400 font-bold px-8 py-5 text-sm shadow-md hover:border-amber-400"
+              >
+                <Link to={pageConfig.toppers_btn_link as any}>
+                  <span>{pageConfig.toppers_btn_text}</span>
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* KOTA STAR FACULTY SHOWCASE */}
-      {data.faculty.length > 0 && (
+      {pageConfig.faculty_section_enabled && data.faculty.length > 0 && (
         <section className="py-20 relative">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-bold text-rose-300 shadow-sm mb-4">
               <Award className="h-4 w-4 text-red-500" />
-              <span>LEARN FROM THE BEST</span>
+              <span>{pageConfig.faculty_badge}</span>
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Meet Our Star Faculty
+              {pageConfig.faculty_title}
             </h2>
             <p className="mt-3 text-zinc-400 text-sm max-w-2xl mx-auto">
-              Passionate subject matter experts with 10+ years of proven track record mentoring thousands of successful candidates.
+              {pageConfig.faculty_subtitle}
             </p>
 
             <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -469,68 +522,78 @@ function Index() {
       )}
 
       {/* TECH-ENABLED OFFLINE CENTRES */}
-      <section className="py-20 bg-zinc-900/50 border-t border-white/5 relative">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-            Explore Tech-Enabled Offline Centres
-          </h2>
-          <p className="text-zinc-400 text-sm mt-3 mb-10">
-            Creating new benchmarks in classroom & hybrid learning experiences with modern smart labs.
-          </p>
+      {pageConfig.centres_section_enabled && (
+        <section className="py-20 bg-zinc-900/50 border-t border-white/5 relative">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 text-center">
+            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              {pageConfig.centres_title}
+            </h2>
+            <p className="text-zinc-400 text-sm mt-3 mb-10">
+              {pageConfig.centres_subtitle}
+            </p>
 
-          <div className="rounded-3xl border border-white/10 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur-sm">
-            <div className="text-center mb-8">
-              <h3 className="font-bold text-lg text-white">Find Centre in your city</h3>
-              <p className="text-xs text-zinc-400 mt-1">Visit our flagship campus</p>
+            <div className="rounded-3xl border border-white/10 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur-sm">
+              <div className="text-center mb-8">
+                <h3 className="font-bold text-lg text-white">{pageConfig.centres_card_title}</h3>
+                <p className="text-xs text-zinc-400 mt-1">{pageConfig.centres_card_subtitle}</p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                {(pageConfig.centres_list || []).map((c) => (
+                  <div
+                    key={c.id || c.city}
+                    className={cn(
+                      "flex items-center gap-3 p-3.5 rounded-2xl transition",
+                      c.is_active
+                        ? "border border-red-500/50 bg-red-600/10 shadow-[0_0_15px_rgba(239,68,68,0.15)] cursor-pointer"
+                        : "border border-white/5 opacity-40 grayscale pointer-events-none bg-zinc-900"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0",
+                        c.is_active ? "bg-red-600/20" : "bg-zinc-800"
+                      )}
+                    >
+                      {c.icon || "📍"}
+                    </div>
+                    <div className="text-left">
+                      <div className="text-sm font-bold text-white">{c.city}</div>
+                      {c.tag && <div className="text-[10px] text-zinc-400 font-medium">{c.tag}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                asChild
+                className="bg-red-600 hover:bg-red-500 text-white font-bold px-10 py-5 rounded-xl text-sm shadow-lg hover:scale-105 transition-transform cursor-pointer"
+              >
+                <Link to={pageConfig.centres_btn_link as any}>{pageConfig.centres_btn_text}</Link>
+              </Button>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-              <div className="flex items-center gap-3 border border-red-500/50 bg-red-600/10 p-3.5 rounded-2xl cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.15)]">
-                <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center text-lg">
-                  📍
-                </div>
-                <div className="text-sm font-bold text-white">Kasganj (Main)</div>
-              </div>
-              <div className="flex items-center gap-3 border border-white/5 p-3.5 rounded-2xl opacity-40 grayscale pointer-events-none bg-zinc-900">
-                <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-lg">🏙️</div>
-                <div className="text-sm font-bold text-zinc-400">Agra (Coming)</div>
-              </div>
-              <div className="flex items-center gap-3 border border-white/5 p-3.5 rounded-2xl opacity-40 grayscale pointer-events-none bg-zinc-900">
-                <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-lg">🏙️</div>
-                <div className="text-sm font-bold text-zinc-400">Aligarh (Coming)</div>
-              </div>
-              <div className="flex items-center gap-3 border border-white/5 p-3.5 rounded-2xl opacity-40 grayscale pointer-events-none bg-zinc-900">
-                <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-lg">🏙️</div>
-                <div className="text-sm font-bold text-zinc-400">Bareilly (Coming)</div>
-              </div>
-            </div>
-
-            <Button
-              asChild
-              className="bg-red-600 hover:bg-red-500 text-white font-bold px-10 py-5 rounded-xl text-sm shadow-lg hover:scale-105 transition-transform cursor-pointer"
-            >
-              <Link to="/contact">Visit Offline Centre</Link>
-            </Button>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* QUICK INQUIRY / ADMISSIONS FORM */}
-      <section className="py-20 border-t border-white/5">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="rounded-3xl border border-white/10 bg-zinc-900/90 p-8 sm:p-12 shadow-2xl backdrop-blur-md">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl sm:text-3xl font-black text-white">
-                Request a Free Career Counseling Call
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-2">
-                Have questions about which batch or exam path to choose? Our senior mentors will guide you.
-              </p>
+      {pageConfig.inquiry_section_enabled && (
+        <section className="py-20 border-t border-white/5">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6">
+            <div className="rounded-3xl border border-white/10 bg-zinc-900/90 p-8 sm:p-12 shadow-2xl backdrop-blur-md">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl sm:text-3xl font-black text-white">
+                  {pageConfig.inquiry_title}
+                </h2>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-2">
+                  {pageConfig.inquiry_subtitle}
+                </p>
+              </div>
+              <InquiryForm />
             </div>
-            <InquiryForm />
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

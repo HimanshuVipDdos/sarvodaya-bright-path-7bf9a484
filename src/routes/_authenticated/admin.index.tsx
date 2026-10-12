@@ -198,6 +198,7 @@ function AdminPage() {
     { icon: GraduationCap, label: "Faculty", desc: "Manage faculty profiles", to: "/admin/faculty" },
     { icon: ImageIcon, label: "Gallery", desc: "Campus, events, seminars", to: "/admin/gallery" },
     { icon: LayoutDashboard, label: "Dashboard Editor", desc: "Customize all texts, titles, banners & announcements", to: "/admin/dashboard-settings" },
+    { icon: Sparkles, label: "Homepage Master CMS", desc: "Live edit every headline, badge, button, category, centre & section on Home", to: "/admin/landing-settings" },
     { icon: Sparkles, label: "Homepage Trust Stats", desc: "Manage counter badges: real DB counts vs custom marketing (PW style)", to: "/admin/landing-stats" },
     { icon: ImageIcon, label: "Homepage Slider", desc: "Promotional images with WhatsApp/link redirect", to: "/admin/hero-slides" },
     { icon: Inbox, label: "Inquiries", desc: "View and respond to leads" },
