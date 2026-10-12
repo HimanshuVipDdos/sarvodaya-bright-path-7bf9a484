@@ -9,116 +9,65 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as ResultsRouteImport } from './routes/results'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as GalleryRouteImport } from './routes/gallery'
-import { Route as FreeStudyMaterialRouteImport } from './routes/free-study-material'
-import { Route as FacultyRouteImport } from './routes/faculty'
-import { Route as CurrentAffairsRouteImport } from './routes/current-affairs'
-import { Route as CoursesRouteImport } from './routes/courses'
-import { Route as ContactRouteImport } from './routes/contact'
-import { Route as BatchesRouteImport } from './routes/batches'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedMyDoubtsRouteImport } from './routes/_authenticated/my-doubts'
-import { Route as AuthenticatedMyBatchesRouteImport } from './routes/_authenticated/my-batches'
-import { Route as AuthenticatedMockTestsRouteImport } from './routes/_authenticated/mock-tests'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BatchesRouteImport } from './routes/batches'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CoursesRouteImport } from './routes/courses'
+import { Route as CurrentAffairsRouteImport } from './routes/current-affairs'
+import { Route as FacultyRouteImport } from './routes/faculty'
+import { Route as FreeStudyMaterialRouteImport } from './routes/free-study-material'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ResultsRouteImport } from './routes/results'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedMockTestsRouteImport } from './routes/_authenticated/mock-tests'
+import { Route as AuthenticatedMyBatchesRouteImport } from './routes/_authenticated/my-batches'
+import { Route as AuthenticatedMyDoubtsRouteImport } from './routes/_authenticated/my-doubts'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as BatchesSlugRouteImport } from './routes/batches.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
-import { Route as AuthenticatedMyBatchSlugRouteImport } from './routes/_authenticated/my-batch.$slug'
-import { Route as AuthenticatedCbtTestIdRouteImport } from './routes/_authenticated/cbt.$testId'
-import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
-import { Route as AuthenticatedAdminResultsRouteImport } from './routes/_authenticated/admin.results'
-import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
-import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
-import { Route as AuthenticatedAdminLiveClassesRouteImport } from './routes/_authenticated/admin.live-classes'
-import { Route as AuthenticatedAdminLiveChatRouteImport } from './routes/_authenticated/admin.live-chat'
-import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
-import { Route as AuthenticatedAdminLandingStatsRouteImport } from './routes/_authenticated/admin.landing-stats'
-import { Route as AuthenticatedAdminHeroSlidesRouteImport } from './routes/_authenticated/admin.hero-slides'
-import { Route as AuthenticatedAdminGalleryRouteImport } from './routes/_authenticated/admin.gallery'
-import { Route as AuthenticatedAdminFacultyRouteImport } from './routes/_authenticated/admin.faculty'
-import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin.enrollments'
-import { Route as AuthenticatedAdminDppsRouteImport } from './routes/_authenticated/admin.dpps'
-import { Route as AuthenticatedAdminDashboardSettingsRouteImport } from './routes/_authenticated/admin.dashboard-settings'
-import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
-import { Route as AuthenticatedAdminCbtRouteImport } from './routes/_authenticated/admin.cbt'
 import { Route as AuthenticatedAdminBatchesRouteImport } from './routes/_authenticated/admin.batches'
-import { Route as AuthenticatedCbtTestIdIndexRouteImport } from './routes/_authenticated/cbt.$testId.index'
-import { Route as AuthenticatedAdminCbtIndexRouteImport } from './routes/_authenticated/admin.cbt.index'
+import { Route as AuthenticatedAdminCbtRouteImport } from './routes/_authenticated/admin.cbt'
+import { Route as AuthenticatedAdminCurrentAffairsRouteImport } from './routes/_authenticated/admin.current-affairs'
+import { Route as AuthenticatedAdminDashboardSettingsRouteImport } from './routes/_authenticated/admin.dashboard-settings'
+import { Route as AuthenticatedAdminDppsRouteImport } from './routes/_authenticated/admin.dpps'
+import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin.enrollments'
+import { Route as AuthenticatedAdminFacultyRouteImport } from './routes/_authenticated/admin.faculty'
+import { Route as AuthenticatedAdminGalleryRouteImport } from './routes/_authenticated/admin.gallery'
+import { Route as AuthenticatedAdminHeroSlidesRouteImport } from './routes/_authenticated/admin.hero-slides'
+import { Route as AuthenticatedAdminLandingStatsRouteImport } from './routes/_authenticated/admin.landing-stats'
+import { Route as AuthenticatedAdminLecturesRouteImport } from './routes/_authenticated/admin.lectures'
+import { Route as AuthenticatedAdminLiveChatRouteImport } from './routes/_authenticated/admin.live-chat'
+import { Route as AuthenticatedAdminLiveClassesRouteImport } from './routes/_authenticated/admin.live-classes'
+import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
+import { Route as AuthenticatedAdminPdfsRouteImport } from './routes/_authenticated/admin.pdfs'
+import { Route as AuthenticatedAdminResultsRouteImport } from './routes/_authenticated/admin.results'
+import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
+import { Route as AuthenticatedCbtTestIdRouteImport } from './routes/_authenticated/cbt.$testId'
+import { Route as AuthenticatedMyBatchSlugRouteImport } from './routes/_authenticated/my-batch.$slug'
 import { Route as AuthenticatedAdminBatchesIndexRouteImport } from './routes/_authenticated/admin.batches.index'
-import { Route as AuthenticatedCbtTestIdResultRouteImport } from './routes/_authenticated/cbt.$testId.result'
-import { Route as AuthenticatedCbtTestIdMistakesRouteImport } from './routes/_authenticated/cbt.$testId.mistakes'
-import { Route as AuthenticatedCbtTestIdLeaderboardRouteImport } from './routes/_authenticated/cbt.$testId.leaderboard'
 import { Route as AuthenticatedAdminBatchesBatchIdRouteImport } from './routes/_authenticated/admin.batches.$batchId'
-import { Route as AuthenticatedAdminCbtTestIdQuestionsRouteImport } from './routes/_authenticated/admin.cbt.$testId.questions'
+import { Route as AuthenticatedAdminCbtIndexRouteImport } from './routes/_authenticated/admin.cbt.index'
+import { Route as AuthenticatedCbtTestIdIndexRouteImport } from './routes/_authenticated/cbt.$testId.index'
+import { Route as AuthenticatedCbtTestIdLeaderboardRouteImport } from './routes/_authenticated/cbt.$testId.leaderboard'
+import { Route as AuthenticatedCbtTestIdMistakesRouteImport } from './routes/_authenticated/cbt.$testId.mistakes'
+import { Route as AuthenticatedCbtTestIdResultRouteImport } from './routes/_authenticated/cbt.$testId.result'
 import { Route as AuthenticatedAdminCbtTestIdLeaderboardRouteImport } from './routes/_authenticated/admin.cbt.$testId.leaderboard'
+import { Route as AuthenticatedAdminCbtTestIdQuestionsRouteImport } from './routes/_authenticated/admin.cbt.$testId.questions'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResultsRoute = ResultsRouteImport.update({
-  id: '/results',
-  path: '/results',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GalleryRoute = GalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FreeStudyMaterialRoute = FreeStudyMaterialRouteImport.update({
-  id: '/free-study-material',
-  path: '/free-study-material',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FacultyRoute = FacultyRouteImport.update({
-  id: '/faculty',
-  path: '/faculty',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CurrentAffairsRoute = CurrentAffairsRouteImport.update({
-  id: '/current-affairs',
-  path: '/current-affairs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CoursesRoute = CoursesRouteImport.update({
-  id: '/courses',
-  path: '/courses',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactRoute = ContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BatchesRoute = BatchesRouteImport.update({
-  id: '/batches',
-  path: '/batches',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -126,38 +75,69 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const BatchesRoute = BatchesRouteImport.update({
+  id: '/batches',
+  path: '/batches',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BatchesSlugRoute = BatchesSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => BatchesRoute,
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const CoursesRoute = CoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedMyDoubtsRoute = AuthenticatedMyDoubtsRouteImport.update({
-  id: '/my-doubts',
-  path: '/my-doubts',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const CurrentAffairsRoute = CurrentAffairsRouteImport.update({
+  id: '/current-affairs',
+  path: '/current-affairs',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedMyBatchesRoute = AuthenticatedMyBatchesRouteImport.update({
-  id: '/my-batches',
-  path: '/my-batches',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const FacultyRoute = FacultyRouteImport.update({
+  id: '/faculty',
+  path: '/faculty',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedMockTestsRoute = AuthenticatedMockTestsRouteImport.update({
-  id: '/mock-tests',
-  path: '/mock-tests',
+const FreeStudyMaterialRoute = FreeStudyMaterialRouteImport.update({
+  id: '/free-study-material',
+  path: '/free-study-material',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultsRoute = ResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -165,118 +145,34 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedMockTestsRoute = AuthenticatedMockTestsRouteImport.update({
+  id: '/mock-tests',
+  path: '/mock-tests',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyBatchesRoute = AuthenticatedMyBatchesRouteImport.update({
+  id: '/my-batches',
+  path: '/my-batches',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyDoubtsRoute = AuthenticatedMyDoubtsRouteImport.update({
+  id: '/my-doubts',
+  path: '/my-doubts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const BatchesSlugRoute = BatchesSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BatchesRoute,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedMyBatchSlugRoute =
-  AuthenticatedMyBatchSlugRouteImport.update({
-    id: '/my-batch/$slug',
-    path: '/my-batch/$slug',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCbtTestIdRoute = AuthenticatedCbtTestIdRouteImport.update({
-  id: '/cbt/$testId',
-  path: '/cbt/$testId',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAdminStudentsRoute =
-  AuthenticatedAdminStudentsRouteImport.update({
-    id: '/students',
-    path: '/students',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminResultsRoute =
-  AuthenticatedAdminResultsRouteImport.update({
-    id: '/results',
-    path: '/results',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminPdfsRoute = AuthenticatedAdminPdfsRouteImport.update({
-  id: '/pdfs',
-  path: '/pdfs',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedAdminNotificationsRoute =
-  AuthenticatedAdminNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminLiveClassesRoute =
-  AuthenticatedAdminLiveClassesRouteImport.update({
-    id: '/live-classes',
-    path: '/live-classes',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminLiveChatRoute =
-  AuthenticatedAdminLiveChatRouteImport.update({
-    id: '/live-chat',
-    path: '/live-chat',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminLecturesRoute =
-  AuthenticatedAdminLecturesRouteImport.update({
-    id: '/lectures',
-    path: '/lectures',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminLandingStatsRoute =
-  AuthenticatedAdminLandingStatsRouteImport.update({
-    id: '/landing-stats',
-    path: '/landing-stats',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminHeroSlidesRoute =
-  AuthenticatedAdminHeroSlidesRouteImport.update({
-    id: '/hero-slides',
-    path: '/hero-slides',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminGalleryRoute =
-  AuthenticatedAdminGalleryRouteImport.update({
-    id: '/gallery',
-    path: '/gallery',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminFacultyRoute =
-  AuthenticatedAdminFacultyRouteImport.update({
-    id: '/faculty',
-    path: '/faculty',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminEnrollmentsRoute =
-  AuthenticatedAdminEnrollmentsRouteImport.update({
-    id: '/enrollments',
-    path: '/enrollments',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
-  id: '/dpps',
-  path: '/dpps',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedAdminDashboardSettingsRoute =
-  AuthenticatedAdminDashboardSettingsRouteImport.update({
-    id: '/dashboard-settings',
-    path: '/dashboard-settings',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminCurrentAffairsRoute =
-  AuthenticatedAdminCurrentAffairsRouteImport.update({
-    id: '/current-affairs',
-    path: '/current-affairs',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminCbtRoute = AuthenticatedAdminCbtRouteImport.update({
-  id: '/cbt',
-  path: '/cbt',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
 const AuthenticatedAdminBatchesRoute =
@@ -285,17 +181,109 @@ const AuthenticatedAdminBatchesRoute =
     path: '/batches',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedCbtTestIdIndexRoute =
-  AuthenticatedCbtTestIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedCbtTestIdRoute,
+const AuthenticatedAdminCbtRoute = AuthenticatedAdminCbtRouteImport.update({
+  id: '/cbt',
+  path: '/cbt',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminCurrentAffairsRoute =
+  AuthenticatedAdminCurrentAffairsRouteImport.update({
+    id: '/current-affairs',
+    path: '/current-affairs',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminCbtIndexRoute =
-  AuthenticatedAdminCbtIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedAdminCbtRoute,
+const AuthenticatedAdminDashboardSettingsRoute =
+  AuthenticatedAdminDashboardSettingsRouteImport.update({
+    id: '/dashboard-settings',
+    path: '/dashboard-settings',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDppsRoute = AuthenticatedAdminDppsRouteImport.update({
+  id: '/dpps',
+  path: '/dpps',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminEnrollmentsRoute =
+  AuthenticatedAdminEnrollmentsRouteImport.update({
+    id: '/enrollments',
+    path: '/enrollments',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminFacultyRoute =
+  AuthenticatedAdminFacultyRouteImport.update({
+    id: '/faculty',
+    path: '/faculty',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminGalleryRoute =
+  AuthenticatedAdminGalleryRouteImport.update({
+    id: '/gallery',
+    path: '/gallery',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminHeroSlidesRoute =
+  AuthenticatedAdminHeroSlidesRouteImport.update({
+    id: '/hero-slides',
+    path: '/hero-slides',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminLandingStatsRoute =
+  AuthenticatedAdminLandingStatsRouteImport.update({
+    id: '/landing-stats',
+    path: '/landing-stats',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminLecturesRoute =
+  AuthenticatedAdminLecturesRouteImport.update({
+    id: '/lectures',
+    path: '/lectures',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminLiveChatRoute =
+  AuthenticatedAdminLiveChatRouteImport.update({
+    id: '/live-chat',
+    path: '/live-chat',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminLiveClassesRoute =
+  AuthenticatedAdminLiveClassesRouteImport.update({
+    id: '/live-classes',
+    path: '/live-classes',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminNotificationsRoute =
+  AuthenticatedAdminNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminPdfsRoute = AuthenticatedAdminPdfsRouteImport.update({
+  id: '/pdfs',
+  path: '/pdfs',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminResultsRoute =
+  AuthenticatedAdminResultsRouteImport.update({
+    id: '/results',
+    path: '/results',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminStudentsRoute =
+  AuthenticatedAdminStudentsRouteImport.update({
+    id: '/students',
+    path: '/students',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedCbtTestIdRoute = AuthenticatedCbtTestIdRouteImport.update({
+  id: '/cbt/$testId',
+  path: '/cbt/$testId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyBatchSlugRoute =
+  AuthenticatedMyBatchSlugRouteImport.update({
+    id: '/my-batch/$slug',
+    path: '/my-batch/$slug',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminBatchesIndexRoute =
   AuthenticatedAdminBatchesIndexRouteImport.update({
@@ -303,16 +291,22 @@ const AuthenticatedAdminBatchesIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAdminBatchesRoute,
   } as any)
-const AuthenticatedCbtTestIdResultRoute =
-  AuthenticatedCbtTestIdResultRouteImport.update({
-    id: '/result',
-    path: '/result',
-    getParentRoute: () => AuthenticatedCbtTestIdRoute,
+const AuthenticatedAdminBatchesBatchIdRoute =
+  AuthenticatedAdminBatchesBatchIdRouteImport.update({
+    id: '/$batchId',
+    path: '/$batchId',
+    getParentRoute: () => AuthenticatedAdminBatchesRoute,
   } as any)
-const AuthenticatedCbtTestIdMistakesRoute =
-  AuthenticatedCbtTestIdMistakesRouteImport.update({
-    id: '/mistakes',
-    path: '/mistakes',
+const AuthenticatedAdminCbtIndexRoute =
+  AuthenticatedAdminCbtIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminCbtRoute,
+  } as any)
+const AuthenticatedCbtTestIdIndexRoute =
+  AuthenticatedCbtTestIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
     getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
 const AuthenticatedCbtTestIdLeaderboardRoute =
@@ -321,22 +315,28 @@ const AuthenticatedCbtTestIdLeaderboardRoute =
     path: '/leaderboard',
     getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
-const AuthenticatedAdminBatchesBatchIdRoute =
-  AuthenticatedAdminBatchesBatchIdRouteImport.update({
-    id: '/$batchId',
-    path: '/$batchId',
-    getParentRoute: () => AuthenticatedAdminBatchesRoute,
+const AuthenticatedCbtTestIdMistakesRoute =
+  AuthenticatedCbtTestIdMistakesRouteImport.update({
+    id: '/mistakes',
+    path: '/mistakes',
+    getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
-const AuthenticatedAdminCbtTestIdQuestionsRoute =
-  AuthenticatedAdminCbtTestIdQuestionsRouteImport.update({
-    id: '/$testId/questions',
-    path: '/$testId/questions',
-    getParentRoute: () => AuthenticatedAdminCbtRoute,
+const AuthenticatedCbtTestIdResultRoute =
+  AuthenticatedCbtTestIdResultRouteImport.update({
+    id: '/result',
+    path: '/result',
+    getParentRoute: () => AuthenticatedCbtTestIdRoute,
   } as any)
 const AuthenticatedAdminCbtTestIdLeaderboardRoute =
   AuthenticatedAdminCbtTestIdLeaderboardRouteImport.update({
     id: '/$testId/leaderboard',
     path: '/$testId/leaderboard',
+    getParentRoute: () => AuthenticatedAdminCbtRoute,
+  } as any)
+const AuthenticatedAdminCbtTestIdQuestionsRoute =
+  AuthenticatedAdminCbtTestIdQuestionsRouteImport.update({
+    id: '/$testId/questions',
+    path: '/$testId/questions',
     getParentRoute: () => AuthenticatedAdminCbtRoute,
   } as any)
 
@@ -670,95 +670,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/results': {
-      id: '/results'
-      path: '/results'
-      fullPath: '/results'
-      preLoaderRoute: typeof ResultsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gallery': {
-      id: '/gallery'
-      path: '/gallery'
-      fullPath: '/gallery'
-      preLoaderRoute: typeof GalleryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/free-study-material': {
-      id: '/free-study-material'
-      path: '/free-study-material'
-      fullPath: '/free-study-material'
-      preLoaderRoute: typeof FreeStudyMaterialRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/faculty': {
-      id: '/faculty'
-      path: '/faculty'
-      fullPath: '/faculty'
-      preLoaderRoute: typeof FacultyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/current-affairs': {
-      id: '/current-affairs'
-      path: '/current-affairs'
-      fullPath: '/current-affairs'
-      preLoaderRoute: typeof CurrentAffairsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/courses': {
-      id: '/courses'
-      path: '/courses'
-      fullPath: '/courses'
-      preLoaderRoute: typeof CoursesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/batches': {
-      id: '/batches'
-      path: '/batches'
-      fullPath: '/batches'
-      preLoaderRoute: typeof BatchesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -768,46 +684,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/batches/$slug': {
-      id: '/batches/$slug'
-      path: '/$slug'
-      fullPath: '/batches/$slug'
-      preLoaderRoute: typeof BatchesSlugRouteImport
-      parentRoute: typeof BatchesRoute
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/batches': {
+      id: '/batches'
+      path: '/batches'
+      fullPath: '/batches'
+      preLoaderRoute: typeof BatchesRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/my-doubts': {
-      id: '/_authenticated/my-doubts'
-      path: '/my-doubts'
-      fullPath: '/my-doubts'
-      preLoaderRoute: typeof AuthenticatedMyDoubtsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/my-batches': {
-      id: '/_authenticated/my-batches'
-      path: '/my-batches'
-      fullPath: '/my-batches'
-      preLoaderRoute: typeof AuthenticatedMyBatchesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/courses': {
+      id: '/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof CoursesRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/mock-tests': {
-      id: '/_authenticated/mock-tests'
-      path: '/mock-tests'
-      fullPath: '/mock-tests'
-      preLoaderRoute: typeof AuthenticatedMockTestsRouteImport
+    '/current-affairs': {
+      id: '/current-affairs'
+      path: '/current-affairs'
+      fullPath: '/current-affairs'
+      preLoaderRoute: typeof CurrentAffairsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faculty': {
+      id: '/faculty'
+      path: '/faculty'
+      fullPath: '/faculty'
+      preLoaderRoute: typeof FacultyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/free-study-material': {
+      id: '/free-study-material'
+      path: '/free-study-material'
+      fullPath: '/free-study-material'
+      preLoaderRoute: typeof FreeStudyMaterialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/results': {
+      id: '/results'
+      path: '/results'
+      fullPath: '/results'
+      preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -817,144 +789,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+    '/_authenticated/mock-tests': {
+      id: '/_authenticated/mock-tests'
+      path: '/mock-tests'
+      fullPath: '/mock-tests'
+      preLoaderRoute: typeof AuthenticatedMockTestsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-batches': {
+      id: '/_authenticated/my-batches'
+      path: '/my-batches'
+      fullPath: '/my-batches'
+      preLoaderRoute: typeof AuthenticatedMyBatchesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-doubts': {
+      id: '/_authenticated/my-doubts'
+      path: '/my-doubts'
+      fullPath: '/my-doubts'
+      preLoaderRoute: typeof AuthenticatedMyDoubtsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/batches/$slug': {
+      id: '/batches/$slug'
+      path: '/$slug'
+      fullPath: '/batches/$slug'
+      preLoaderRoute: typeof BatchesSlugRouteImport
+      parentRoute: typeof BatchesRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/my-batch/$slug': {
-      id: '/_authenticated/my-batch/$slug'
-      path: '/my-batch/$slug'
-      fullPath: '/my-batch/$slug'
-      preLoaderRoute: typeof AuthenticatedMyBatchSlugRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/cbt/$testId': {
-      id: '/_authenticated/cbt/$testId'
-      path: '/cbt/$testId'
-      fullPath: '/cbt/$testId'
-      preLoaderRoute: typeof AuthenticatedCbtTestIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/admin/students': {
-      id: '/_authenticated/admin/students'
-      path: '/students'
-      fullPath: '/admin/students'
-      preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/results': {
-      id: '/_authenticated/admin/results'
-      path: '/results'
-      fullPath: '/admin/results'
-      preLoaderRoute: typeof AuthenticatedAdminResultsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/pdfs': {
-      id: '/_authenticated/admin/pdfs'
-      path: '/pdfs'
-      fullPath: '/admin/pdfs'
-      preLoaderRoute: typeof AuthenticatedAdminPdfsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/notifications': {
-      id: '/_authenticated/admin/notifications'
-      path: '/notifications'
-      fullPath: '/admin/notifications'
-      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/live-classes': {
-      id: '/_authenticated/admin/live-classes'
-      path: '/live-classes'
-      fullPath: '/admin/live-classes'
-      preLoaderRoute: typeof AuthenticatedAdminLiveClassesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/live-chat': {
-      id: '/_authenticated/admin/live-chat'
-      path: '/live-chat'
-      fullPath: '/admin/live-chat'
-      preLoaderRoute: typeof AuthenticatedAdminLiveChatRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/lectures': {
-      id: '/_authenticated/admin/lectures'
-      path: '/lectures'
-      fullPath: '/admin/lectures'
-      preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/landing-stats': {
-      id: '/_authenticated/admin/landing-stats'
-      path: '/landing-stats'
-      fullPath: '/admin/landing-stats'
-      preLoaderRoute: typeof AuthenticatedAdminLandingStatsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/hero-slides': {
-      id: '/_authenticated/admin/hero-slides'
-      path: '/hero-slides'
-      fullPath: '/admin/hero-slides'
-      preLoaderRoute: typeof AuthenticatedAdminHeroSlidesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/gallery': {
-      id: '/_authenticated/admin/gallery'
-      path: '/gallery'
-      fullPath: '/admin/gallery'
-      preLoaderRoute: typeof AuthenticatedAdminGalleryRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/faculty': {
-      id: '/_authenticated/admin/faculty'
-      path: '/faculty'
-      fullPath: '/admin/faculty'
-      preLoaderRoute: typeof AuthenticatedAdminFacultyRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/enrollments': {
-      id: '/_authenticated/admin/enrollments'
-      path: '/enrollments'
-      fullPath: '/admin/enrollments'
-      preLoaderRoute: typeof AuthenticatedAdminEnrollmentsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/dpps': {
-      id: '/_authenticated/admin/dpps'
-      path: '/dpps'
-      fullPath: '/admin/dpps'
-      preLoaderRoute: typeof AuthenticatedAdminDppsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/dashboard-settings': {
-      id: '/_authenticated/admin/dashboard-settings'
-      path: '/dashboard-settings'
-      fullPath: '/admin/dashboard-settings'
-      preLoaderRoute: typeof AuthenticatedAdminDashboardSettingsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/current-affairs': {
-      id: '/_authenticated/admin/current-affairs'
-      path: '/current-affairs'
-      fullPath: '/admin/current-affairs'
-      preLoaderRoute: typeof AuthenticatedAdminCurrentAffairsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/cbt': {
-      id: '/_authenticated/admin/cbt'
-      path: '/cbt'
-      fullPath: '/admin/cbt'
-      preLoaderRoute: typeof AuthenticatedAdminCbtRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/batches': {
@@ -964,19 +838,131 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBatchesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/cbt/$testId/': {
-      id: '/_authenticated/cbt/$testId/'
-      path: '/'
-      fullPath: '/cbt/$testId/'
-      preLoaderRoute: typeof AuthenticatedCbtTestIdIndexRouteImport
-      parentRoute: typeof AuthenticatedCbtTestIdRoute
+    '/_authenticated/admin/cbt': {
+      id: '/_authenticated/admin/cbt'
+      path: '/cbt'
+      fullPath: '/admin/cbt'
+      preLoaderRoute: typeof AuthenticatedAdminCbtRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/cbt/': {
-      id: '/_authenticated/admin/cbt/'
-      path: '/'
-      fullPath: '/admin/cbt/'
-      preLoaderRoute: typeof AuthenticatedAdminCbtIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminCbtRoute
+    '/_authenticated/admin/current-affairs': {
+      id: '/_authenticated/admin/current-affairs'
+      path: '/current-affairs'
+      fullPath: '/admin/current-affairs'
+      preLoaderRoute: typeof AuthenticatedAdminCurrentAffairsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/dashboard-settings': {
+      id: '/_authenticated/admin/dashboard-settings'
+      path: '/dashboard-settings'
+      fullPath: '/admin/dashboard-settings'
+      preLoaderRoute: typeof AuthenticatedAdminDashboardSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/dpps': {
+      id: '/_authenticated/admin/dpps'
+      path: '/dpps'
+      fullPath: '/admin/dpps'
+      preLoaderRoute: typeof AuthenticatedAdminDppsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/enrollments': {
+      id: '/_authenticated/admin/enrollments'
+      path: '/enrollments'
+      fullPath: '/admin/enrollments'
+      preLoaderRoute: typeof AuthenticatedAdminEnrollmentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/faculty': {
+      id: '/_authenticated/admin/faculty'
+      path: '/faculty'
+      fullPath: '/admin/faculty'
+      preLoaderRoute: typeof AuthenticatedAdminFacultyRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/gallery': {
+      id: '/_authenticated/admin/gallery'
+      path: '/gallery'
+      fullPath: '/admin/gallery'
+      preLoaderRoute: typeof AuthenticatedAdminGalleryRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/hero-slides': {
+      id: '/_authenticated/admin/hero-slides'
+      path: '/hero-slides'
+      fullPath: '/admin/hero-slides'
+      preLoaderRoute: typeof AuthenticatedAdminHeroSlidesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/landing-stats': {
+      id: '/_authenticated/admin/landing-stats'
+      path: '/landing-stats'
+      fullPath: '/admin/landing-stats'
+      preLoaderRoute: typeof AuthenticatedAdminLandingStatsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/lectures': {
+      id: '/_authenticated/admin/lectures'
+      path: '/lectures'
+      fullPath: '/admin/lectures'
+      preLoaderRoute: typeof AuthenticatedAdminLecturesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/live-chat': {
+      id: '/_authenticated/admin/live-chat'
+      path: '/live-chat'
+      fullPath: '/admin/live-chat'
+      preLoaderRoute: typeof AuthenticatedAdminLiveChatRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/live-classes': {
+      id: '/_authenticated/admin/live-classes'
+      path: '/live-classes'
+      fullPath: '/admin/live-classes'
+      preLoaderRoute: typeof AuthenticatedAdminLiveClassesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/notifications': {
+      id: '/_authenticated/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/pdfs': {
+      id: '/_authenticated/admin/pdfs'
+      path: '/pdfs'
+      fullPath: '/admin/pdfs'
+      preLoaderRoute: typeof AuthenticatedAdminPdfsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/results': {
+      id: '/_authenticated/admin/results'
+      path: '/results'
+      fullPath: '/admin/results'
+      preLoaderRoute: typeof AuthenticatedAdminResultsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/students': {
+      id: '/_authenticated/admin/students'
+      path: '/students'
+      fullPath: '/admin/students'
+      preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/cbt/$testId': {
+      id: '/_authenticated/cbt/$testId'
+      path: '/cbt/$testId'
+      fullPath: '/cbt/$testId'
+      preLoaderRoute: typeof AuthenticatedCbtTestIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-batch/$slug': {
+      id: '/_authenticated/my-batch/$slug'
+      path: '/my-batch/$slug'
+      fullPath: '/my-batch/$slug'
+      preLoaderRoute: typeof AuthenticatedMyBatchSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/batches/': {
       id: '/_authenticated/admin/batches/'
@@ -985,18 +971,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBatchesIndexRouteImport
       parentRoute: typeof AuthenticatedAdminBatchesRoute
     }
-    '/_authenticated/cbt/$testId/result': {
-      id: '/_authenticated/cbt/$testId/result'
-      path: '/result'
-      fullPath: '/cbt/$testId/result'
-      preLoaderRoute: typeof AuthenticatedCbtTestIdResultRouteImport
-      parentRoute: typeof AuthenticatedCbtTestIdRoute
+    '/_authenticated/admin/batches/$batchId': {
+      id: '/_authenticated/admin/batches/$batchId'
+      path: '/$batchId'
+      fullPath: '/admin/batches/$batchId'
+      preLoaderRoute: typeof AuthenticatedAdminBatchesBatchIdRouteImport
+      parentRoute: typeof AuthenticatedAdminBatchesRoute
     }
-    '/_authenticated/cbt/$testId/mistakes': {
-      id: '/_authenticated/cbt/$testId/mistakes'
-      path: '/mistakes'
-      fullPath: '/cbt/$testId/mistakes'
-      preLoaderRoute: typeof AuthenticatedCbtTestIdMistakesRouteImport
+    '/_authenticated/admin/cbt/': {
+      id: '/_authenticated/admin/cbt/'
+      path: '/'
+      fullPath: '/admin/cbt/'
+      preLoaderRoute: typeof AuthenticatedAdminCbtIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminCbtRoute
+    }
+    '/_authenticated/cbt/$testId/': {
+      id: '/_authenticated/cbt/$testId/'
+      path: '/'
+      fullPath: '/cbt/$testId/'
+      preLoaderRoute: typeof AuthenticatedCbtTestIdIndexRouteImport
       parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
     '/_authenticated/cbt/$testId/leaderboard': {
@@ -1006,25 +999,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCbtTestIdLeaderboardRouteImport
       parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
-    '/_authenticated/admin/batches/$batchId': {
-      id: '/_authenticated/admin/batches/$batchId'
-      path: '/$batchId'
-      fullPath: '/admin/batches/$batchId'
-      preLoaderRoute: typeof AuthenticatedAdminBatchesBatchIdRouteImport
-      parentRoute: typeof AuthenticatedAdminBatchesRoute
+    '/_authenticated/cbt/$testId/mistakes': {
+      id: '/_authenticated/cbt/$testId/mistakes'
+      path: '/mistakes'
+      fullPath: '/cbt/$testId/mistakes'
+      preLoaderRoute: typeof AuthenticatedCbtTestIdMistakesRouteImport
+      parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
-    '/_authenticated/admin/cbt/$testId/questions': {
-      id: '/_authenticated/admin/cbt/$testId/questions'
-      path: '/$testId/questions'
-      fullPath: '/admin/cbt/$testId/questions'
-      preLoaderRoute: typeof AuthenticatedAdminCbtTestIdQuestionsRouteImport
-      parentRoute: typeof AuthenticatedAdminCbtRoute
+    '/_authenticated/cbt/$testId/result': {
+      id: '/_authenticated/cbt/$testId/result'
+      path: '/result'
+      fullPath: '/cbt/$testId/result'
+      preLoaderRoute: typeof AuthenticatedCbtTestIdResultRouteImport
+      parentRoute: typeof AuthenticatedCbtTestIdRoute
     }
     '/_authenticated/admin/cbt/$testId/leaderboard': {
       id: '/_authenticated/admin/cbt/$testId/leaderboard'
       path: '/$testId/leaderboard'
       fullPath: '/admin/cbt/$testId/leaderboard'
       preLoaderRoute: typeof AuthenticatedAdminCbtTestIdLeaderboardRouteImport
+      parentRoute: typeof AuthenticatedAdminCbtRoute
+    }
+    '/_authenticated/admin/cbt/$testId/questions': {
+      id: '/_authenticated/admin/cbt/$testId/questions'
+      path: '/$testId/questions'
+      fullPath: '/admin/cbt/$testId/questions'
+      preLoaderRoute: typeof AuthenticatedAdminCbtTestIdQuestionsRouteImport
       parentRoute: typeof AuthenticatedAdminCbtRoute
     }
   }
