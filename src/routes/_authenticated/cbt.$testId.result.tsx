@@ -147,6 +147,24 @@ function renderQuestionContent(text: string) {
   );
 }
 
+// -- Extract question statement and attached solution/explanation --
+function extractQuestionAndSolution(rawText: string, explicitExplanation?: string) {
+  let questionText = (rawText || "").trim();
+  let solutionText = (explicitExplanation || "").trim();
+
+  if (rawText) {
+    const parts = rawText.split(/<!--\s*SOLUTION\s*-->|\[SOLUTION\]:|---SOLUTION---/i);
+    if (parts.length > 1) {
+      questionText = parts[0].trim();
+      if (!solutionText) {
+        solutionText = parts.slice(1).join("\n").trim();
+      }
+    }
+  }
+
+  return { questionText, solutionText };
+}
+
 export const Route = createFileRoute("/_authenticated/cbt/$testId/result")({
   validateSearch: z.object({ attempt: z.string().optional() }),
   component: ResultPage,
@@ -1937,6 +1955,7 @@ function ResultPage() {
                 const secMeta = getSectionMeta(q.topic || "General");
                 const qNumber = q.sort_order ?? idx + 1;
                 const isHighlighted = activeQuestionId === q.id;
+                const { questionText, solutionText } = extractQuestionAndSolution(q.question_text, (q as any)?.explanation);
 
                 return (
                   <div
@@ -1983,7 +2002,7 @@ function ResultPage() {
 
                     {/* Question Content */}
                     <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">
-                      {renderQuestionContent(q.question_text)}
+                      {renderQuestionContent(questionText)}
                     </div>
 
                     {/* 4 Options Matrix */}
@@ -2069,6 +2088,64 @@ function ResultPage() {
                       </div>
                     </div>
 
+                    {/* 💡 Step-by-Step Solution & Concept Analysis Box */}
+                    <div className="rounded-2xl border-2 border-amber-200/80 bg-gradient-to-br from-amber-50/70 via-orange-50/30 to-amber-50/50 p-4 sm:p-5 shadow-xs space-y-3 transition-all">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                            <Lightbulb className="w-4 h-4 stroke-[2.5]" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-black text-amber-950 tracking-tight flex items-center gap-1.5">
+                              Detailed Solution & Explanation <span className="text-[11px] font-semibold text-amber-800/80">(विस्तृत हल व व्याख्या)</span>
+                            </h4>
+                            <p className="text-[10px] text-amber-800/70 font-medium">
+                              Official Answer: <strong className="text-amber-950 font-black">Option {q.correct_option?.toUpperCase()}</strong> ({q[`option_${q.correct_option?.toLowerCase()}`] || "Correct Choice"})
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const textToCopy = solutionText
+                                ? `Question: ${questionText}\nOfficial Answer: Option ${q.correct_option?.toUpperCase()}\n\nDetailed Solution:\n${solutionText}`
+                                : `Question: ${questionText}\nOfficial Answer: Option ${q.correct_option?.toUpperCase()}: ${q[`option_${q.correct_option?.toLowerCase()}`] || ""}`;
+                              navigator.clipboard.writeText(textToCopy);
+                              toast.success("Solution copied to clipboard!");
+                            }}
+                            className="h-7 px-2.5 text-[10px] font-bold bg-white/90 hover:bg-white text-amber-900 border-amber-300/80 rounded-lg shadow-2xs gap-1"
+                          >
+                            <Copy className="w-3 h-3" /> Copy Solution
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal pt-1">
+                        {solutionText ? (
+                          <div className="prose prose-sm max-w-none text-slate-800 font-medium space-y-2">
+                            {renderQuestionContent(solutionText)}
+                          </div>
+                        ) : (
+                          <div className="space-y-2 text-slate-700">
+                            <div className="flex items-start gap-2.5 bg-white/80 p-3.5 rounded-xl border border-amber-200/60">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                              <div className="text-xs space-y-1">
+                                <p className="font-bold text-slate-900">
+                                  Official Answer Key: Option {q.correct_option?.toUpperCase()} — <span className="text-emerald-700">{q[`option_${q.correct_option?.toLowerCase()}`]}</span>
+                                </p>
+                                <p className="text-[11px] text-slate-600 leading-normal">
+                                  Based on standard academic curriculum guidelines for {q.topic ? <strong>{q.topic}</strong> : "this subject"}, <strong>Option {q.correct_option?.toUpperCase()}</strong> is the verified and correct solution. Review the fundamental theorems and definitions from your notes.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}

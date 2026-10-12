@@ -73,12 +73,15 @@ function getSectionMeta(name: string) {
 // -- Markdown / Mathongo Image Renderer --
 function renderContent(text: string) {
   if (!text) return null;
+  // Clean any embedded solution so test-takers never see solutions during exam
+  const pureText = text.split(/<!--\s*SOLUTION\s*-->|\[SOLUTION\]:|---SOLUTION---/i)[0].trim();
+  if (!pureText) return null;
   // If it's literally just a raw image URL
-  if (text.startsWith("http") && (text.endsWith(".png") || text.endsWith(".jpg") || text.endsWith(".jpeg") || text.endsWith(".webp") || text.includes("supabase.co"))) {
-    return <img src={text} alt="content" className="max-w-full max-h-[320px] object-contain rounded-lg shadow-sm" />;
+  if (pureText.startsWith("http") && (pureText.endsWith(".png") || pureText.endsWith(".jpg") || pureText.endsWith(".jpeg") || pureText.endsWith(".webp") || pureText.includes("supabase.co"))) {
+    return <img src={pureText} alt="content" className="max-w-full max-h-[320px] object-contain rounded-lg shadow-sm" />;
   }
   // Markdown images ![alt](url)
-  const parts = text.split(/(!\[.*?\]\(.*?\))/g);
+  const parts = pureText.split(/(!\[.*?\]\(.*?\))/g);
   return (
     <div className="whitespace-pre-wrap break-words">
       {parts.map((part, i) => {

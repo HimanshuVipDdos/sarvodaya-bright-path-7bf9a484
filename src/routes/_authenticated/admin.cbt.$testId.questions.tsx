@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Plus, Trash2, Pencil, CheckCircle2, Loader2,
   ChevronLeft, ChevronRight, Save, RotateCcw, Upload, ListChecks, ImageIcon,
+  Lightbulb, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,11 +72,26 @@ type QuestionRow = {
   marks: number; sort_order: number;
 };
 
-type DraftQuestion = Omit<QuestionRow, "id" | "test_id" | "sort_order">;
+type DraftQuestion = Omit<QuestionRow, "id" | "test_id" | "sort_order"> & {
+  explanation?: string;
+};
+
+// Extract question statement and attached solution/explanation
+function splitQuestionTextAndSolution(rawText: string) {
+  if (!rawText) return { questionText: "", explanation: "" };
+  const parts = rawText.split(/<!--\s*SOLUTION\s*-->|\[SOLUTION\]:|---SOLUTION---/i);
+  if (parts.length > 1) {
+    return {
+      questionText: parts[0].trim(),
+      explanation: parts.slice(1).join("\n").trim(),
+    };
+  }
+  return { questionText: rawText.trim(), explanation: "" };
+}
 
 const emptyDraft = (): DraftQuestion => ({
   question_text: "", option_a: "", option_b: "", option_c: "", option_d: "",
-  correct_option: "a", topic: "", marks: 1,
+  correct_option: "a", topic: "", marks: 1, explanation: "",
 });
 
 export const Route = createFileRoute("/_authenticated/admin/cbt/$testId/questions")({
@@ -118,8 +134,19 @@ function QuestionsAdmin() {
       if (!draft.option_a.trim() || !draft.option_b.trim() || !draft.option_c.trim() || !draft.option_d.trim())
         throw new Error("All 4 options are required");
 
+      const { questionText } = splitQuestionTextAndSolution(draft.question_text);
+      let finalQuestionText = questionText || draft.question_text.trim();
+      if (draft.explanation?.trim()) {
+        finalQuestionText += `\n\n<!-- SOLUTION -->\n${draft.explanation.trim()}`;
+      }
+
       const payload = {
-        ...draft,
+        question_text: finalQuestionText,
+        option_a: draft.option_a.trim(),
+        option_b: draft.option_b.trim(),
+        option_c: draft.option_c.trim(),
+        option_d: draft.option_d.trim(),
+        correct_option: draft.correct_option,
         test_id: testId,
         marks: Number(draft.marks) || (test?.marks_per_question ?? 1),
         topic: draft.topic?.trim() || null,
@@ -161,10 +188,17 @@ function QuestionsAdmin() {
 
   function startEdit(q: QuestionRow) {
     setEditingId(q.id);
+    const { questionText, explanation } = splitQuestionTextAndSolution(q.question_text);
     setDraft({
-      question_text: q.question_text, option_a: q.option_a, option_b: q.option_b,
-      option_c: q.option_c, option_d: q.option_d, correct_option: q.correct_option,
-      topic: q.topic ?? "", marks: q.marks,
+      question_text: questionText,
+      option_a: q.option_a,
+      option_b: q.option_b,
+      option_c: q.option_c,
+      option_d: q.option_d,
+      correct_option: q.correct_option,
+      topic: q.topic ?? "",
+      marks: q.marks,
+      explanation,
     });
     topRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -214,61 +248,71 @@ function QuestionsAdmin() {
             </div>
           ) : (
             <div className="space-y-2">
-              {questions.map((q, i) => (
-                <div
-                  key={q.id}
-                  className={cn(
-                    "group rounded-2xl border bg-white p-4 transition-all hover:shadow-sm",
-                    editingId === q.id ? "border-primary ring-2 ring-primary/20" : "border-slate-200",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-900 leading-snug line-clamp-2">
-                          {q.question_text}
-                        </p>
-                        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
-                          {(["a", "b", "c", "d"] as const).map((opt) => (
-                            <span
-                              key={opt}
-                              className={cn(
-                                "text-[11px] leading-relaxed",
-                                q.correct_option === opt ? "font-bold text-emerald-600" : "text-slate-500",
-                              )}
-                            >
-                              {opt.toUpperCase()}) {q[`option_${opt}`]}
-                              {q.correct_option === opt && " ✓"}
-                            </span>
-                          ))}
+              {questions.map((q, i) => {
+                const { questionText: cleanQText, explanation: hasSolution } = splitQuestionTextAndSolution(q.question_text);
+                return (
+                  <div
+                    key={q.id}
+                    className={cn(
+                      "group rounded-2xl border bg-white p-4 transition-all hover:shadow-sm",
+                      editingId === q.id ? "border-primary ring-2 ring-primary/20" : "border-slate-200",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-900 leading-snug line-clamp-2">
+                            {cleanQText}
+                          </p>
+                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                            {(["a", "b", "c", "d"] as const).map((opt) => (
+                              <span
+                                key={opt}
+                                className={cn(
+                                  "text-[11px] leading-relaxed",
+                                  q.correct_option === opt ? "font-bold text-emerald-600" : "text-slate-500",
+                                )}
+                              >
+                                {opt.toUpperCase()}) {q[`option_${opt}`]}
+                                {q.correct_option === opt && " ✓"}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {q.topic && (
+                              <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                                {q.topic}
+                              </span>
+                            )}
+                            {hasSolution && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                <Lightbulb className="w-2.5 h-2.5 text-amber-600" /> Solution
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {q.topic && (
-                          <span className="mt-1.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                            {q.topic}
-                          </span>
-                        )}
+                      </div>
+                      <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEdit(q)}
+                          className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm("Delete this question?")) deleteMutation.mutate(q.id); }}
+                          className="rounded-lg p-1.5 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => startEdit(q)}
-                        className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5 text-slate-500" />
-                      </button>
-                      <button
-                        onClick={() => { if (confirm("Delete this question?")) deleteMutation.mutate(q.id); }}
-                        className="rounded-lg p-1.5 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -363,6 +407,23 @@ function QuestionsAdmin() {
                   className="h-8 text-xs rounded-xl"
                 />
               </div>
+            </div>
+
+            {/* Solution / Explanation (हल व व्याख्या - Optional) */}
+            <div className="mb-4">
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                  Solution / Explanation (हल - Optional)
+                </label>
+                <span className="text-[10px] text-slate-400">Shown in test analysis</span>
+              </div>
+              <Textarea
+                value={draft.explanation ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, explanation: e.target.value }))}
+                placeholder="Step-by-step solution or formula explanation for students..."
+                className="min-h-[70px] text-xs resize-none rounded-xl bg-amber-50/20 border-amber-200/60 focus:border-amber-400"
+              />
             </div>
 
             {/* Action buttons */}

@@ -118,8 +118,21 @@ export function useDevToolsGuard({
       }
     };
 
-    // 2. Active DevTools open detection using dimension delta
+    // 2. Active DevTools open detection using dimension delta (Desktop only)
     const checkDevTools = () => {
+      // Mobile devices (Android / iOS) do not have desktop docked DevTools panels.
+      // Mobile browser chrome (URL bar, navigation bar, virtual keyboard) creates
+      // an inherent delta of 180px - 450px between outerHeight and innerHeight,
+      // which produces persistent false positives that freeze/pause video on Android.
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        (typeof window !== "undefined" && "ontouchstart" in window && window.innerWidth < 1024);
+
+      if (isMobile) {
+        if (isOpenRef.current) setDevToolsState(false);
+        return;
+      }
+
       const widthDelta = window.outerWidth - window.innerWidth;
       const heightDelta = window.outerHeight - window.innerHeight;
       const isDocked = (widthDelta > 160 || heightDelta > 160) && window.innerWidth > 400 && window.innerHeight > 300;

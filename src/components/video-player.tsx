@@ -110,7 +110,7 @@ export function getEmbedableSource(url: string): {
   if (ytId) {
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
+      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=0&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`,
       rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
       videoId: ytId,
     };
@@ -120,7 +120,7 @@ export function getEmbedableSource(url: string): {
     const fallbackId = extractYouTubeId(target);
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${fallbackId || ""}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`,
+      embedUrl: `https://www.youtube.com/embed/${fallbackId || ""}?autoplay=0&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`,
       rawUrl: target,
       videoId: fallbackId || undefined,
     };
@@ -1006,7 +1006,7 @@ function CustomYouTubePlayer({
   const remainingTime = Math.max(0, duration - displayTime);
 
   const originParam = typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
-  const embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0${initialTime && initialTime > 0 ? `&start=${Math.floor(initialTime)}` : ""}${originParam ? `&origin=${originParam}` : ""}`;
+  const embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=${hasStarted ? 1 : 0}&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1${initialTime && initialTime > 0 ? `&start=${Math.floor(initialTime)}` : ""}${originParam ? `&origin=${originParam}` : ""}`;
 
   if (embeddingDisabled) {
     return (
@@ -1041,7 +1041,7 @@ function CustomYouTubePlayer({
         src={embedSrc}
         title={title || "Video Lecture"}
         onLoad={handleIframeLoad}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
         data-idm-ignore="true"
@@ -1060,8 +1060,7 @@ function CustomYouTubePlayer({
         <div
           className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white p-6 cursor-pointer select-none touch-manipulation"
           onClick={togglePlay}
-          onTouchEnd={(e) => {
-            e.preventDefault();
+          onTouchEnd={() => {
             togglePlay();
           }}
         >
@@ -1090,7 +1089,6 @@ function CustomYouTubePlayer({
               }}
               onTouchEnd={(e) => {
                 e.stopPropagation();
-                e.preventDefault();
                 togglePlay();
               }}
               aria-label="Start Lecture"

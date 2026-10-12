@@ -15,6 +15,7 @@ export interface ParsedQuestion {
   topic: string | null;
   marks: number;
   sort_order: number;
+  explanation?: string;
   /** Where this question came from — undefined for local (non-AI) parsers.
    *  "extracted": question + all options were already present in the source.
    *  "options_filled": question was present but AI invented some/all options.
@@ -185,20 +186,24 @@ function parseQuestionBlock(block: string, index: number): Omit<ParsedQuestion, 
   const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 5) return null; // Need at least Q + 4 options
 
-  // Extract question text (everything before first option)
+  // Extract question text, 4 options, and any following explanation/solution
   let questionText = "";
   let optionLines: string[] = [];
+  let explanationLines: string[] = [];
   let foundFirstOption = false;
+  let parsedOptionCount = 0;
 
   for (const line of lines) {
-    // Check if line is an option (A) or A. or A) or (A) pattern)
-    if (/^[(\[]?[a-dA-D][\])\.\s]/.test(line) && !foundFirstOption) {
+    const isOptionLine = /^[(\[]?[a-dA-D][\])\.\s]/.test(line);
+    if (isOptionLine && parsedOptionCount < 4) {
       foundFirstOption = true;
       optionLines.push(line);
-    } else if (foundFirstOption && /^[(\[]?[a-dA-D][\])\.\s]/.test(line)) {
-      optionLines.push(line);
+      parsedOptionCount++;
     } else if (!foundFirstOption) {
       questionText += (questionText ? " " : "") + line;
+    } else {
+      // Line after 4 options: can be answer key or explanation
+      explanationLines.push(line);
     }
   }
 
@@ -229,6 +234,23 @@ function parseQuestionBlock(block: string, index: number): Omit<ParsedQuestion, 
     d: options.d,
   });
 
+  // Extract explanation from lines after options
+  let explanation = "";
+  for (const expLine of explanationLines) {
+    // Skip direct answer declaration like "Ans: B" or "Answer: C"
+    if (/^(?:ans(?:wer)?|correct|उत्तर)[:.\s]+[a-d]/i.test(expLine.trim())) {
+      continue;
+    }
+    const cleanExp = expLine.replace(/^(?:exp(?:lanation)?|sol(?:ution)?|sol|हल|व्याख्या|note|reason)[:.\s]+/i, "").trim();
+    if (cleanExp) {
+      explanation += (explanation ? "\n" : "") + cleanExp;
+    }
+  }
+
+  if (explanation && !questionText.includes("<!-- SOLUTION -->")) {
+    questionText += `\n\n<!-- SOLUTION -->\n${explanation}`;
+  }
+
   return {
     question_text: questionText,
     option_a: options.a,
@@ -236,6 +258,7 @@ function parseQuestionBlock(block: string, index: number): Omit<ParsedQuestion, 
     option_c: options.c,
     option_d: options.d,
     correct_option: correctOption,
+    explanation: explanation || undefined,
   };
 }
 
@@ -611,16 +634,22 @@ export function toSupabaseFormat(
   marks: number;
   sort_order: number;
 }> {
-  return questions.map((q) => ({
-    test_id: testId,
-    question_text: q.question_text,
-    option_a: q.option_a,
-    option_b: q.option_b,
-    option_c: q.option_c,
-    option_d: q.option_d,
-    correct_option: q.correct_option,
-    topic: q.topic,
-    marks: q.marks,
-    sort_order: q.sort_order,
-  }));
+  return questions.map((q) => {
+    let qText = q.question_text;
+    if (q.explanation && !qText.includes("<!-- SOLUTION -->")) {
+      qText += `\n\n<!-- SOLUTION -->\n${q.explanation.trim()}`;
+    }
+    return {
+      test_id: testId,
+      question_text: qText,
+      option_a: q.option_a,
+      option_b: q.option_b,
+      option_c: q.option_c,
+      option_d: q.option_d,
+      correct_option: q.correct_option,
+      topic: q.topic,
+      marks: q.marks,
+      sort_order: q.sort_order,
+    };
+  });
 }

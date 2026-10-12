@@ -107,10 +107,10 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
 
     return dataLines
       .map((line, i) => {
-        // Smart CSV split (handles quoted fields with commas inside)
+        // Smart CSV / TSV split (handles quoted fields with commas, or tabs copied directly from Excel)
         const cols = splitCSVLine(line);
         if (cols.length < 5) return null;
-        const [q, a, b, c, d, correct, topic, marks] = cols.map((s) => s.trim().replace(/^"|"$/g, ""));
+        const [q, a, b, c, d, correct, topic, marks, explanation] = cols.map((s) => s.trim().replace(/^"|"$/g, ""));
         const optMap: Record<string, "a" | "b" | "c" | "d"> = {
           a: "a", b: "b", c: "c", d: "d",
           "1": "a", "2": "b", "3": "c", "4": "d",
@@ -125,6 +125,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
           correct_option: correctOpt,
           topic: topic || defaultTopic || null,
           marks: Number(marks) || defaultMarks || 1,
+          explanation: explanation || undefined,
           sort_order: i,
         } satisfies ParsedQuestion;
       })
@@ -132,13 +133,18 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
   }
 
   function splitCSVLine(line: string): string[] {
+    // If copied directly from Microsoft Excel or Google Sheets, fields are separated by TAB
+    if (line.includes("\t")) {
+      return line.split("\t").map((s) => s.trim());
+    }
+    const delimiter = line.includes(";") && !line.includes(",") ? ";" : ",";
     const result: string[] = [];
     let cur = "";
     let inQuotes = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') { inQuotes = !inQuotes; continue; }
-      if (ch === "," && !inQuotes) { result.push(cur); cur = ""; continue; }
+      if (ch === delimiter && !inQuotes) { result.push(cur); cur = ""; continue; }
       cur += ch;
     }
     result.push(cur);
@@ -165,6 +171,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         correct_option: "b",
         topic: "General Knowledge",
         marks: 1,
+        explanation: "New Delhi was declared the capital of India in 1911 by King George V.",
       },
       {
         question_text: "What is 2 + 2?",
@@ -175,6 +182,7 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         correct_option: "b",
         topic: "Mathematics",
         marks: 1,
+        explanation: "Simple arithmetic addition: 2 + 2 = 4.",
       },
       {
         question_text: "Who wrote Ramcharitmanas?",
@@ -185,27 +193,28 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         correct_option: "a",
         topic: "Hindi Literature",
         marks: 1,
+        explanation: "Goswami Tulsidas composed the Ramcharitmanas in the Awadhi language during the 16th century.",
       },
     ];
     const blob = new Blob([JSON.stringify(example, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "questions_template.json";
+    a.download = "cbt_questions_template.json";
     a.click();
   }
 
   // --- Download CSV Template ---
   function downloadCSVTemplate() {
-    const header = "question,option_a,option_b,option_c,option_d,correct,topic,marks";
+    const header = "question,option_a,option_b,option_c,option_d,correct,topic,marks,explanation";
     const example = [
-      `"What is the capital of India?","Mumbai","Delhi","Kolkata","Chennai","b","GK",1`,
-      `"2 + 2 = ?","3","4","5","6","b","Maths",1`,
-      `"Who wrote Ramcharitmanas?","Tulsidas","Surdas","Kabirdas","Mirabai","a","Hindi",1`,
+      `"What is the capital of India?","Mumbai","New Delhi","Kolkata","Chennai","b","General Knowledge",1,"New Delhi is the official capital of India."`,
+      `"What is 2 + 2?","3","4","5","6","b","Mathematics",1,"Basic addition: 2 + 2 = 4."`,
+      `"Who wrote Ramcharitmanas?","Tulsidas","Surdas","Kabirdas","Mirabai","a","Hindi Literature",1,"Goswami Tulsidas composed the Ramcharitmanas in the Awadhi language."`,
     ].join("\n");
-    const blob = new Blob([header + "\n" + example], { type: "text/csv" });
+    const blob = new Blob([header + "\n" + example], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "questions_template.csv";
+    a.download = "cbt_questions_template.csv";
     a.click();
   }
 
@@ -453,9 +462,13 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
 
   return (
     <>
-      {/* Trigger Button */}
-      <Button onClick={() => setOpen(true)} className="gap-2" variant="outline">
-        <Brain className="h-4 w-4" /> AI Upload
+      {/* Trigger Button - Highly Visible for Non-Technical Teachers */}
+      <Button
+        onClick={() => setOpen(true)}
+        className="gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold shadow-sm hover:shadow-md rounded-xl transition-all h-9 text-xs sm:text-sm"
+      >
+        <Sparkles className="h-4 w-4 shrink-0" />
+        <span>⚡ Quick Bulk Upload (Word / PDF / Excel)</span>
       </Button>
 
       {/* Main Dialog */}
@@ -463,11 +476,11 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              AI Question Parser
+              <Sparkles className="h-5 w-5 text-indigo-600" />
+              Quick Bulk Question Upload & AI Parser
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Upload PDF/Photo or paste text. Gemini AI reads it and extracts questions automatically.
+              Paste questions directly from Word/WhatsApp, upload PDF/Photos, or import Excel/CSV files with step-by-step solutions.
             </p>
           </DialogHeader>
 
@@ -498,11 +511,11 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
             {/* Input Mode Tabs */}
             <div className="flex flex-wrap gap-1 p-1 bg-muted rounded-lg">
               {([
-                { key: "upload", label: "AI Upload", icon: Upload },
-                { key: "csv", label: "CSV Import", icon: FileSpreadsheet },
+                { key: "upload", label: "AI Upload (PDF/Image)", icon: Upload },
+                { key: "csv", label: "Excel / CSV Import", icon: FileSpreadsheet },
+                { key: "paste", label: "Word / Text Paste", icon: Type },
                 { key: "json", label: "JSON Paste", icon: FileJson },
-                { key: "paste", label: "Text Paste", icon: Type },
-                { key: "camera", label: "Camera", icon: Camera },
+                { key: "camera", label: "Camera Photo", icon: Camera },
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -522,22 +535,25 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
             {inputMode === "csv" && (
               <div className="space-y-3">
                 {/* Header row */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold">CSV / Excel Import</p>
+                    <p className="text-sm font-semibold">Excel / CSV Table Import (Solutions Supported)</p>
                     <p className="text-xs text-muted-foreground">
-                      Upload a .csv file or paste CSV text. Column order:{" "}
+                      Upload a .csv file or paste Excel columns (Tab or Comma separated):{" "}
                       <code className="bg-muted px-1 rounded text-[10px]">
-                        question, option_a, option_b, option_c, option_d, correct(a/b/c/d), topic, marks
+                        question, option_a, option_b, option_c, option_d, correct, topic, marks, explanation
                       </code>
                     </p>
                   </div>
-                  <button
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
                     onClick={downloadCSVTemplate}
-                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 rounded-xl shrink-0"
                   >
-                    <Download className="h-3.5 w-3.5" /> Template
-                  </button>
+                    <Download className="h-3.5 w-3.5" /> Download Excel/CSV Template
+                  </Button>
                 </div>
 
                 {/* File upload zone */}
@@ -1117,6 +1133,16 @@ Answer: B`}
                                 placeholder="Marks"
                               />
                             </div>
+                            <div>
+                              <Textarea
+                                value={q.explanation || ""}
+                                onChange={(e) =>
+                                  updateQuestion(i, { explanation: e.target.value })
+                                }
+                                className="text-xs min-h-[46px] rounded-lg border-amber-200 bg-amber-50/20"
+                                placeholder="Solution / Explanation (हल व व्याख्या - Optional)"
+                              />
+                            </div>
                           </div>
                         ) : (
                           /* View Mode */
@@ -1139,20 +1165,23 @@ Answer: B`}
                                 </span>
                               ))}
                             </div>
-                            {(q.topic || q.marks > 1) && (
-                              <div className="flex gap-2 mt-1">
-                                {q.topic && (
-                                  <Badge variant="secondary" className="text-[9px] h-4">
-                                    {q.topic}
-                                  </Badge>
-                                )}
-                                {q.marks > 1 && (
-                                  <Badge variant="outline" className="text-[9px] h-4">
-                                    {q.marks} marks
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {q.topic && (
+                                <Badge variant="secondary" className="text-[9px] h-4">
+                                  {q.topic}
+                                </Badge>
+                              )}
+                              {q.marks > 1 && (
+                                <Badge variant="outline" className="text-[9px] h-4">
+                                  {q.marks} marks
+                                </Badge>
+                              )}
+                              {q.explanation && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-amber-300 bg-amber-50 text-amber-800 font-semibold gap-1">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-600" /> Solution included
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
