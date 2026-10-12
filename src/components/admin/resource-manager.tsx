@@ -494,10 +494,10 @@ function FieldsForm({
 }: {
   fields: Field[];
   form: FormState;
-  setForm: (f: FormState) => void;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
   batchOptions: { value: string; label: string }[];
 }) {
-  const set = (name: string, value: unknown) => setForm({ ...form, [name]: value });
+  const set = (name: string, value: unknown) => setForm((prev) => ({ ...prev, [name]: value }));
 
   // Fetch existing subjects & chapters for the selected batch
   const { data: folderOptions } = useQuery({
@@ -676,13 +676,16 @@ function FieldsForm({
               <VideoLinkInputWithPreview
                 value={(v as string) ?? ""}
                 onChange={(url, autoThumb, suggestedTitle) => {
-                  set(f.name, url);
-                  if (autoThumb && (!form.thumbnail_url || String(form.thumbnail_url).includes("img.youtube.com"))) {
-                    set("thumbnail_url", autoThumb);
-                  }
-                  if (suggestedTitle && (!form.title || !String(form.title).trim())) {
-                    set("title", suggestedTitle);
-                  }
+                  setForm((prev) => {
+                    const next = { ...prev, [f.name]: url };
+                    if (autoThumb && (!prev.thumbnail_url || String(prev.thumbnail_url).includes("img.youtube.com"))) {
+                      next.thumbnail_url = autoThumb;
+                    }
+                    if (suggestedTitle && (!prev.title || !String(prev.title).trim())) {
+                      next.title = suggestedTitle;
+                    }
+                    return next;
+                  });
                 }}
                 label={f.label}
                 helper={f.helper}

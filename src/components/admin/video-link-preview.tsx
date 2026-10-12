@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { CheckCircle2, Clipboard, Play, Video, AlertCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ export function VideoLinkInputWithPreview({
   required = false,
 }: VideoLinkInputWithPreviewProps) {
   const [testPlaying, setTestPlaying] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const youtubeId = useMemo(() => extractYouTubeId(value), [value]);
   const isDrive = useMemo(() => isGoogleDriveLink(value), [value]);
@@ -39,36 +40,43 @@ export function VideoLinkInputWithPreview({
     return null;
   }, [youtubeId]);
 
-  // When a valid YouTube/SpoilShield ID is detected, notify parent with auto thumbnail URL & detected title
-  useEffect(() => {
-    if (autoThumb || detectedTitle) {
-      onChange(value, autoThumb || undefined, detectedTitle || undefined);
-    }
-  }, [youtubeId, autoThumb, detectedTitle]);
+  const applyUrl = (raw: string) => {
+    const trimmed = (raw || "").trim();
+    const ytId = extractYouTubeId(trimmed);
+    const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
+    const title = extractVideoTitleFromUrl(trimmed) || undefined;
+    onChange(trimmed, thumb, title);
+    setTestPlaying(false);
+  };
 
   const handlePaste = async () => {
-    try {
-      if (navigator.clipboard?.readText) {
+    inputRef.current?.focus();
+
+    // 1. Try modern Async Clipboard API
+    if (navigator.clipboard?.readText) {
+      try {
         const text = await navigator.clipboard.readText();
-        if (text?.trim()) {
-          const trimmed = text.trim();
-          const ytId = extractYouTubeId(trimmed);
-          const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
-          const title = extractVideoTitleFromUrl(trimmed) || undefined;
-          onChange(trimmed, thumb, title);
-          if (isSpoilShieldLink(trimmed)) {
+        if (text && text.trim()) {
+          applyUrl(text);
+          if (isSpoilShieldLink(text)) {
             toast.success("SpoilShield link pasted successfully!");
           } else {
             toast.success("Link pasted successfully!");
           }
-        } else {
-          toast.info("Clipboard is empty. Please copy your video link first.");
+          return;
         }
-      } else {
-        toast.info("Please use Ctrl+V or right-click to paste.");
+      } catch (err) {
+        console.warn("Clipboard readText restricted by browser:", err);
       }
-    } catch {
-      toast.info("Please use Ctrl+V or right-click to paste.");
+    }
+
+    // 2. Fallback: prompt the user directly so Ctrl+V or right click works 100% of the time in all browsers
+    const manualPrompt = window.prompt("Video Link yahan paste karein (Ctrl+V dabayein aur OK karein):");
+    if (manualPrompt && manualPrompt.trim()) {
+      applyUrl(manualPrompt);
+      toast.success("Link pasted successfully!");
+    } else {
+      inputRef.current?.select();
     }
   };
 
@@ -92,14 +100,16 @@ export function VideoLinkInputWithPreview({
 
       <div className="relative">
         <Input
+          ref={inputRef}
           value={value}
-          onChange={(e) => {
-            const val = e.target.value;
-            const ytId = extractYouTubeId(val);
-            const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
-            const title = extractVideoTitleFromUrl(val) || undefined;
-            onChange(val, thumb, title);
-            setTestPlaying(false);
+          onChange={(e) => applyUrl(e.target.value)}
+          onPaste={(e) => {
+            const pasted = e.clipboardData?.getData("text");
+            if (pasted && pasted.trim()) {
+              e.preventDefault();
+              applyUrl(pasted);
+              toast.success("Link pasted successfully!");
+            }
           }}
           placeholder={placeholder}
           className="pr-10 font-mono text-xs"
@@ -110,6 +120,7 @@ export function VideoLinkInputWithPreview({
             onClick={() => {
               onChange("", undefined, undefined);
               setTestPlaying(false);
+              inputRef.current?.focus();
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
             title="Clear link"

@@ -407,7 +407,7 @@ function addMinutesToTime(timeStr: string, minutes: number) {
   return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
 }
 
-function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Form) => void; batches: Batch[] }) {
+function ClassForm({ form, setForm, batches }: { form: Form; setForm: React.Dispatch<React.SetStateAction<Form>>; batches: Batch[] }) {
   const duration = useMemo(() => {
     const start = new Date(makeIndiaIso(form.date, form.startTime));
     const end = new Date(makeIndiaIso(form.date, form.endTime));
@@ -426,7 +426,7 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
     }
   }, [form.date, form.startTime, form.endTime]);
 
-  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm({ ...form, [key]: value });
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const applyDuration = (mins: number) => {
     const newEnd = addMinutesToTime(form.startTime || "10:00", mins);
@@ -568,13 +568,16 @@ function ClassForm({ form, setForm, batches }: { form: Form; setForm: (value: Fo
         <VideoLinkInputWithPreview
           value={form.youtube_url ?? ""}
           onChange={(url, autoThumb, suggestedTitle) => {
-            set("youtube_url", url);
-            if (autoThumb && (!form.thumbnail_url || form.thumbnail_url.includes("img.youtube.com"))) {
-              set("thumbnail_url", autoThumb);
-            }
-            if (suggestedTitle && (!form.title || !form.title.trim())) {
-              set("title", suggestedTitle);
-            }
+            setForm((prev) => {
+              const next = { ...prev, youtube_url: url };
+              if (autoThumb && (!prev.thumbnail_url || prev.thumbnail_url.includes("img.youtube.com"))) {
+                next.thumbnail_url = autoThumb;
+              }
+              if (suggestedTitle && (!prev.title || !prev.title.trim())) {
+                next.title = suggestedTitle;
+              }
+              return next;
+            });
           }}
           label="YouTube / SpoilShield Video Link (यूट्यूब या SpoilShield लिंक)"
           helper="YouTube (Live/Watch) ya SpoilShield (spoilshield.com/v/...) लिंक यहाँ पेस्ट करें। Zero-distraction player और थंबनेल अपने आप लग जाएगा!"
