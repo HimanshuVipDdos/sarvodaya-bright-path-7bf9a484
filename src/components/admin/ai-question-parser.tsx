@@ -67,11 +67,32 @@ interface AiQuestionParserProps {
   testId: string;
   testTitle?: string;
   onSuccess: () => void;
+  initialMode?: InputMode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
 }
 
-export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionParserProps) {
-  const [open, setOpen] = useState(false);
-  const [inputMode, setInputMode] = useState<InputMode>("upload");
+export function AiQuestionParser({
+  testId,
+  testTitle,
+  onSuccess,
+  initialMode = "upload",
+  open: externalOpen,
+  onOpenChange: setExternalOpen,
+  trigger,
+}: AiQuestionParserProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
+  const [inputMode, setInputMode] = useState<InputMode>(initialMode);
+
+  // Sync initialMode when dialog opens or initialMode prop changes
+  const prevOpenRef = useRef(open);
+  if (!prevOpenRef.current && open && initialMode) {
+    setInputMode(initialMode);
+  }
+  prevOpenRef.current = open;
   const [parserMode, setParserMode] = useState<ParserMode>("auto");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
@@ -462,14 +483,18 @@ export function AiQuestionParser({ testId, testTitle, onSuccess }: AiQuestionPar
 
   return (
     <>
-      {/* Trigger Button - Highly Visible for Non-Technical Teachers */}
-      <Button
-        onClick={() => setOpen(true)}
-        className="gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold shadow-sm hover:shadow-md rounded-xl transition-all h-9 text-xs sm:text-sm"
-      >
-        <Sparkles className="h-4 w-4 shrink-0" />
-        <span>⚡ Quick Bulk Upload (Word / PDF / Excel)</span>
-      </Button>
+      {/* Trigger Button */}
+      {trigger !== undefined ? (
+        trigger
+      ) : (
+        <Button
+          onClick={() => setOpen(true)}
+          className="gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold shadow-sm hover:shadow-md rounded-xl transition-all h-9 text-xs sm:text-sm"
+        >
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span>⚡ Quick Bulk Upload (Word / PDF / Excel)</span>
+        </Button>
+      )}
 
       {/* Main Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>

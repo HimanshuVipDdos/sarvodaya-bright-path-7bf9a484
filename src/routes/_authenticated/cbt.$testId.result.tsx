@@ -12,7 +12,7 @@ import {
   CheckCheck, RotateCcw, AlertTriangle, Lightbulb, Compass,
   Layers, PieChart as PieChartIcon, Table as TableIcon,
   LayoutGrid, ArrowUpRight, Gauge, Clock, Medal, Timer,
-  CheckSquare, FileSpreadsheet
+  CheckSquare, FileSpreadsheet, Bookmark, BookmarkCheck
 } from "lucide-react";
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
@@ -176,7 +176,7 @@ function ResultPage() {
   const fetchResult = useServerFn(getCbtAttemptResult);
 
   // Filter, view and search states
-  const [reviewFilter, setReviewFilter] = useState<"all" | "mistakes" | "correct" | "unanswered">("all");
+  const [reviewFilter, setReviewFilter] = useState<"all" | "mistakes" | "correct" | "unanswered" | "notebook">("all");
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sectionViewMode, setSectionViewMode] = useState<"cards" | "table">("cards");
@@ -185,10 +185,47 @@ function ResultPage() {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [copiedShare, setCopiedShare] = useState(false);
   const [isClientMounted, setIsClientMounted] = useState(false);
+  const [category, setCategory] = useState<"UR" | "OBC" | "EWS" | "SC" | "ST">("UR");
+  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
+  const [mistakeTags, setMistakeTags] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     setIsClientMounted(true);
   }, []);
+
+  // Load bookmarks and mistake tags from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const savedB = localStorage.getItem(`cbt_bookmarks_${testId}`);
+      if (savedB) setBookmarkedIds(JSON.parse(savedB));
+      const savedT = localStorage.getItem(`cbt_tags_${testId}`);
+      if (savedT) setMistakeTags(JSON.parse(savedT));
+    } catch {}
+  }, [testId]);
+
+  function toggleBookmark(qId: string) {
+    setBookmarkedIds((prev) => {
+      const next = prev.includes(qId) ? prev.filter((id) => id !== qId) : [...prev, qId];
+      try {
+        localStorage.setItem(`cbt_bookmarks_${testId}`, JSON.stringify(next));
+      } catch {}
+      toast.success(next.includes(qId) ? "Saved to Mistake Notebook (गलती डायरी) ⭐" : "Removed from Mistake Notebook");
+      return next;
+    });
+  }
+
+  function toggleMistakeTag(qId: string, tag: string) {
+    setMistakeTags((prev) => {
+      const cur = prev[qId] || [];
+      const nextTags = cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag];
+      const next = { ...prev, [qId]: nextTags };
+      try {
+        localStorage.setItem(`cbt_tags_${testId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
 
   // If attempt was not passed in query params, resolve user's latest submitted attempt
   const { data: latestAttemptId, isLoading: findingAttempt } = useQuery({
@@ -547,6 +584,7 @@ function ResultPage() {
       if (reviewFilter === "mistakes" && (ans.is_correct || ans.selected_option === null)) return false;
       if (reviewFilter === "correct" && !ans.is_correct) return false;
       if (reviewFilter === "unanswered" && ans.selected_option !== null) return false;
+      if (reviewFilter === "notebook" && !bookmarkedIds.includes(ans.id)) return false;
 
       // 2. Filter by section
       if (selectedSectionFilter !== "all" && ans.topic !== selectedSectionFilter) return false;
@@ -659,9 +697,28 @@ function ResultPage() {
     cutoff_score: Math.round((a.max_score || 100) * 0.45 * 10) / 10,
   };
 
-  const cutoffScore = peer.cutoff_score || Math.round((a.max_score || 100) * 0.45 * 10) / 10;
+  // Dynamic Category Cutoff Ratio
+  const categoryCutoffPercents: Record<string, number> = {
+    UR: 0.50,
+    OBC: 0.45,
+    EWS: 0.44,
+    SC: 0.38,
+    ST: 0.32,
+  };
+  const activeCutoffRatio = categoryCutoffPercents[category] || 0.45;
+  const cutoffScore = Math.round((a.max_score || 100) * activeCutoffRatio * 10) / 10;
   const cutoffCleared = a.score >= cutoffScore;
   const cutoffMargin = Math.round((a.score - cutoffScore) * 10) / 10;
+
+  // Potential Score vs Actual Score (MathonGo Marks Diagnostic)
+  const marksLostToNegatives = negativePenalty;
+  const unattemptedOpportunityMarks = Math.round(a.unanswered_count * 0.4 * marksPerQ);
+  const potentialScore = Math.min(a.max_score, Math.round(a.score + marksLostToNegatives + unattemptedOpportunityMarks));
+  const potentialMarksGain = Math.max(0, potentialScore - a.score);
+
+  // Wasted Time Telemetry (MathonGo / Testbook)
+  const wastedTimeSec = (timeTakenSec > 0 && attemptedCount > 0) ? Math.round(avgSecPerQuestion * a.wrong_count) : 0;
+  const wastedTimeStr = wastedTimeSec > 0 ? `${Math.floor(wastedTimeSec / 60)}m ${wastedTimeSec % 60}s` : "0m";
 
   // Performance Tier
   let tier = { 
@@ -933,12 +990,43 @@ function ResultPage() {
             </div>
 
             {/* Cutoff Clearance Indicator & Score Meter */}
-            <div className="rounded-2xl bg-white/[0.03] backdrop-blur-md p-4 sm:p-5 border border-white/10 space-y-3">
+            <div className="rounded-2xl bg-white/[0.03] backdrop-blur-md p-4 sm:p-5 border border-white/10 space-y-4">
+              
+              {/* Category Selection for Cutoff */}
+              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Category Cutoff:</span>
+                  <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                    {(["UR", "OBC", "EWS", "SC", "ST"] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setCategory(cat);
+                          try { localStorage.setItem("cbt_student_category", cat); } catch {}
+                        }}
+                        className={cn(
+                          "px-2.5 py-0.5 rounded-lg text-xs font-black transition cursor-pointer",
+                          category === cat
+                            ? "bg-amber-400 text-slate-950 shadow-xs"
+                            : "text-slate-300 hover:text-white hover:bg-white/10"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-[11px] text-amber-300/90 font-medium">
+                  {category} Qualifying Cutoff: ~{(activeCutoffRatio * 100).toFixed(0)}% ({cutoffScore} Marks)
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Gauge className="w-4 h-4 text-amber-400" />
                   <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                    Predicted Qualifying Cutoff Clearance:
+                    Predicted Qualifying Clearance ({category}):
                   </span>
                   <span className="text-xs font-mono font-extrabold text-amber-300">
                     {cutoffScore} Marks
@@ -984,25 +1072,82 @@ function ResultPage() {
                   <span>Max: {a.max_score}</span>
                 </div>
               </div>
-            </div>
 
-            {/* Speed & Pace Diagnostic Bar */}
-            {avgSecPerQuestion > 0 && (
-              <div className="rounded-2xl bg-white/[0.02] p-3.5 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <Timer className="w-4 h-4 text-cyan-400" />
-                  <span className="font-bold text-slate-200">Solving Pace:</span>
-                  <span className="font-mono text-cyan-300 font-extrabold">{avgSecPerQuestion} seconds / question</span>
-                  <span className="text-slate-400">({attemptedCount} attempted in {timeTakenMinStr})</span>
+              {/* Potential Score vs Net Score Diagnostic (MathonGo Marks Diagnostic) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="rounded-xl bg-white/[0.04] p-3 border border-white/10 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                    <span>Actual Net Score</span>
+                    <Award className="w-3.5 h-3.5 text-indigo-400" />
+                  </div>
+                  <div className="text-2xl font-black text-white mt-1">
+                    {formatScore(a.score)} <span className="text-xs font-normal text-slate-400">/ {a.max_score}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    Penalty lost: -{negativePenalty} marks
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-300">Pace Benchmark:</span>
-                  <Badge variant="outline" className="border-cyan-400/40 bg-cyan-500/10 text-cyan-300 text-[10px] font-bold">
-                    {avgSecPerQuestion < 50 ? "Rapid & Decisive ⚡" : avgSecPerQuestion < 90 ? "Optimal & Steady ⚖️" : "Deliberate / Deep Thinker 🔍"}
-                  </Badge>
+
+                <div className="rounded-xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-3 border border-amber-400/30 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-[11px] text-amber-300 font-bold uppercase tracking-wider">
+                    <span>Potential Score 🚀</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <div className="text-2xl font-black text-amber-300 mt-1">
+                    {potentialScore} <span className="text-xs font-normal text-slate-400">/ {a.max_score}</span>
+                  </div>
+                  <div className="text-[10px] text-amber-200/90 font-medium mt-1">
+                    Score without unforced errors
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-emerald-500/10 p-3 border border-emerald-400/20 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-[11px] text-emerald-300 font-bold uppercase tracking-wider">
+                    <span>Marks Recovery Scope</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                  <div className="text-2xl font-black text-emerald-300 mt-1">
+                    +{potentialMarksGain} <span className="text-xs font-normal text-emerald-400/80">Marks</span>
+                  </div>
+                  <div className="text-[10px] text-emerald-300/80 mt-1">
+                    +{marksLostToNegatives} from negatives + {unattemptedOpportunityMarks} from easy skips
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Speed, Pace & Wasted Time Telemetry Strip */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {avgSecPerQuestion > 0 && (
+                <div className="rounded-2xl bg-white/[0.02] p-3.5 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-slate-200">Solving Pace: <span className="font-mono text-cyan-300 font-extrabold">{avgSecPerQuestion}s / Q</span></div>
+                      <div className="text-[11px] text-slate-400">{attemptedCount} attempted in {timeTakenMinStr}</div>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-cyan-400/40 bg-cyan-500/10 text-cyan-300 text-[10px] font-bold self-start sm:self-auto">
+                    {avgSecPerQuestion < 50 ? "Rapid & Decisive ⚡" : avgSecPerQuestion < 90 ? "Optimal & Steady ⚖️" : "Deliberate 🔍"}
+                  </Badge>
+                </div>
+              )}
+
+              {wastedTimeSec > 0 && a.wrong_count > 0 && (
+                <div className="rounded-2xl bg-rose-500/10 p-3.5 border border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-rose-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-rose-200">Wasted Time on Mistakes: <span className="font-mono text-rose-300 font-extrabold">~{wastedTimeStr}</span></div>
+                      <div className="text-[11px] text-rose-300/80">Spent on {a.wrong_count} questions lost to negative marking</div>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-rose-400/40 bg-rose-500/20 text-rose-300 text-[10px] font-bold self-start sm:self-auto">
+                    Time Leakage ⚠️
+                  </Badge>
+                </div>
+              )}
+            </div>
 
             {/* Question Breakdown Strip */}
             <div className="rounded-2xl bg-black/30 p-4 border border-white/5 space-y-3">
@@ -1846,7 +1991,7 @@ function ResultPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
             
             {/* Status Tabs */}
-            <div className="flex rounded-2xl bg-slate-100 p-1 text-xs font-bold">
+            <div className="flex rounded-2xl bg-slate-100 p-1 text-xs font-bold flex-wrap gap-1">
               <button
                 type="button"
                 onClick={() => setReviewFilter("all")}
@@ -1866,6 +2011,17 @@ function ResultPage() {
                 )}
               >
                 <XCircle className="w-3.5 h-3.5" /> Mistakes ({a.wrong_count})
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviewFilter("notebook")}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1",
+                  reviewFilter === "notebook" ? "bg-amber-400 text-slate-950 font-black shadow-xs" : "text-amber-800 hover:text-amber-950"
+                )}
+              >
+                <Bookmark className={cn("w-3.5 h-3.5", reviewFilter === "notebook" ? "fill-slate-950" : "fill-amber-500 text-amber-600")} /> 
+                ⭐ Mistake Notebook ({bookmarkedIds.length})
               </button>
               <button
                 type="button"
@@ -1969,7 +2125,7 @@ function ResultPage() {
                     )}
                   >
                     {/* Top Question Meta Row */}
-                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3.5">
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3.5 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-black text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-xl">
                           Q.{qNumber}
@@ -1980,25 +2136,79 @@ function ResultPage() {
                         <span className="text-[11px] font-semibold text-slate-400">
                           +{marksPerQ} Marks
                         </span>
+
+                        {/* Mistake Notebook Bookmark Button */}
+                        <button
+                          type="button"
+                          onClick={() => toggleBookmark(q.id)}
+                          className={cn(
+                            "flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl border transition cursor-pointer",
+                            bookmarkedIds.includes(q.id)
+                              ? "bg-amber-100 text-amber-900 border-amber-300 shadow-xs"
+                              : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+                          )}
+                          title="Save question to Mistake Notebook for quick revision"
+                        >
+                          <Bookmark className={cn("w-3.5 h-3.5", bookmarkedIds.includes(q.id) ? "fill-amber-500 text-amber-600" : "text-slate-400")} />
+                          <span>{bookmarkedIds.includes(q.id) ? "Saved in Notebook ⭐" : "Bookmark ⭐"}</span>
+                        </button>
                       </div>
 
                       {/* Question Outcome Badge */}
-                      {isCorrect && (
-                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-black gap-1 py-1 px-3">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Correct (+{marksPerQ})
-                        </Badge>
-                      )}
-                      {isWrong && (
-                        <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-xs font-black gap-1 py-1 px-3">
-                          <XCircle className="w-3.5 h-3.5 text-rose-600" /> Incorrect (-{negativeMarks})
-                        </Badge>
-                      )}
-                      {isUnanswered && (
-                        <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs font-bold gap-1 py-1 px-3">
-                          <MinusCircle className="w-3.5 h-3.5 text-slate-400" /> Not Attempted (0.0)
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isCorrect && (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-black gap-1 py-1 px-3">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Correct (+{marksPerQ})
+                          </Badge>
+                        )}
+                        {isWrong && (
+                          <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-xs font-black gap-1 py-1 px-3">
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" /> Incorrect (-{negativeMarks})
+                          </Badge>
+                        )}
+                        {isUnanswered && (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs font-bold gap-1 py-1 px-3">
+                            <MinusCircle className="w-3.5 h-3.5 text-slate-400" /> Not Attempted (0.0)
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Root-Cause Mistake Self-Diagnosis Chips (MathonGo Marks Diagnostic) */}
+                    {isWrong && (
+                      <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span>Identify Mistake Root-Cause:</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[
+                            { id: "calc", label: "✏️ Calculation Error" },
+                            { id: "concept", label: "🧠 Concept Gap" },
+                            { id: "misread", label: "👁️ Misread Question" },
+                            { id: "guess", label: "🎲 50-50 Guess" },
+                            { id: "panic", label: "⏰ Time Pressure" },
+                          ].map((t) => {
+                            const isSelected = (mistakeTags[q.id] || []).includes(t.id);
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => toggleMistakeTag(q.id, t.id)}
+                                className={cn(
+                                  "text-[10px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer",
+                                  isSelected
+                                    ? "bg-rose-600 text-white border-rose-600 shadow-xs scale-105"
+                                    : "bg-white text-slate-600 border-rose-200 hover:bg-rose-100"
+                                )}
+                              >
+                                {t.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Question Content */}
                     <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">
@@ -2124,7 +2334,7 @@ function ResultPage() {
                         </div>
                       </div>
 
-                      <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal pt-1">
+                      <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal pt-1 space-y-3">
                         {solutionText ? (
                           <div className="prose prose-sm max-w-none text-slate-800 font-medium space-y-2">
                             {renderQuestionContent(solutionText)}
@@ -2144,6 +2354,17 @@ function ResultPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* 💡 Key Concept / Formula Revision Pill */}
+                        <div className="bg-amber-100/60 rounded-xl p-3 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-950">
+                          <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <span className="font-black text-amber-900 uppercase tracking-wider text-[10px]">Key Takeaway for Exam:</span>
+                            <p className="text-[11px] leading-relaxed text-amber-950 font-medium">
+                              Revise this concept to eliminate negative marking. Click <strong>Bookmark ⭐</strong> above to save this question into your <strong>Mistake Notebook (गलती डायरी)</strong> for rapid review before your next test.
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
