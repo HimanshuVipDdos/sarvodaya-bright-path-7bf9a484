@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatScore, cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { StudentDiagramViewer } from "@/components/cbt/student-diagram-viewer";
+import { PyqBadge } from "@/components/cbt/pyq-badge";
 
 // -- Intelligent Section Icon & Badge Helper for Any Exam --
 function getSectionMeta(name: string) {
@@ -133,11 +135,10 @@ function renderQuestionContent(text: string) {
         const match = part.match(/!\[(.*?)\]\((.*?)\)/);
         if (match) {
           return (
-            <img
+            <StudentDiagramViewer
               key={i}
               src={match[2]}
               alt={match[1] || "Question visual"}
-              className="max-w-full max-h-[280px] object-contain rounded-2xl shadow-xs border border-slate-200/80 my-2 inline-block"
             />
           );
         }
@@ -161,6 +162,9 @@ function extractQuestionAndSolution(rawText: string, explicitExplanation?: strin
       }
     }
   }
+
+  // Strip internal PYQ metadata comments so question statement displays cleanly
+  questionText = questionText.replace(/<!--\s*PYQ:[\s\S]*?-->/gi, "").trim();
 
   return { questionText, solutionText };
 }
@@ -2211,8 +2215,11 @@ function ResultPage() {
                     )}
 
                     {/* Question Content */}
-                    <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">
-                      {renderQuestionContent(questionText)}
+                    <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed space-y-2.5">
+                      <PyqBadge rawText={q.question_text} topic={q.topic} mode="analysis" />
+                      <div>
+                        {renderQuestionContent(questionText)}
+                      </div>
                     </div>
 
                     {/* 4 Options Matrix */}

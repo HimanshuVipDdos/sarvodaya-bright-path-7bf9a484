@@ -5,11 +5,17 @@ import {
   ArrowLeft, Plus, Trash2, Pencil, CheckCircle2, Loader2,
   ChevronLeft, ChevronRight, Save, RotateCcw, Upload, ListChecks, ImageIcon,
   Lightbulb, Sparkles, Download, FileSpreadsheet, Zap, CheckSquare, Square,
-  Check, FileText, X, Layers, Tag, HelpCircle,
+  Check, FileText, X, Layers, Tag, HelpCircle, FileCode, Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AiQuestionParser } from "@/components/admin/ai-question-parser";
+import { JsonQuestionImporter } from "@/components/admin/json-question-importer";
+import { PyqBadge } from "@/components/cbt/pyq-badge";
+import {
+  extractPyqMetadata,
+  buildFinalQuestionText,
+} from "@/lib/cbt-pyq-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +89,9 @@ type QuestionRow = {
 
 type DraftQuestion = Omit<QuestionRow, "id" | "test_id" | "sort_order"> & {
   explanation?: string;
+  pyq_exam?: string;
+  pyq_year?: string;
+  pyq_shift?: string;
 };
 
 // Extract question statement and attached solution/explanation
@@ -101,6 +110,7 @@ function splitQuestionTextAndSolution(rawText: string) {
 const emptyDraft = (): DraftQuestion => ({
   question_text: "", option_a: "", option_b: "", option_c: "", option_d: "",
   correct_option: "a", topic: "", marks: 1, explanation: "",
+  pyq_exam: "", pyq_year: "", pyq_shift: "",
 });
 
 export const Route = createFileRoute("/_authenticated/admin/cbt/$testId/questions")({
@@ -113,6 +123,7 @@ function QuestionsAdmin() {
   const [draft, setDraft] = useState<DraftQuestion>(emptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingNext, setSavingNext] = useState(false);
+  const [isJsonBulkOpen, setIsJsonBulkOpen] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   const { data: test } = useQuery({
@@ -144,10 +155,22 @@ function QuestionsAdmin() {
         throw new Error("All 4 options are required");
 
       const { questionText } = splitQuestionTextAndSolution(draft.question_text);
-      let finalQuestionText = questionText || draft.question_text.trim();
-      if (draft.explanation?.trim()) {
-        finalQuestionText += `\n\n<!-- SOLUTION -->\n${draft.explanation.trim()}`;
-      }
+      const cleanBaseText = questionText || draft.question_text.trim();
+      const pyqData =
+        draft.pyq_exam?.trim() || draft.pyq_year?.trim() || draft.pyq_shift?.trim()
+          ? {
+              exam: draft.pyq_exam?.trim() || undefined,
+              year: draft.pyq_year?.trim() || undefined,
+              shift: draft.pyq_shift?.trim() || undefined,
+              is_pyq: true,
+            }
+          : null;
+
+      const finalQuestionText = buildFinalQuestionText(
+        cleanBaseText,
+        draft.explanation?.trim(),
+        pyqData
+      );
 
       const payload = {
         question_text: finalQuestionText,
@@ -359,8 +382,9 @@ function QuestionsAdmin() {
   function startEdit(q: QuestionRow) {
     setEditingId(q.id);
     const { questionText, explanation } = splitQuestionTextAndSolution(q.question_text);
+    const { pyq, cleanText } = extractPyqMetadata(questionText, q.topic);
     setDraft({
-      question_text: questionText,
+      question_text: cleanText,
       option_a: q.option_a,
       option_b: q.option_b,
       option_c: q.option_c,
@@ -369,6 +393,9 @@ function QuestionsAdmin() {
       topic: q.topic ?? "",
       marks: q.marks,
       explanation,
+      pyq_exam: pyq?.exam ?? "",
+      pyq_year: pyq?.year ? String(pyq.year) : "",
+      pyq_shift: pyq?.shift ?? "",
     });
     topRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -404,6 +431,15 @@ function QuestionsAdmin() {
             type="button"
             size="sm"
             variant="outline"
+            onClick={() => setIsJsonBulkOpen(true)}
+            className="h-8 rounded-xl text-xs font-bold text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 gap-1.5 shadow-2xs"
+          >
+            <FileCode className="w-3.5 h-3.5 text-amber-600" /> Bulk JSON (PYQ/Diagram)
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
             onClick={downloadSampleCSV}
             className="h-8 rounded-xl text-xs font-bold text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 gap-1.5 shadow-2xs"
           >
@@ -425,7 +461,7 @@ function QuestionsAdmin() {
                 Teacher Rapid Upload Studio <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-full">Fast Bulk Ingestion</span>
               </h2>
               <p className="text-[11px] text-slate-500">
-                Upload 50–100 questions in 2 minutes using Word, WhatsApp, Excel, or Rapid Key Matrix. No manual 1-by-1 typing!
+                Upload 50–100 questions in 2 minutes using JSON (PYQ & diagrams), Word, WhatsApp, Excel, or Rapid Key Matrix. No manual 1-by-1 typing!
               </p>
             </div>
           </div>
@@ -434,9 +470,31 @@ function QuestionsAdmin() {
           </div>
         </div>
 
-        {/* 4 Ingestion Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card 1: Word / Text Smart Paste */}
+        {/* 5 Ingestion Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Card 1: JSON Bulk Importer (PYQ & Diagrams) */}
+          <div
+            onClick={() => setIsJsonBulkOpen(true)}
+            className="group relative cursor-pointer rounded-2xl border border-amber-300/80 bg-gradient-to-b from-amber-50/50 to-white p-3.5 shadow-2xs hover:shadow-md hover:border-amber-500 transition-all flex flex-col justify-between"
+          >
+            <div className="space-y-1">
+              <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                <FileCode className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors flex items-center gap-1.5">
+                JSON Bulk Importer
+                <span className="text-[9px] font-black uppercase text-amber-800 bg-amber-200/70 px-1 py-0.2 rounded">PYQ</span>
+              </h3>
+              <p className="text-[11px] text-slate-500 leading-snug">
+                Upload question bank JSON with PYQ exam/year tags, diagrams, and full solutions in 1 click.
+              </p>
+            </div>
+            <span className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform">
+              Open JSON Importer →
+            </span>
+          </div>
+
+          {/* Card 2: Word / Text Smart Paste */}
           <div
             onClick={() => { setBulkUploadMode("paste"); setIsBulkOpen(true); }}
             className="group relative cursor-pointer rounded-2xl border border-blue-200/80 bg-white p-3.5 shadow-2xs hover:shadow-md hover:border-blue-400 transition-all flex flex-col justify-between"
@@ -645,9 +703,15 @@ function QuestionsAdmin() {
                             ))}
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <PyqBadge rawText={q.question_text} topic={q.topic} mode="admin" />
                             {q.topic && (
                               <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
                                 {q.topic}
+                              </span>
+                            )}
+                            {q.question_text.includes("![") && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                                <ImageIcon className="w-2.5 h-2.5 text-indigo-600" /> Diagram
                               </span>
                             )}
                             {hasSolution && (
@@ -750,10 +814,9 @@ function QuestionsAdmin() {
             </div>
 
             {/* Topic + Marks */}
-
-            <div className="mb-4 grid grid-cols-2 gap-2">
+            <div className="mb-3 grid grid-cols-2 gap-2">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 uppercase tracking-wide">Topic</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 uppercase tracking-wide">Topic / Subject</label>
                 <Input
                   value={draft.topic ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
@@ -768,6 +831,37 @@ function QuestionsAdmin() {
                   value={draft.marks}
                   onChange={(e) => setDraft((d) => ({ ...d, marks: Number(e.target.value) }))}
                   className="h-8 text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* PYQ Tag (Optional Previous Year Question) */}
+            <div className="mb-3.5 rounded-2xl border border-amber-200/80 bg-amber-50/40 p-2.5">
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                  <Award className="h-3.5 w-3.5 text-amber-600" />
+                  PYQ Tag (Optional)
+                </label>
+                <span className="text-[10px] text-amber-700/80 font-medium">Exam • Year • Shift</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <Input
+                  value={draft.pyq_exam ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, pyq_exam: e.target.value }))}
+                  placeholder="UP Police, JEE"
+                  className="h-7 text-xs rounded-lg bg-white placeholder:text-slate-400"
+                />
+                <Input
+                  value={draft.pyq_year ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, pyq_year: e.target.value }))}
+                  placeholder="Year (2024)"
+                  className="h-7 text-xs rounded-lg bg-white placeholder:text-slate-400"
+                />
+                <Input
+                  value={draft.pyq_shift ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, pyq_shift: e.target.value }))}
+                  placeholder="Shift 1 / Tier 1"
+                  className="h-7 text-xs rounded-lg bg-white placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -843,6 +937,16 @@ function QuestionsAdmin() {
         onOpenChange={setIsBulkOpen}
         initialMode={bulkUploadMode || "upload"}
         trigger={null}
+        onSuccess={() => { invalidate(); window.scrollTo(0, 0); }}
+      />
+
+      {/* ── JSON BULK IMPORTER (PYQ & DIAGRAMS) ── */}
+      <JsonQuestionImporter
+        testId={testId}
+        testTitle={test?.title}
+        open={isJsonBulkOpen}
+        onOpenChange={setIsJsonBulkOpen}
+        currentQuestionCount={questions.length}
         onSuccess={() => { invalidate(); window.scrollTo(0, 0); }}
       />
 

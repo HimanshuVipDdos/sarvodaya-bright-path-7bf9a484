@@ -39,6 +39,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { StudentDiagramViewer } from "@/components/cbt/student-diagram-viewer";
+import { PyqBadge } from "@/components/cbt/pyq-badge";
 
 // -- Intelligent Section Icon & Badge Helper for Any Exam --
 function getSectionMeta(name: string) {
@@ -73,13 +75,24 @@ function getSectionMeta(name: string) {
 // -- Markdown / Mathongo Image Renderer --
 function renderContent(text: string) {
   if (!text) return null;
-  // Clean any embedded solution so test-takers never see solutions during exam
-  const pureText = text.split(/<!--\s*SOLUTION\s*-->|\[SOLUTION\]:|---SOLUTION---/i)[0].trim();
+  // Clean any embedded solution or PYQ tags so test-takers see pristine text
+  let pureText = text.split(/<!--\s*SOLUTION\s*-->|\[SOLUTION\]:|---SOLUTION---/i)[0].trim();
+  pureText = pureText.replace(/<!--\s*PYQ:[\s\S]*?-->/gi, "").trim();
   if (!pureText) return null;
+
   // If it's literally just a raw image URL
-  if (pureText.startsWith("http") && (pureText.endsWith(".png") || pureText.endsWith(".jpg") || pureText.endsWith(".jpeg") || pureText.endsWith(".webp") || pureText.includes("supabase.co"))) {
-    return <img src={pureText} alt="content" className="max-w-full max-h-[320px] object-contain rounded-lg shadow-sm" />;
+  if (
+    pureText.startsWith("http") &&
+    (pureText.endsWith(".png") ||
+      pureText.endsWith(".jpg") ||
+      pureText.endsWith(".jpeg") ||
+      pureText.endsWith(".webp") ||
+      pureText.includes("supabase.co") ||
+      pureText.includes("googleusercontent.com"))
+  ) {
+    return <StudentDiagramViewer src={pureText} alt="Question Diagram" />;
   }
+
   // Markdown images ![alt](url)
   const parts = pureText.split(/(!\[.*?\]\(.*?\))/g);
   return (
@@ -87,7 +100,13 @@ function renderContent(text: string) {
       {parts.map((part, i) => {
         const match = part.match(/!\[(.*?)\]\((.*?)\)/);
         if (match) {
-          return <img key={i} src={match[2]} alt={match[1] || "Question image"} className="max-w-full max-h-[320px] object-contain rounded-lg shadow-sm my-2 inline-block" />;
+          return (
+            <StudentDiagramViewer
+              key={i}
+              src={match[2]}
+              alt={match[1] || "Question Diagram"}
+            />
+          );
         }
         return <span key={i}>{part}</span>;
       })}
@@ -815,12 +834,15 @@ function TestRunner({ testId, data }: { testId: string; data: any }) {
             
             {/* Question Text / Image */}
             <div className={cn(
-              "font-medium text-slate-900 leading-relaxed transition-all",
+              "font-medium text-slate-900 leading-relaxed transition-all space-y-3",
               fontSize === "small" && "text-sm sm:text-base",
               fontSize === "normal" && "text-base sm:text-lg",
               fontSize === "large" && "text-lg sm:text-xl"
             )}>
-              {renderContent(currentQ.question_text)}
+              <PyqBadge rawText={currentQ.question_text} topic={currentQ.topic} mode="compact" />
+              <div>
+                {renderContent(currentQ.question_text)}
+              </div>
             </div>
 
             {/* Interactive Options Cards */}
