@@ -45,11 +45,11 @@ export function extractYouTubeId(url: string): string | null {
   }
 
   // Comprehensive regex matching all standard YouTube formats:
-  // youtu.be/ID, youtube.com/embed/ID, /v/ID, /live/ID, /shorts/ID, /watch?v=ID
+  // youtu.be/ID, youtube.com/embed/ID, /v/ID, /live/ID, /shorts/ID, /watch?v=ID (including m.youtube.com, etc.)
   const patterns = [
-    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|live\/|shorts\/))([a-zA-Z0-9_-]{11})/i,
+    /(?:youtu\.be\/|(?:[a-zA-Z0-9_-]+\.)?youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|live\/|shorts\/))([a-zA-Z0-9_-]{11})/i,
     /[?&]v=([a-zA-Z0-9_-]{11})/i,
-    /youtube\.com\/.*[?&]v=([a-zA-Z0-9_-]{11})/i,
+    /(?:[a-zA-Z0-9_-]+\.)?youtube(?:-nocookie)?\.com\/.*[?&]v=([a-zA-Z0-9_-]{11})/i,
     /\/([a-zA-Z0-9_-]{11})(?:[?#&/]|$)/,
   ];
 
@@ -110,20 +110,15 @@ export function getEmbedableSource(url: string): {
   if (ytId) {
     return {
       type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${ytId}?autoplay=0&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}?controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`,
       rawUrl: `https://www.youtube.com/watch?v=${ytId}`,
       videoId: ytId,
     };
   }
 
+  // If input was a YouTube link but could not resolve an 11-char video ID, do NOT generate an invalid embed URL (which causes YouTube 404 TV screen)
   if (target.includes("youtube.com") || target.includes("youtu.be")) {
-    const fallbackId = extractYouTubeId(target);
-    return {
-      type: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${fallbackId || ""}?autoplay=0&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`,
-      rawUrl: target,
-      videoId: fallbackId || undefined,
-    };
+    return null;
   }
 
   // Direct video file
@@ -521,29 +516,16 @@ function CustomYouTubePlayer({
   }, [seeking]);
 
   const initYTPlayer = useCallback(() => {
+    if (!iframeRef.current || ytPlayerRef.current) return;
     setReady(true);
     try {
-      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), "*");
+      iframeRef.current.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), "*");
     } catch {}
 
     const w = typeof window !== "undefined" ? (window as any) : null;
     if (w && w.YT && w.YT.Player && iframeRef.current) {
       try {
         ytPlayerRef.current = new w.YT.Player(iframeRef.current, {
-          playerVars: {
-            autoplay: 0,
-            controls: 0,
-            disablekb: 1,
-            enablejsapi: 1,
-            fs: 0,
-            iv_load_policy: 3,
-            modestbranding: 1,
-            rel: 0,
-            showinfo: 0,
-            autohide: 1,
-            playsinline: 1,
-            origin: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
           events: {
             onReady: (e: any) => {
               setReady(true);
@@ -583,6 +565,15 @@ function CustomYouTubePlayer({
       } catch {}
     }
   }, [updateAvailableLevels]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        ytPlayerRef.current?.destroy?.();
+        ytPlayerRef.current = null;
+      } catch {}
+    };
+  }, [videoId]);
 
   useEffect(() => {
     let unmounted = false;
@@ -1005,8 +996,37 @@ function CustomYouTubePlayer({
   const displayTime = seeking ? seekPreview : currentTime;
   const remainingTime = Math.max(0, duration - displayTime);
 
-  const originParam = typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
-  const embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=${hasStarted ? 1 : 0}&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1${initialTime && initialTime > 0 ? `&start=${Math.floor(initialTime)}` : ""}${originParam ? `&origin=${originParam}` : ""}`;
+  const cleanId = (videoId || "").trim();
+
+  const embedSrc = useMemo(() => {
+    if (!cleanId) return "";
+    const params = new URLSearchParams({
+      enablejsapi: "1",
+      controls: "0",
+      disablekb: "1",
+      modestbranding: "1",
+      rel: "0",
+      iv_load_policy: "3",
+      playsinline: "1",
+      fs: "1",
+    });
+    if (initialTime && initialTime > 0) {
+      params.set("start", Math.floor(initialTime).toString());
+    }
+    return `https://www.youtube-nocookie.com/embed/${cleanId}?${params.toString()}`;
+  }, [cleanId, initialTime]);
+
+  if (!cleanId || cleanId.length < 5) {
+    return (
+      <div className="relative flex h-full w-full flex-col items-center justify-center bg-zinc-950 p-6 text-center text-white select-none">
+        <AlertTriangle className="h-10 w-10 text-amber-400 mb-3" />
+        <h3 className="text-base font-bold text-white">Video Link Unavailable</h3>
+        <p className="mt-1 max-w-md text-xs text-white/70">
+          This lecture does not have a valid video link attached.
+        </p>
+      </div>
+    );
+  }
 
   if (embeddingDisabled) {
     return (
