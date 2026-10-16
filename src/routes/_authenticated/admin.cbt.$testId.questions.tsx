@@ -5,12 +5,14 @@ import {
   ArrowLeft, Plus, Trash2, Pencil, CheckCircle2, Loader2,
   ChevronLeft, ChevronRight, Save, RotateCcw, Upload, ListChecks, ImageIcon,
   Lightbulb, Sparkles, Download, FileSpreadsheet, Zap, CheckSquare, Square,
-  Check, FileText, X, Layers, Tag, HelpCircle, FileCode, Award,
+  Check, FileText, X, Layers, Tag, HelpCircle, FileCode, Award, Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AiQuestionParser } from "@/components/admin/ai-question-parser";
 import { JsonQuestionImporter } from "@/components/admin/json-question-importer";
+import { DiagramStudio } from "@/components/admin/diagram-studio";
+import { detectDiagramNeeds } from "@/lib/diagram-generator";
 import { PyqBadge } from "@/components/cbt/pyq-badge";
 import {
   extractPyqMetadata,
@@ -124,6 +126,7 @@ function QuestionsAdmin() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingNext, setSavingNext] = useState(false);
   const [isJsonBulkOpen, setIsJsonBulkOpen] = useState(false);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   const { data: test } = useQuery({
@@ -764,7 +767,18 @@ function QuestionsAdmin() {
                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                   Question *
                 </label>
-                <ImageUploader onUpload={(url) => setDraft((d) => ({ ...d, question_text: d.question_text + (d.question_text ? "\n" : "") + `![image](${url})` }))} />
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsStudioOpen(true)}
+                    className="h-6 text-[10px] font-bold rounded-lg border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 gap-1 px-2 shadow-2xs"
+                  >
+                    <Palette className="w-3 h-3 text-purple-600" /> Diagram Studio
+                  </Button>
+                  <ImageUploader onUpload={(url) => setDraft((d) => ({ ...d, question_text: d.question_text + (d.question_text ? "\n" : "") + `![image](${url})` }))} />
+                </div>
               </div>
               <Textarea
                 value={draft.question_text}
@@ -773,6 +787,27 @@ function QuestionsAdmin() {
                 className="min-h-[80px] text-sm resize-none rounded-xl"
                 autoFocus
               />
+              {(() => {
+                const detect = detectDiagramNeeds(draft.question_text);
+                if (detect.needsDiagram && !draft.question_text.includes("![")) {
+                  return (
+                    <div className="mt-1.5 flex items-center justify-between p-2 rounded-xl bg-purple-50/70 border border-purple-200/80 text-[11px] text-purple-900">
+                      <span className="flex items-center gap-1 font-semibold truncate pr-2">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        This question mentions a diagram ({detect.suggestedType})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsStudioOpen(true)}
+                        className="font-black text-purple-700 hover:text-purple-900 underline text-[11px] cursor-pointer shrink-0"
+                      >
+                        Auto-Generate Now →
+                      </button>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Options — Mathango style: click to mark correct */}
@@ -1082,6 +1117,20 @@ function QuestionsAdmin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── AUTO DIAGRAM STUDIO MODAL ── */}
+      <DiagramStudio
+        open={isStudioOpen}
+        onOpenChange={setIsStudioOpen}
+        questionTextContext={draft.question_text}
+        onInsertDiagram={(tag) => {
+          setDraft((d) => ({
+            ...d,
+            question_text:
+              d.question_text.trim() + (d.question_text ? "\n\n" : "") + tag,
+          }));
+        }}
+      />
     </div>
   );
 }
